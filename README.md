@@ -58,12 +58,9 @@ Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run
 
 ### Railway
 
-Deploy the repository as a Railway service with:
+`railway.json` configures the npm production build, runs `npm run db:migrate` before each deploy, and starts the Nitro Node server. Set the production `MYSQL_URL`, `APP_URL`, and SMTP variables in the Railway service's Variables settings. The app accepts Railway's split `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, and `MYSQLDATABASE` variables if `MYSQL_URL` is unset. For local migrations, use Railway's public database URL; private Railway hostnames resolve only from services in the Railway network.
 
-- Build command: `npm ci && npm run build`
-- Start command: `npm start`
-
-Attach a Railway volume mounted at `/data`, then set `FILE_STORAGE_DIR=/data/uploads`. Add a MySQL 8+ service or use an external provider, and set `MYSQL_URL` to its connection string. Add `APP_URL` and SMTP variables in the app service settings. Before the first deploy, run `npm run db:migrate` in the Railway service shell with the production variables available.
+Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DIR=/data/uploads` so uploaded files survive deployments.
 
 ## Data and access
 

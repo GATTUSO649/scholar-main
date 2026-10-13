@@ -8,10 +8,33 @@ function createDatabase(connectionPool: mysql.Pool) {
 }
 let database: ReturnType<typeof createDatabase> | undefined;
 
+export function resolveDatabaseUrl(environment: Record<string, string | undefined> = process.env) {
+  const directUrl = environment["MYSQL_URL"];
+  if (directUrl) return directUrl;
+
+  const host = environment["MYSQLHOST"];
+  const username = environment["MYSQLUSER"];
+  const databaseName = environment["MYSQLDATABASE"] || environment["MYSQL_DATABASE"];
+  if (!host || !username || !databaseName) {
+    throw new Error(
+      "Set MYSQL_URL or provide MYSQLHOST, MYSQLUSER, and MYSQLDATABASE/MYSQL_DATABASE.",
+    );
+  }
+
+  const url = new URL("mysql://localhost");
+  url.hostname = host;
+  url.port = environment["MYSQLPORT"] || "3306";
+  url.username = username;
+  const password =
+    environment["MYSQLPASSWORD"] ||
+    (username === "root" ? environment["MYSQL_ROOT_PASSWORD"] : undefined);
+  if (password) url.password = password;
+  url.pathname = `/${databaseName}`;
+  return url.toString();
+}
+
 export function getDatabase() {
-  const url = process.env["MYSQL_URL"];
-  if (!url)
-    throw new Error("MYSQL_URL is required. Configure the MySQL database before starting the app.");
+  const url = resolveDatabaseUrl();
   if (!pool) {
     const parsedUrl = new URL(url);
     parsedUrl.searchParams.set("timezone", "Z");
