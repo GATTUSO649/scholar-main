@@ -43,14 +43,33 @@ ScholarDesk is a student support portal built with TanStack Start, React, Drizzl
 
 ## Production
 
-Build and run the Node server output (the database driver and private file storage require a Node runtime):
+This project builds a Node server with Nitro. It does not need a `server.js` file:
 
 ```sh
 npm run build
-node .output/server/index.mjs
+npm start
 ```
 
-Set the environment variables in the runtime, use TLS for MySQL and the public site, and mount persistent private storage at `FILE_STORAGE_DIR`. Back up the MySQL database and that file directory together. Configure SMTP so account holders can reset their passwords.
+Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run db:migrate` once against that database before serving traffic. Set `APP_URL` to the public HTTPS URL. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up with the database. Use TLS for MySQL and HTTPS for the site.
+
+### Render
+
+Create a **Web Service** for this repository with:
+
+- Build command: `npm ci && npm run build`
+- Start command: `npm start`
+- Health check path: `/`
+
+Attach a persistent disk mounted at `/var/data`, then set `FILE_STORAGE_DIR=/var/data/uploads`. Render does not provide a managed MySQL database, so use an external MySQL 8+ provider and set `MYSQL_URL` to its connection string. Add the production environment variables above in the service settings. Before the first deploy, run `npm run db:migrate` from the Render Shell.
+
+### Railway
+
+Deploy the repository as a Railway service with:
+
+- Build command: `npm ci && npm run build`
+- Start command: `npm start`
+
+Attach a Railway volume mounted at `/data`, then set `FILE_STORAGE_DIR=/data/uploads`. Add a MySQL 8+ service or use an external provider, and set `MYSQL_URL` to its connection string. Add `APP_URL` and SMTP variables in the app service settings. Before the first deploy, run `npm run db:migrate` in the Railway service shell with the production variables available.
 
 ## Data and access
 
