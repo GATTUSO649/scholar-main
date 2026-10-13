@@ -54,13 +54,7 @@ Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run
 
 ### Render
 
-Create a **Web Service** for this repository with:
-
-- Build command: `npm ci && npm run build`
-- Start command: `npm start`
-- Health check path: `/`
-
-Attach a persistent disk mounted at `/var/data`, then set `FILE_STORAGE_DIR=/var/data/uploads`. Render does not provide a managed MySQL database, so use an external MySQL 8+ provider and set `MYSQL_URL` to its connection string. Add the production environment variables above in the service settings. Before the first deploy, run `npm run db:migrate` from the Render Shell.
+`render.yaml` defines the Node runtime, npm build, Nitro start command, health check, database migration, and persistent upload disk. Deploy it as a Render Blueprint, or copy its settings into an existing dashboard-created service; pushing this file alone does not change that service's settings. Render does not provide a managed MySQL database, so use an external MySQL 8+ provider. Set `MYSQL_URL` and `APP_URL` in the service's Environment settings, and configure the SMTP credentials for password reset emails. The Blueprint's persistent disk and paid web service plan incur Render charges.
 
 ### Railway
 
