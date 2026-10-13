@@ -8,7 +8,7 @@
     "build": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js build",
     "build:dev": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js build --mode development",
     "preview": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js preview",
-    "start": "node .output/server/index.mjs",
+    "start": "node --env-file-if-exists=.env scripts/server.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",

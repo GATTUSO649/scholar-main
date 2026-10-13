@@ -236,6 +236,7 @@ export async function logoutAccount() {
 export async function requestPasswordReset(emailInput: string) {
   const host = process.env["SMTP_HOST"];
   const from = process.env["SMTP_FROM"];
+  const smtpPassword = process.env["SMTP_PASSWORD"] || process.env["SMTP_PASS"];
   const appUrl = process.env["APP_URL"] ?? getRequestUrl().origin;
   if (!host || !from) {
     throw new Error(
@@ -265,8 +266,8 @@ export async function requestPasswordReset(emailInput: string) {
     port: Number(process.env["SMTP_PORT"] ?? 587),
     secure: process.env["SMTP_SECURE"] === "true",
     auth:
-      process.env["SMTP_USER"] && process.env["SMTP_PASSWORD"]
-        ? { user: process.env["SMTP_USER"], pass: process.env["SMTP_PASSWORD"] }
+      process.env["SMTP_USER"] && smtpPassword
+        ? { user: process.env["SMTP_USER"], pass: smtpPassword }
         : undefined,
   });
   await transport.sendMail({
