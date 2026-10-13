@@ -1,7 +1,12 @@
-import type { Database } from "@/integrations/supabase/types";
-
-export type RequestStatus = Database["public"]["Enums"]["request_status"];
-export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
+export type RequestStatus =
+  | "submitted"
+  | "under_review"
+  | "quoted"
+  | "awaiting_payment"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+export type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
 
 export const STATUS_LABEL: Record<RequestStatus, string> = {
   submitted: "Submitted",
@@ -39,4 +44,10 @@ export const PAY_TONE: Record<PaymentStatus, string> = {
   refunded: "bg-destructive/15 text-destructive",
 };
 
-export const ACTIVE: RequestStatus[] = ["submitted", "under_review", "quoted", "awaiting_payment", "in_progress"];
+export const ACTIVE: RequestStatus[] = [
+  "submitted",
+  "under_review",
+  "quoted",
+  "awaiting_payment",
+  "in_progress",
+];

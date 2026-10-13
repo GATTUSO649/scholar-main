@@ -20,6 +20,7 @@ import { Route as AuthenticatedRequestsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
 import { Route as AuthenticatedSubmitRouteImport } from './routes/_authenticated/submit'
 import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
+import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
 import { Route as AuthenticatedRequestIdRouteImport } from './routes/_authenticated/request.$id'
@@ -78,6 +79,11 @@ const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiFilesRoute = ApiFilesRouteImport.update({
+  id: '/api/files',
+  path: '/api/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminDashboardRoute =
   AuthenticatedAdminDashboardRouteImport.update({
     id: '/dashboard',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/students': typeof AuthenticatedStudentsRoute
   '/submit': typeof AuthenticatedSubmitRoute
   '/support': typeof AuthenticatedSupportRoute
+  '/api/files': typeof ApiFilesRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/students': typeof AuthenticatedStudentsRoute
   '/submit': typeof AuthenticatedSubmitRoute
   '/support': typeof AuthenticatedSupportRoute
+  '/api/files': typeof ApiFilesRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
   '/_authenticated/submit': typeof AuthenticatedSubmitRoute
   '/_authenticated/support': typeof AuthenticatedSupportRoute
+  '/api/files': typeof ApiFilesRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
   '/_authenticated/request/$id': typeof AuthenticatedRequestIdRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/students'
     | '/submit'
     | '/support'
+    | '/api/files'
     | '/admin/dashboard'
     | '/manage/$id'
     | '/request/$id'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/students'
     | '/submit'
     | '/support'
+    | '/api/files'
     | '/admin/dashboard'
     | '/manage/$id'
     | '/request/$id'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/_authenticated/students'
     | '/_authenticated/submit'
     | '/_authenticated/support'
+    | '/api/files'
     | '/_authenticated/admin/dashboard'
     | '/_authenticated/manage/$id'
     | '/_authenticated/request/$id'
@@ -196,6 +208,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiFilesRoute: typeof ApiFilesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -277,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSupportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/files': {
+      id: '/api/files'
+      path: '/api/files'
+      fullPath: '/api/files'
+      preLoaderRoute: typeof ApiFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/dashboard': {
       id: '/_authenticated/admin/dashboard'
       path: '/dashboard'
@@ -344,6 +364,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiFilesRoute: ApiFilesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

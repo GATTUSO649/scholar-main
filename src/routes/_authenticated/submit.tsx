@@ -8,13 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { createRequestFn, getPublicDataFn } from "@/lib/backend";
 import { uploadFiles } from "@/lib/requests";
 
 export const Route = createFileRoute("/_authenticated/submit")({
   validateSearch: (s: Record<string, unknown>): { service?: string } =>
     typeof s["service"] === "string" ? { service: s["service"] as string } : {},
-  head: () => ({ meta: [{ title: "Submit a request — ScholarDesk" }, { name: "description", content: "Submit a new academic support request." }] }),
+  head: () => ({
+    meta: [
+      { title: "Submit a request — ScholarDesk" },
+      { name: "description", content: "Submit a new academic support request." },
+    ],
+  }),
   component: Submit,
 });
 
@@ -33,54 +38,133 @@ const schema = z.object({
 
 const LEVELS = ["Certificate", "Diploma", "Undergraduate", "Masters", "PhD"];
 
-type DetailField = { key: string; label: string; placeholder?: string; type?: "text" | "number" | "select"; options?: string[] };
+type DetailField = {
+  key: string;
+  label: string;
+  placeholder?: string;
+  type?: "text" | "number" | "select";
+  options?: string[];
+};
 
 /** Extra questions asked per service. Matched by service name. */
 const SERVICE_DETAILS: Record<string, { intro: string; fields: DetailField[] }> = {
   "Assignment Typing": {
     intro: "Tell us about the document you need typed.",
     fields: [
-      { key: "source_format", label: "What format is your work in now?", type: "select", options: ["Handwritten notes", "Scanned pages / photos", "PDF", "Other"] },
-      { key: "word_count", label: "Approximate word count", type: "number", placeholder: "e.g. 1500" },
-      { key: "output_format", label: "Preferred output format", type: "select", options: ["Word (.docx)", "PDF", "Google Docs"] },
+      {
+        key: "source_format",
+        label: "What format is your work in now?",
+        type: "select",
+        options: ["Handwritten notes", "Scanned pages / photos", "PDF", "Other"],
+      },
+      {
+        key: "word_count",
+        label: "Approximate word count",
+        type: "number",
+        placeholder: "e.g. 1500",
+      },
+      {
+        key: "output_format",
+        label: "Preferred output format",
+        type: "select",
+        options: ["Word (.docx)", "PDF", "Google Docs"],
+      },
     ],
   },
   "Plagiarism Check & Removal": {
     intro: "Tell us about the draft you want checked.",
     fields: [
       { key: "similarity", label: "Current similarity score (if known)", placeholder: "e.g. 32%" },
-      { key: "tool", label: "Which checker does your school use?", type: "select", options: ["Turnitin", "Grammarly", "Copyleaks", "Not sure", "Other"] },
+      {
+        key: "tool",
+        label: "Which checker does your school use?",
+        type: "select",
+        options: ["Turnitin", "Grammarly", "Copyleaks", "Not sure", "Other"],
+      },
       { key: "target", label: "Target similarity score", placeholder: "e.g. under 10%" },
     ],
   },
   "Project Task": {
     intro: "Tell us about the project you need help with.",
     fields: [
-      { key: "project_type", label: "What kind of project is it?", type: "select", options: ["Individual project", "Group project", "Practical / field work", "Software or code", "Other"] },
-      { key: "deliverables", label: "What must be submitted?", placeholder: "e.g. report, slides, code, poster" },
-      { key: "progress", label: "What have you done so far?", placeholder: "e.g. proposal approved, nothing yet" },
+      {
+        key: "project_type",
+        label: "What kind of project is it?",
+        type: "select",
+        options: [
+          "Individual project",
+          "Group project",
+          "Practical / field work",
+          "Software or code",
+          "Other",
+        ],
+      },
+      {
+        key: "deliverables",
+        label: "What must be submitted?",
+        placeholder: "e.g. report, slides, code, poster",
+      },
+      {
+        key: "progress",
+        label: "What have you done so far?",
+        placeholder: "e.g. proposal approved, nothing yet",
+      },
       { key: "group_size", label: "Group size (if any)", type: "number", placeholder: "e.g. 5" },
     ],
   },
   "Proofreading & Editing": {
     intro: "Tell us about the document to proofread.",
     fields: [
-      { key: "doc_type", label: "Type of document", type: "select", options: ["Essay", "Report", "Thesis / dissertation", "Proposal", "Other"] },
-      { key: "focus", label: "What should we focus on?", placeholder: "e.g. grammar, flow, clarity" },
+      {
+        key: "doc_type",
+        label: "Type of document",
+        type: "select",
+        options: ["Essay", "Report", "Thesis / dissertation", "Proposal", "Other"],
+      },
+      {
+        key: "focus",
+        label: "What should we focus on?",
+        placeholder: "e.g. grammar, flow, clarity",
+      },
     ],
   },
   "Research Guidance": {
     intro: "Tell us about your research.",
     fields: [
-      { key: "topic", label: "Research topic or question", placeholder: "e.g. effect of mobile money on savings" },
-      { key: "stage", label: "Where are you in the process?", type: "select", options: ["Choosing a topic", "Proposal", "Literature review", "Methodology", "Data analysis", "Writing up"] },
+      {
+        key: "topic",
+        label: "Research topic or question",
+        placeholder: "e.g. effect of mobile money on savings",
+      },
+      {
+        key: "stage",
+        label: "Where are you in the process?",
+        type: "select",
+        options: [
+          "Choosing a topic",
+          "Proposal",
+          "Literature review",
+          "Methodology",
+          "Data analysis",
+          "Writing up",
+        ],
+      },
     ],
   },
   "Assignment Review": {
     intro: "Tell us what you want reviewed.",
     fields: [
-      { key: "focus", label: "What should we check?", placeholder: "e.g. structure, argument, calculations" },
-      { key: "rubric", label: "Do you have a marking rubric?", type: "select", options: ["Yes — I will attach it", "No"] },
+      {
+        key: "focus",
+        label: "What should we check?",
+        placeholder: "e.g. structure, argument, calculations",
+      },
+      {
+        key: "rubric",
+        label: "Do you have a marking rubric?",
+        type: "select",
+        options: ["Yes — I will attach it", "No"],
+      },
     ],
   },
 };
@@ -96,7 +180,7 @@ function Submit() {
   const [serviceId, setServiceId] = useState(preselected ?? "");
   const { data: services = [] } = useQuery({
     queryKey: ["services"],
-    queryFn: async () => (await supabase.from("services").select("*").eq("active", true).order("sort")).data ?? [],
+    queryFn: async () => (await getPublicDataFn()).services,
   });
 
   const selectedService = services.find((s) => s.id === serviceId);
@@ -104,13 +188,18 @@ function Submit() {
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const raw = Object.fromEntries(Array.from(new FormData(e.currentTarget)).filter(([, v]) => v !== ""));
+    const raw = Object.fromEntries(
+      Array.from(new FormData(e.currentTarget)).filter(([, v]) => v !== ""),
+    );
     const p = schema.safeParse(raw);
     if (!p.success) {
       setErrors(Object.fromEntries(p.error.issues.map((i) => [i.path[0] as string, i.message])));
       return;
     }
-    if (new Date(p.data.deadline) < new Date()) { setErrors({ deadline: "Deadline must be in the future" }); return; }
+    if (new Date(p.data.deadline) < new Date()) {
+      setErrors({ deadline: "Deadline must be in the future" });
+      return;
+    }
     setErrors({});
     setBusy(true);
     let description = p.data.description;
@@ -119,57 +208,92 @@ function Submit() {
         .map((f) => [f.label, raw[`detail_${f.key}`]] as const)
         .filter(([, v]) => typeof v === "string" && v.trim() !== "")
         .map(([l, v]) => `${l}: ${v}`);
-      if (extra.length) description = `${description}\n\n--- ${selectedService!.name} details ---\n${extra.join("\n")}`;
+      if (extra.length)
+        description = `${description}\n\n--- ${selectedService!.name} details ---\n${extra.join("\n")}`;
     }
-    const { data, error } = await supabase
-      .from("requests")
-      .insert({
-        title: p.data.title,
-        service_id: p.data.service_id,
-        description,
-        course_unit: p.data.course_unit ?? null,
-        lecturer: p.data.lecturer ?? null,
-        academic_level: p.data.academic_level ?? null,
-        num_questions: p.data.num_questions ?? null,
-        num_pages: p.data.num_pages ?? null,
-        student_id: user.id,
-        deadline: new Date(p.data.deadline).toISOString(),
-        preferred_date: p.data.preferred_date ? new Date(p.data.preferred_date).toISOString() : null,
-      })
-      .select("id")
-      .single();
-    if (error || !data) {
+    try {
+      const data = await createRequestFn({
+        data: {
+          title: p.data.title,
+          service_id: p.data.service_id,
+          description,
+          course_unit: p.data.course_unit ?? null,
+          lecturer: p.data.lecturer ?? null,
+          academic_level: p.data.academic_level ?? null,
+          num_questions: p.data.num_questions ?? null,
+          num_pages: p.data.num_pages ?? null,
+          deadline: new Date(p.data.deadline).toISOString(),
+          preferred_date: p.data.preferred_date
+            ? new Date(p.data.preferred_date).toISOString()
+            : null,
+        },
+      });
+      const filesUploaded = files.length ? await uploadFiles(data.id, files, "submission") : true;
       setBusy(false);
-      { toast.error(error?.message ?? "Could not submit"); return; }
+      qc.invalidateQueries({ queryKey: ["my-requests"] });
+      toast[filesUploaded ? "success" : "error"](
+        filesUploaded
+          ? "Request submitted! We'll review it shortly."
+          : "Request submitted, but the files could not be uploaded. Open the request and try again.",
+      );
+      navigate({ to: "/request/$id", params: { id: data.id } });
+    } catch (error) {
+      setBusy(false);
+      toast.error(error instanceof Error ? error.message : "Could not submit request.");
     }
-    if (files.length) await uploadFiles(data.id, user.id, files, "submission");
-    setBusy(false);
-    qc.invalidateQueries({ queryKey: ["my-requests"] });
-    toast.success("Request submitted! We'll review it shortly.");
-    navigate({ to: "/request/$id", params: { id: data.id } });
   }
 
-  const err = (k: string) => errors[k] && <p className="mt-1 text-xs text-destructive">{errors[k]}</p>;
+  const err = (k: string) =>
+    errors[k] && <p className="mt-1 text-xs text-destructive">{errors[k]}</p>;
 
   return (
     <div>
       <h1 className="text-3xl font-semibold">Submit a request</h1>
-      <p className="mt-2 text-muted-foreground">Tell us what you need. You'll get a quote before paying anything.</p>
-      <form onSubmit={submit} noValidate className="mt-8 grid gap-5 rounded-2xl border bg-card p-5 shadow-soft sm:grid-cols-2 sm:p-8">
-        <div className="sm:col-span-2"><Label htmlFor="title">Assignment title</Label><Input id="title" name="title" className="mt-1.5" />{err("title")}</div>
+      <p className="mt-2 text-muted-foreground">
+        Tell us what you need. You'll get a quote before paying anything.
+      </p>
+      <form
+        onSubmit={submit}
+        noValidate
+        className="mt-8 grid gap-5 rounded-2xl border bg-card p-5 shadow-soft sm:grid-cols-2 sm:p-8"
+      >
+        <div className="sm:col-span-2">
+          <Label htmlFor="title">Assignment title</Label>
+          <Input id="title" name="title" className="mt-1.5" />
+          {err("title")}
+        </div>
         <div>
           <Label htmlFor="service_id">Type of academic support</Label>
-          <select id="service_id" name="service_id" value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-            <option value="" disabled>Choose…</option>
-            {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <select
+            id="service_id"
+            name="service_id"
+            value={serviceId}
+            onChange={(e) => setServiceId(e.target.value)}
+            className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Choose…
+            </option>
+            {services.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
           </select>
           {err("service_id")}
         </div>
         <div>
           <Label htmlFor="academic_level">Academic level</Label>
-          <select id="academic_level" name="academic_level" defaultValue="" className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <select
+            id="academic_level"
+            name="academic_level"
+            defaultValue=""
+            className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
             <option value="">Choose…</option>
-            {LEVELS.map((l) => <option key={l}>{l}</option>)}
+            {LEVELS.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
           </select>
         </div>
 
@@ -180,45 +304,109 @@ function Submit() {
               <div key={f.key}>
                 <Label htmlFor={`detail_${f.key}`}>{f.label}</Label>
                 {f.type === "select" ? (
-                  <select id={`detail_${f.key}`} name={`detail_${f.key}`} defaultValue="" className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <select
+                    id={`detail_${f.key}`}
+                    name={`detail_${f.key}`}
+                    defaultValue=""
+                    className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
                     <option value="">Choose…</option>
-                    {f.options!.map((o) => <option key={o}>{o}</option>)}
+                    {f.options!.map((o) => (
+                      <option key={o}>{o}</option>
+                    ))}
                   </select>
                 ) : (
-                  <Input id={`detail_${f.key}`} name={`detail_${f.key}`} type={f.type ?? "text"} min={f.type === "number" ? 0 : undefined} placeholder={f.placeholder} className="mt-1.5" />
+                  <Input
+                    id={`detail_${f.key}`}
+                    name={`detail_${f.key}`}
+                    type={f.type ?? "text"}
+                    min={f.type === "number" ? 0 : undefined}
+                    placeholder={f.placeholder}
+                    className="mt-1.5"
+                  />
                 )}
               </div>
             ))}
           </div>
         )}
 
-        <div><Label htmlFor="course_unit">Course / unit</Label><Input id="course_unit" name="course_unit" className="mt-1.5" /></div>
-        <div><Label htmlFor="lecturer">Lecturer / tutor name</Label><Input id="lecturer" name="lecturer" className="mt-1.5" /></div>
-        <div className="sm:col-span-2"><Label htmlFor="description">Instructions — what exactly do you need done?</Label><Textarea id="description" name="description" rows={6} className="mt-1.5" />{err("description")}</div>
-        <div><Label htmlFor="num_questions">Number of questions</Label><Input id="num_questions" name="num_questions" type="number" min={0} className="mt-1.5" /></div>
-        <div><Label htmlFor="num_pages">Number of pages</Label><Input id="num_pages" name="num_pages" type="number" min={0} className="mt-1.5" /></div>
-        <div><Label htmlFor="deadline">Deadline</Label><Input id="deadline" name="deadline" type="datetime-local" className="mt-1.5" />{err("deadline")}</div>
-        <div><Label htmlFor="preferred_date">Preferred completion date</Label><Input id="preferred_date" name="preferred_date" type="datetime-local" className="mt-1.5" /></div>
+        <div>
+          <Label htmlFor="course_unit">Course / unit</Label>
+          <Input id="course_unit" name="course_unit" className="mt-1.5" />
+        </div>
+        <div>
+          <Label htmlFor="lecturer">Lecturer / tutor name</Label>
+          <Input id="lecturer" name="lecturer" className="mt-1.5" />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor="description">Instructions — what exactly do you need done?</Label>
+          <Textarea id="description" name="description" rows={6} className="mt-1.5" />
+          {err("description")}
+        </div>
+        <div>
+          <Label htmlFor="num_questions">Number of questions</Label>
+          <Input id="num_questions" name="num_questions" type="number" min={0} className="mt-1.5" />
+        </div>
+        <div>
+          <Label htmlFor="num_pages">Number of pages</Label>
+          <Input id="num_pages" name="num_pages" type="number" min={0} className="mt-1.5" />
+        </div>
+        <div>
+          <Label htmlFor="deadline">Deadline</Label>
+          <Input id="deadline" name="deadline" type="datetime-local" className="mt-1.5" />
+          {err("deadline")}
+        </div>
+        <div>
+          <Label htmlFor="preferred_date">Preferred completion date</Label>
+          <Input
+            id="preferred_date"
+            name="preferred_date"
+            type="datetime-local"
+            className="mt-1.5"
+          />
+        </div>
         <div className="sm:col-span-2">
           <Label>Files (PDF, Word, images — up to 20MB each)</Label>
           <label className="mt-1.5 flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-muted-foreground hover:bg-muted">
             <Upload className="h-6 w-6" />
             <span className="mt-2">Tap to choose files</span>
-            <input type="file" multiple className="hidden" onChange={(e) => setFiles([...files, ...Array.from(e.target.files ?? [])].filter((f) => f.size <= 20 * 1024 * 1024))} />
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) =>
+                setFiles(
+                  [...files, ...Array.from(e.target.files ?? [])].filter(
+                    (f) => f.size <= 20 * 1024 * 1024,
+                  ),
+                )
+              }
+            />
           </label>
           {files.length > 0 && (
             <ul className="mt-3 space-y-1 text-sm">
               {files.map((f, i) => (
-                <li key={i} className="flex items-center justify-between rounded-md bg-muted px-3 py-1.5">
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-md bg-muted px-3 py-1.5"
+                >
                   <span className="truncate">{f.name}</span>
-                  <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))} aria-label="Remove"><X className="h-4 w-4" /></button>
+                  <button
+                    type="button"
+                    onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                    aria-label="Remove"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </div>
         <div className="sm:col-span-2">
-          <Button size="lg" disabled={busy} className="w-full sm:w-auto">{busy ? "Submitting…" : "Submit request"}</Button>
+          <Button size="lg" disabled={busy} className="w-full sm:w-auto">
+            {busy ? "Submitting…" : "Submit request"}
+          </Button>
         </div>
       </form>
     </div>

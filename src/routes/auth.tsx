@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { getCurrentUserFn, loginFn, registerFn, requestPasswordResetFn } from "@/lib/backend";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -18,7 +18,10 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in or register — ScholarDesk" },
-      { name: "description", content: "Log in to your student portal or create a ScholarDesk account." },
+      {
+        name: "description",
+        content: "Log in to your student portal or create a ScholarDesk account.",
+      },
       { property: "og:title", content: "Sign in — ScholarDesk" },
       { property: "og:description", content: "Access your ScholarDesk student portal." },
     ],
@@ -39,7 +42,10 @@ const registerSchema = z
     full_name: z.string().trim().min(2, "Enter your full name").max(100),
     reg_number: z.string().trim().min(2, "Enter your admission number").max(50),
     email: z.string().trim().email("Enter a valid email").max(255),
-    phone: z.string().trim().regex(/^\+?[0-9 ]{9,16}$/, "Enter a valid phone number, e.g. +254712345678"),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^\+?[0-9 ]{9,16}$/, "Enter a valid phone number, e.g. +254712345678"),
     country: z.string().trim().min(2, "Enter your country").max(60),
     institution: z.string().trim().min(2, "Enter your institution").max(120),
     course: z.string().trim().min(2, "Enter your course").max(120),
@@ -47,7 +53,10 @@ const registerSchema = z
     password,
     confirm: z.string(),
   })
-  .refine((d) => d.password === d.confirm, { message: "Passwords do not match", path: ["confirm"] });
+  .refine((d) => d.password === d.confirm, {
+    message: "Passwords do not match",
+    path: ["confirm"],
+  });
 
 const FIELDS: [keyof z.infer<typeof registerSchema>, string, string?][] = [
   ["full_name", "Full name"],
@@ -65,14 +74,19 @@ const FIELDS: [keyof z.infer<typeof registerSchema>, string, string?][] = [
 function AuthPage() {
   const { mode = "login" } = Route.useSearch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sent, setSent] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/dashboard", replace: true });
-    });
+    getCurrentUserFn()
+      .then((user) => {
+        if (user) navigate({ to: "/dashboard", replace: true });
+      })
+      .catch((error: unknown) =>
+        console.error("Could not check the current sign-in session.", error),
+      );
   }, [navigate]);
 
   const setMode = (m: Mode) => {
@@ -84,43 +98,34 @@ function AuthPage() {
   async function onRegister(fd: FormData) {
     const parsed = registerSchema.safeParse(Object.fromEntries(fd));
     if (!parsed.success) {
-      setErrors(Object.fromEntries(parsed.error.issues.map((i) => [i.path[0] as string, i.message])));
+      setErrors(
+        Object.fromEntries(parsed.error.issues.map((i) => [i.path[0] as string, i.message])),
+      );
       return;
     }
     setErrors({});
-    const { email, password: pw, confirm: _c, ...meta } = parsed.data;
-    const { error } = await supabase.auth.signUp({
-      email,
-      password: pw,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard`, data: meta },
-    });
-    if (error) { toast.error(error.message); return; }
-    setSent(`We sent a confirmation link to ${email}. Click it to activate your account.`);
+    const { confirm: _confirm, ...input } = parsed.data;
+    const user = await registerFn({ data: input });
+    queryClient.setQueryData(["current-user"], user);
+    toast.success("Account created");
+    await navigate({ to: "/dashboard", replace: true });
   }
 
   async function onLogin(fd: FormData) {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: String(fd.get("email")),
-      password: String(fd.get("password")),
+    const user = await loginFn({
+      data: {
+        email: String(fd.get("email")),
+        password: String(fd.get("password")),
+      },
     });
-    if (error) { toast.error(error.message); return; }
-    navigate({ to: "/dashboard" });
+    queryClient.setQueryData(["current-user"], user);
+    await navigate({ to: "/dashboard" });
   }
 
   async function onForgot(fd: FormData) {
     const email = String(fd.get("email"));
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) { toast.error(error.message); return; }
+    await requestPasswordResetFn({ data: { email } });
     setSent(`If an account exists for ${email}, a reset link is on its way.`);
-  }
-
-  async function onGoogle() {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (r.error) { toast.error("Google sign-in failed"); return; }
-    if (r.redirected) return;
-    navigate({ to: "/dashboard" });
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -131,6 +136,8 @@ function AuthPage() {
       if (mode === "register") await onRegister(fd);
       else if (mode === "forgot") await onForgot(fd);
       else await onLogin(fd);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The request could not be completed.");
     } finally {
       setBusy(false);
     }
@@ -141,19 +148,33 @@ function AuthPage() {
       <aside className="hidden flex-col justify-between bg-hero p-10 text-ink-foreground lg:flex">
         <Logo light />
         <div>
-          <h2 className="text-4xl font-semibold leading-tight">Your academic work, organised and supported.</h2>
-          <p className="mt-4 text-ink-foreground/70">Submit requests, pay securely and follow every step from one dashboard.</p>
+          <h2 className="text-4xl font-semibold leading-tight">
+            Your academic work, organised and supported.
+          </h2>
+          <p className="mt-4 text-ink-foreground/70">
+            Submit requests, pay securely and follow every step from one dashboard.
+          </p>
         </div>
         <p className="text-sm text-ink-foreground/50">Secure sign-in · Private files</p>
       </aside>
       <main className="flex items-center justify-center px-5 py-10">
         <div className="w-full max-w-lg">
-          <div className="mb-8 lg:hidden"><Logo /></div>
+          <div className="mb-8 lg:hidden">
+            <Logo />
+          </div>
           <h1 className="text-3xl font-semibold">
-            {mode === "register" ? "Create your student account" : mode === "forgot" ? "Reset your password" : "Welcome back"}
+            {mode === "register"
+              ? "Create your student account"
+              : mode === "forgot"
+                ? "Reset your password"
+                : "Welcome back"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {mode === "register" ? "It takes about a minute." : mode === "forgot" ? "We'll email you a reset link." : "Log in to your student portal."}
+            {mode === "register"
+              ? "It takes about a minute."
+              : mode === "forgot"
+                ? "We'll email you a reset link."
+                : "Log in to your student portal."}
           </p>
 
           {sent ? (
@@ -163,10 +184,15 @@ function AuthPage() {
               {mode === "register" ? (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {FIELDS.map(([name, label, type]) => (
-                    <div key={name} className={name === "full_name" || name === "email" ? "sm:col-span-2" : ""}>
+                    <div
+                      key={name}
+                      className={name === "full_name" || name === "email" ? "sm:col-span-2" : ""}
+                    >
                       <Label htmlFor={name}>{label}</Label>
                       <Input id={name} name={name} type={type ?? "text"} className="mt-1.5" />
-                      {errors[name] && <p className="mt-1 text-xs text-destructive">{errors[name]}</p>}
+                      {errors[name] && (
+                        <p className="mt-1 text-xs text-destructive">{errors[name]}</p>
+                      )}
                     </div>
                   ))}
                   <p className="text-xs text-muted-foreground sm:col-span-2">
@@ -183,39 +209,66 @@ function AuthPage() {
                     <div>
                       <div className="flex items-center justify-between">
                         <Label htmlFor="password">Password</Label>
-                        <button type="button" onClick={() => setMode("forgot")} className="text-xs text-primary hover:underline">
+                        <button
+                          type="button"
+                          onClick={() => setMode("forgot")}
+                          className="text-xs text-primary hover:underline"
+                        >
                           Forgot password?
                         </button>
                       </div>
-                      <Input id="password" name="password" type="password" required className="mt-1.5" />
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        required
+                        className="mt-1.5"
+                      />
                     </div>
                   )}
                 </>
               )}
               <Button type="submit" className="w-full" size="lg" disabled={busy}>
-                {busy ? "Please wait…" : mode === "register" ? "Create account" : mode === "forgot" ? "Send reset link" : "Log in"}
+                {busy
+                  ? "Please wait…"
+                  : mode === "register"
+                    ? "Create account"
+                    : mode === "forgot"
+                      ? "Send reset link"
+                      : "Log in"}
               </Button>
-              {mode !== "forgot" && (
-                <>
-                  <div className="relative py-2 text-center text-xs text-muted-foreground">
-                    <span className="bg-background px-2">or</span>
-                  </div>
-                  <Button type="button" variant="outline" className="w-full" size="lg" onClick={onGoogle}>
-                    Continue with Google
-                  </Button>
-                </>
-              )}
+              {mode !== "forgot" && <></>}
             </form>
           )}
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {mode === "login" ? (
-              <>New here? <button onClick={() => setMode("register")} className="font-semibold text-primary hover:underline">Create an account</button></>
+              <>
+                New here?{" "}
+                <button
+                  onClick={() => setMode("register")}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Create an account
+                </button>
+              </>
             ) : (
-              <>Already registered? <button onClick={() => setMode("login")} className="font-semibold text-primary hover:underline">Log in</button></>
+              <>
+                Already registered?{" "}
+                <button
+                  onClick={() => setMode("login")}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Log in
+                </button>
+              </>
             )}
           </p>
-          <p className="mt-2 text-center text-xs"><Link to="/" className="text-muted-foreground hover:underline">← Back to home</Link></p>
+          <p className="mt-2 text-center text-xs">
+            <Link to="/" className="text-muted-foreground hover:underline">
+              ← Back to home
+            </Link>
+          </p>
         </div>
       </main>
     </div>

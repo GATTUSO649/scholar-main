@@ -1,10 +1,26 @@
-import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  LayoutDashboard, FilePlus2, FolderOpen, User, LifeBuoy, LogOut, Shield, Users, Menu, X,
+  LayoutDashboard,
+  FilePlus2,
+  FolderOpen,
+  User,
+  LifeBuoy,
+  LogOut,
+  Shield,
+  Users,
+  Menu,
+  X,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserFn, logoutFn } from "@/lib/backend";
 import { useIsAdmin, useProfile } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -12,9 +28,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/auth", search: { mode: "login" } });
-    return { user: data.user };
+    const user = await getCurrentUserFn();
+    if (!user) throw redirect({ to: "/auth", search: { mode: "login" } });
+    return { user };
   },
   component: Shell,
 });
@@ -45,24 +61,44 @@ function Shell() {
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    await logoutFn();
+    qc.setQueryData(["current-user"], null);
     navigate({ to: "/auth", search: { mode: "login" }, replace: true });
   }
 
   const NavLinks = () => (
     <nav className="flex flex-1 flex-col gap-1">
       {studentNav.map((n) => (
-        <NavItem key={n.to} {...n} active={path === n.to || (n.to !== "/dashboard" && path.startsWith(n.to))} onClick={() => setOpen(false)} />
+        <NavItem
+          key={n.to}
+          {...n}
+          active={path === n.to || (n.to !== "/dashboard" && path.startsWith(n.to))}
+          onClick={() => setOpen(false)}
+        />
       ))}
       {isAdmin && (
         <>
-          <p className="mt-6 px-3 pb-1 text-[11px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">Admin</p>
+          <p className="mt-6 px-3 pb-1 text-[11px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
+            Admin
+          </p>
           {adminNav.map((n) => (
-            <NavItem key={n.to} {...n} active={n.to === "/admin" ? path === "/admin" || path.startsWith("/manage") : path.startsWith(n.to)} onClick={() => setOpen(false)} />
+            <NavItem
+              key={n.to}
+              {...n}
+              active={
+                n.to === "/admin"
+                  ? path === "/admin" || path.startsWith("/manage")
+                  : path.startsWith(n.to)
+              }
+              onClick={() => setOpen(false)}
+            />
           ))}
         </>
       )}
-      <button onClick={signOut} className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent">
+      <button
+        onClick={signOut}
+        className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent"
+      >
         <LogOut className="h-4 w-4" /> Logout
       </button>
     </nav>
@@ -77,7 +113,11 @@ function Shell() {
 
       <header className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-4 py-3 lg:hidden">
         <Logo light />
-        <button onClick={() => setOpen(!open)} className="text-sidebar-foreground" aria-label="Menu">
+        <button
+          onClick={() => setOpen(!open)}
+          className="text-sidebar-foreground"
+          aria-label="Menu"
+        >
           {open ? <X /> : <Menu />}
         </button>
       </header>
@@ -97,14 +137,28 @@ function Shell() {
   );
 }
 
-function NavItem({ to, label, icon: Icon, active, onClick }: { to: string; label: string; icon: typeof User; active: boolean; onClick: () => void }) {
+function NavItem({
+  to,
+  label,
+  icon: Icon,
+  active,
+  onClick,
+}: {
+  to: string;
+  label: string;
+  icon: typeof User;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <Link
       to={to}
       onClick={onClick}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-        active ? "bg-sidebar-primary font-semibold text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
+        active
+          ? "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
+          : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
       )}
     >
       <Icon className="h-4 w-4" /> {label}
