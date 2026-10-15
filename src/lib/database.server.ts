@@ -33,6 +33,23 @@ export function resolveDatabaseUrl(environment: Record<string, string | undefine
   return url.toString();
 }
 
+export function resolveMigrationDatabaseUrl(
+  environment: Record<string, string | undefined> = process.env,
+) {
+  const migrationUrl = environment["MYSQL_MIGRATION_URL"]?.trim();
+  if (migrationUrl) {
+    try {
+      const parsedUrl = new URL(migrationUrl);
+      if (parsedUrl.protocol === "mysql:" && parsedUrl.hostname && parsedUrl.pathname.length > 1) {
+        return migrationUrl;
+      }
+    } catch {
+      // Fall back to the application database URL when no valid migration URL is configured.
+    }
+  }
+  return resolveDatabaseUrl(environment);
+}
+
 export function getDatabase() {
   const url = resolveDatabaseUrl();
   if (!pool) {

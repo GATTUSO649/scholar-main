@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveDatabaseUrl } from "@/lib/database.server";
+import { resolveDatabaseUrl, resolveMigrationDatabaseUrl } from "@/lib/database.server";
 
 describe("Database environment configuration", () => {
   it("prefers MYSQL_URL when it is set", () => {
@@ -44,5 +44,24 @@ describe("Database environment configuration", () => {
     expect(url.port).toBe("3306");
     expect(url.password).toBe("local-secret");
     expect(url.pathname).toBe("/scholar_desk");
+  });
+
+  it("uses a valid migration URL and ignores a non-URL migration value", () => {
+    expect(
+      resolveMigrationDatabaseUrl({
+        MYSQL_MIGRATION_URL: "mysql://migrator:secret@migration.example:3306/scholar_desk",
+        MYSQL_URL: "mysql://app:secret@db.example:3306/scholar_desk",
+      }),
+    ).toBe("mysql://migrator:secret@migration.example:3306/scholar_desk");
+
+    expect(
+      resolveMigrationDatabaseUrl({
+        MYSQL_MIGRATION_URL: "not-a-database-url",
+        MYSQLHOST: "mysql.railway.internal",
+        MYSQLUSER: "root",
+        MYSQLPASSWORD: "secret",
+        MYSQLDATABASE: "railway",
+      }),
+    ).toBe("mysql://root:secret@mysql.railway.internal:3306/railway");
   });
 });
