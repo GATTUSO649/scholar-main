@@ -175,16 +175,29 @@ export async function registerAccount(input: {
     setSessionCookie(sessionToken);
   } catch (error) {
     if (isDuplicateKey(error))
-      throw new Error("An account with this email address already exists.");
-    throw error;
+      throw new Error("An account with this email already exists. Try logging in or resetting your password.");
+    console.error("Account registration failed.", getDatabaseErrorCode(error) ?? "unknown database error");
+    throw new Error("Could not create your account. Please try again.");
   }
   return { id, email };
 }
 
+export function getDatabaseErrorCode(error: unknown): string | undefined {
+  let current = error;
+  const visited = new Set<object>();
+
+  while (typeof current === "object" && current !== null && !visited.has(current)) {
+    visited.add(current);
+    const wrapped = current as { code?: unknown; cause?: unknown };
+    if (typeof wrapped.code === "string") return wrapped.code;
+    current = wrapped.cause;
+  }
+
+  return undefined;
+}
+
 function isDuplicateKey(error: unknown): boolean {
-  return (
-    typeof error === "object" && error !== null && "code" in error && error.code === "ER_DUP_ENTRY"
-  );
+  return getDatabaseErrorCode(error) === "ER_DUP_ENTRY";
 }
 
 export async function loginAccount(input: { email: string; password: string }) {
