@@ -204,13 +204,14 @@ export async function loginAccount(input: { email: string; password: string }) {
   const db = getDatabase();
   const email = input.email.trim().toLowerCase();
   const now = new Date();
+  const loginWindowInterval = sql.raw(`${LOGIN_WINDOW_MINUTES} MINUTE`);
   await db
     .insert(loginAttempts)
     .values({ email, attempts: 1, windowStartedAt: now })
     .onDuplicateKeyUpdate({
       set: {
-        attempts: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${LOGIN_WINDOW_MINUTES} MINUTE), 1, ${loginAttempts.attempts} + 1)`,
-        windowStartedAt: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${LOGIN_WINDOW_MINUTES} MINUTE), NOW(3), ${loginAttempts.windowStartedAt})`,
+        attempts: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), 1, ${loginAttempts.attempts} + 1)`,
+        windowStartedAt: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), NOW(3), ${loginAttempts.windowStartedAt})`,
       },
     });
   const [attempt] = await db
