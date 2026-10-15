@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "db:generate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:check": "node --env-file-if-exists=.env scripts/check-db-connection.mjs",
     "db:promote-admin": "node --env-file=.env scripts/promote-admin.mjs"
   },
   "overrides": {

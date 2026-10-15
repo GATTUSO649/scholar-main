@@ -52,13 +52,17 @@ npm start
 
 Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run db:migrate` once against that database before serving traffic. Set `APP_URL` to the public HTTPS URL. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up with the database. Use TLS for MySQL and HTTPS for the site.
 
+Run `npm run db:check` to execute `SELECT 1` against the configured database. The command prints the selected database and a sanitized error code only; it never prints credentials.
+
 ### Render
 
 `render.yaml` defines the Node runtime, npm build, Nitro start command, health check, database migration, and persistent upload disk. Deploy it as a Render Blueprint, or copy its settings into an existing dashboard-created service; pushing this file alone does not change that service's settings. Render does not provide a managed MySQL database, so use an external MySQL 8+ provider. Set `MYSQL_URL` and `APP_URL` in the service's Environment settings, and configure the SMTP credentials for password reset emails. The Blueprint's persistent disk and paid web service plan incur Render charges.
 
 ### Railway
 
-`railway.json` configures the npm production build, runs `npm run db:migrate` before each deploy, and starts the Nitro Node server. Set the production `MYSQL_URL`, `APP_URL`, and SMTP variables in the Railway service's Variables settings. The app accepts Railway's split `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, and `MYSQLDATABASE` variables if `MYSQL_URL` is unset. For local migrations, use Railway's public database URL; private Railway hostnames resolve only from services in the Railway network.
+`railway.json` configures the npm production build, runs `npm run db:migrate` before each deploy, and starts the Nitro Node server. In the app service's **Variables** tab, use **Add Reference** to set `MYSQL_URL` from the MySQL service's generated `MYSQL_URL`. This is preferable for services in the same Railway environment. Alternatively, the app accepts `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, and `MYSQLDATABASE` if `MYSQL_URL` is unset. Set `APP_URL` to the deployed HTTPS domain, configure the SMTP variables, and set `FILE_STORAGE_DIR` to the mounted persistent volume path.
+
+To test from Railway's app service shell, run `npm run db:check`; to create/update tables, run `npm run db:migrate` (also configured as the pre-deploy command). For connections from outside Railway, check the MySQL service's **Settings → Networking → Public Networking** for the current public host and port. The previously supplied `iriguchi.proxy.rlwy.net:24810` values are not verified here; use them only if Railway currently shows them. Keep `.env` local and set deployment values in Railway Variables.
 
 Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DIR=/data/uploads` so uploaded files survive deployments.
 
