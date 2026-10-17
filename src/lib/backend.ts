@@ -46,8 +46,6 @@ export const registerFn = createServerFn({ method: "POST" })
         .trim()
         .regex(/^\+?[0-9 ]{9,16}$/),
       country: z.string().trim().min(2).max(60),
-      course: z.string().trim().min(2).max(120),
-      year_of_study: z.string().trim().min(1).max(20),
     }),
   )
   .handler(async ({ data }) => {

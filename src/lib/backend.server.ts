@@ -140,8 +140,6 @@ export async function registerAccount(input: {
   full_name: string;
   phone: string;
   country: string;
-  course: string;
-  year_of_study: string;
 }) {
   const email = input.email.trim().toLowerCase();
   const id = randomUUID();
@@ -158,8 +156,8 @@ export async function registerAccount(input: {
         fullName: input.full_name.trim(),
         phone: input.phone.trim(),
         country: input.country.trim(),
-        course: input.course.trim(),
-        yearOfStudy: input.year_of_study.trim(),
+        course: null,
+        yearOfStudy: null,
       });
       await tx.insert(userRoles).values({ id: randomUUID(), userId: id, role: "student" });
       await tx.insert(sessions).values({

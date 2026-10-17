@@ -47,8 +47,6 @@ const registerSchema = z
       .trim()
       .regex(/^\+?[0-9 ]{9,16}$/, "Enter a valid phone number, e.g. +254712345678"),
     country: z.string().trim().min(2, "Enter your country").max(60),
-    course: z.string().trim().min(2, "Enter your course").max(120),
-    year_of_study: z.string().trim().min(1, "Enter your year").max(20),
     password,
     confirm: z.string(),
   })
@@ -62,8 +60,6 @@ const FIELDS: [keyof z.infer<typeof registerSchema>, string, string?][] = [
   ["email", "Email", "email"],
   ["phone", "Phone number", "tel"],
   ["country", "Country"],
-  ["course", "Course / program"],
-  ["year_of_study", "Year of study"],
   ["password", "Password", "password"],
   ["confirm", "Confirm password", "password"],
 ];
