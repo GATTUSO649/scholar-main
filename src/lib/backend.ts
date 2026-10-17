@@ -41,13 +41,11 @@ export const registerFn = createServerFn({ method: "POST" })
       email: emailSchema,
       password: passwordSchema,
       full_name: z.string().trim().min(2).max(100),
-      reg_number: z.string().trim().min(2).max(50),
       phone: z
         .string()
         .trim()
         .regex(/^\+?[0-9 ]{9,16}$/),
       country: z.string().trim().min(2).max(60),
-      institution: z.string().trim().min(2).max(120),
       course: z.string().trim().min(2).max(120),
       year_of_study: z.string().trim().min(1).max(20),
     }),

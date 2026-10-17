@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
@@ -40,14 +41,12 @@ const password = z
 const registerSchema = z
   .object({
     full_name: z.string().trim().min(2, "Enter your full name").max(100),
-    reg_number: z.string().trim().min(2, "Enter your admission number").max(50),
     email: z.string().trim().email("Enter a valid email").max(255),
     phone: z
       .string()
       .trim()
       .regex(/^\+?[0-9 ]{9,16}$/, "Enter a valid phone number, e.g. +254712345678"),
     country: z.string().trim().min(2, "Enter your country").max(60),
-    institution: z.string().trim().min(2, "Enter your institution").max(120),
     course: z.string().trim().min(2, "Enter your course").max(120),
     year_of_study: z.string().trim().min(1, "Enter your year").max(20),
     password,
@@ -60,11 +59,9 @@ const registerSchema = z
 
 const FIELDS: [keyof z.infer<typeof registerSchema>, string, string?][] = [
   ["full_name", "Full name"],
-  ["reg_number", "Admission / registration number"],
   ["email", "Email", "email"],
   ["phone", "Phone number", "tel"],
   ["country", "Country"],
-  ["institution", "Institution"],
   ["course", "Course / program"],
   ["year_of_study", "Year of study"],
   ["password", "Password", "password"],
@@ -77,6 +74,7 @@ function AuthPage() {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,6 +89,7 @@ function AuthPage() {
 
   const setMode = (m: Mode) => {
     setErrors({});
+    setFormError(null);
     setSent(null);
     navigate({ to: "/auth", search: { mode: m }, replace: true });
   };
@@ -131,13 +130,28 @@ function AuthPage() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
+    setFormError(null);
     const fd = new FormData(e.currentTarget);
     try {
       if (mode === "register") await onRegister(fd);
       else if (mode === "forgot") await onForgot(fd);
       else await onLogin(fd);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The request could not be completed.");
+      const message = error instanceof Error ? error.message : "";
+      const safeMessages = new Set([
+        "An account with this email already exists. Try logging in or resetting your password.",
+        "Could not create your account. Please try again.",
+        "Email or password is incorrect.",
+        "Too many sign-in attempts. Please wait 15 minutes and try again.",
+        "Sign-in is temporarily unavailable. Please try again.",
+        "Password reset email is not configured. Set SMTP_HOST and SMTP_FROM in the server environment.",
+        "APP_URL must be configured in production before password reset emails can be sent.",
+      ]);
+      setFormError(
+        safeMessages.has(message)
+          ? message
+          : "We couldn't complete your request. Please try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -176,6 +190,12 @@ function AuthPage() {
                 ? "We'll email you a reset link."
                 : "Log in to your student portal."}
           </p>
+          {formError && (
+            <Alert variant="destructive" className="mt-6">
+              <AlertTitle>Request not completed</AlertTitle>
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          )}
 
           {sent ? (
             <div className="mt-8 rounded-xl border bg-success/10 p-5 text-sm">{sent}</div>

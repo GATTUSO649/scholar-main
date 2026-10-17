@@ -138,30 +138,26 @@ export async function registerAccount(input: {
   email: string;
   password: string;
   full_name: string;
-  reg_number: string;
   phone: string;
   country: string;
-  institution: string;
   course: string;
   year_of_study: string;
 }) {
-  const db = getDatabase();
   const email = input.email.trim().toLowerCase();
   const id = randomUUID();
   const salt = randomBytes(16);
   const passwordHash = `${salt.toString("hex")}:${(await derivePassword(input.password, salt)).toString("hex")}`;
   const sessionToken = randomBytes(32).toString("base64url");
   try {
+    const db = getDatabase();
     await db.transaction(async (tx) => {
       await tx.insert(users).values({ id, email, passwordHash });
       await tx.insert(profiles).values({
         id,
         email,
         fullName: input.full_name.trim(),
-        regNumber: input.reg_number.trim(),
         phone: input.phone.trim(),
         country: input.country.trim(),
-        institution: input.institution.trim(),
         course: input.course.trim(),
         yearOfStudy: input.year_of_study.trim(),
       });
@@ -175,12 +171,19 @@ export async function registerAccount(input: {
     setSessionCookie(sessionToken);
   } catch (error) {
     if (isDuplicateKey(error))
-      throw new Error("An account with this email already exists. Try logging in or resetting your password.");
-    console.error("Account registration failed.", getDatabaseErrorCode(error) ?? "unknown database error");
-    throw new Error("Could not create your account. Please try again.");
+      throw new AuthError(
+        "An account with this email already exists. Try logging in or resetting your password.",
+      );
+    console.error(
+      "Account registration failed.",
+      getDatabaseErrorCode(error) ?? "unknown database error",
+    );
+    throw new AuthError("Could not create your account. Please try again.");
   }
   return { id, email };
 }
+
+class AuthError extends Error {}
 
 export function getDatabaseErrorCode(error: unknown): string | undefined {
   let current = error;
@@ -201,41 +204,47 @@ function isDuplicateKey(error: unknown): boolean {
 }
 
 export async function loginAccount(input: { email: string; password: string }) {
-  const db = getDatabase();
-  const email = input.email.trim().toLowerCase();
-  const now = new Date();
-  const loginWindowInterval = sql.raw(`${LOGIN_WINDOW_MINUTES} MINUTE`);
-  await db
-    .insert(loginAttempts)
-    .values({ email, attempts: 1, windowStartedAt: now })
-    .onDuplicateKeyUpdate({
-      set: {
-        attempts: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), 1, ${loginAttempts.attempts} + 1)`,
-        windowStartedAt: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), NOW(3), ${loginAttempts.windowStartedAt})`,
-      },
-    });
-  const [attempt] = await db
-    .select()
-    .from(loginAttempts)
-    .where(eq(loginAttempts.email, email))
-    .limit(1);
-  if (attempt && attempt.attempts > MAX_LOGIN_ATTEMPTS) {
-    throw new Error("Too many sign-in attempts. Please wait 15 minutes and try again.");
-  }
-  const [account] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  let valid = false;
-  if (account) {
-    const [saltHex, hashHex] = account.passwordHash.split(":");
-    if (saltHex && hashHex) {
-      const actual = await derivePassword(input.password, Buffer.from(saltHex, "hex"));
-      const expected = Buffer.from(hashHex, "hex");
-      valid = actual.length === expected.length && timingSafeEqual(actual, expected);
+  try {
+    const db = getDatabase();
+    const email = input.email.trim().toLowerCase();
+    const now = new Date();
+    const loginWindowInterval = sql.raw(`${LOGIN_WINDOW_MINUTES} MINUTE`);
+    await db
+      .insert(loginAttempts)
+      .values({ email, attempts: 1, windowStartedAt: now })
+      .onDuplicateKeyUpdate({
+        set: {
+          attempts: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), 1, ${loginAttempts.attempts} + 1)`,
+          windowStartedAt: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), NOW(3), ${loginAttempts.windowStartedAt})`,
+        },
+      });
+    const [attempt] = await db
+      .select()
+      .from(loginAttempts)
+      .where(eq(loginAttempts.email, email))
+      .limit(1);
+    if (attempt && attempt.attempts > MAX_LOGIN_ATTEMPTS) {
+      throw new AuthError("Too many sign-in attempts. Please wait 15 minutes and try again.");
     }
+    const [account] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    let valid = false;
+    if (account) {
+      const [saltHex, hashHex] = account.passwordHash.split(":");
+      if (saltHex && hashHex) {
+        const actual = await derivePassword(input.password, Buffer.from(saltHex, "hex"));
+        const expected = Buffer.from(hashHex, "hex");
+        valid = actual.length === expected.length && timingSafeEqual(actual, expected);
+      }
+    }
+    if (!account || !valid) throw new AuthError("Email or password is incorrect.");
+    await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
+    await createSession(account.id);
+    return { id: account.id, email: account.email };
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    console.error("Sign-in failed.", getDatabaseErrorCode(error) ?? "unknown database error");
+    throw new AuthError("Sign-in is temporarily unavailable. Please try again.");
   }
-  if (!account || !valid) throw new Error("Email or password is incorrect.");
-  await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
-  await createSession(account.id);
-  return { id: account.id, email: account.email };
 }
 
 export async function logoutAccount() {
