@@ -40,7 +40,7 @@ import {
 import { SiteHeader } from "@/components/SiteHeader";
 import { Logo, BRAND } from "@/components/Logo";
 import { getPublicDataFn } from "@/lib/backend";
-import hero from "@/assets/hero.jpg";
+import hero from "@/assets/WhatsApp Image 2026-10-17 at 1.31.14 PM.jpeg";
 
 type ServiceRow = {
   id: string;
@@ -195,10 +195,10 @@ function Home() {
             <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-tr from-accent/50 via-transparent to-info/40 blur-xl" />
             <img
               src={hero}
-              alt="Student studying at a desk in the evening"
-              width={1280}
+              alt="Students working together on a laptop on campus"
+              width={1536}
               height={1024}
-              className="relative aspect-[5/4] w-full rounded-3xl object-cover shadow-2xl ring-1 ring-ink-foreground/10"
+              className="relative aspect-[3/2] w-full rounded-3xl object-cover shadow-2xl ring-1 ring-ink-foreground/10"
             />
             <div className="absolute -bottom-7 -left-4 rounded-2xl bg-card p-4 text-card-foreground shadow-soft animate-float sm:-left-10">
               <div className="flex items-center gap-3">
