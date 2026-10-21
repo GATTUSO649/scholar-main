@@ -33,7 +33,9 @@ ScholarDesk is a student support portal built with TanStack Start, React, Drizzl
 
    The initial migration creates the tables and public support-service catalog.
 
-4. Register an account in the app and grant it administrator access:
+4. Configure a private random signup key of at least 32 characters in `.env` as `ADMIN_SIGNUP_SECRET`, then visit `/admin/login` and create the initial administrator account. This self-service signup is available only until the first admin is created.
+
+   Alternatively, register a standard account and grant it administrator access:
 
    ```sh
    npm run db:promote-admin -- your-address@example.com
@@ -41,7 +43,7 @@ ScholarDesk is a student support portal built with TanStack Start, React, Drizzl
 
    Sign out and back in after promoting the account.
 
-   Alternatively, set `ADMIN_SIGNUP_SECRET` to a unique random value of at least 32 characters in the server environment, then create an administrator account at `/admin/login` → **Create admin account**. Keep this value private and share it only with trusted administrators. Admin sign-in is separate from student sign-in; existing administrators can use `/admin/login` with their existing account.
+   Admin sign-in is separate from student sign-in. Sign in at `/admin/login` with the administrator account's email and password. After initial setup, new admin accounts must be provisioned by the site owner using the command above.
 
 ## Production
 
@@ -52,7 +54,7 @@ npm run build
 npm start
 ```
 
-Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run db:migrate` once against that database before serving traffic. Set `APP_URL` to the public HTTPS URL. Configure `ADMIN_SIGNUP_SECRET` to a unique random value of at least 32 characters to enable administrator signup; keep it private and rotate it after onboarding. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up with the database. Use TLS for MySQL and HTTPS for the site.
+Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run db:migrate` once against that database before serving traffic. Set `APP_URL` to the public HTTPS URL. Set `ADMIN_SIGNUP_SECRET` to a private random value of at least 32 characters to enable one-time initial administrator signup. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up with the database. Use TLS for MySQL and HTTPS for the site.
 
 Run `npm run db:check` to execute `SELECT 1` against the configured database. The command prints the selected database and a sanitized error code only; it never prints credentials.
 
@@ -73,7 +75,7 @@ Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DI
 - `users`, `profiles`, `user_roles`, and `sessions` hold accounts and roles.
 - `services`, `requests`, `request_updates`, `request_files`, and `site_settings` hold application data.
 - Student request/file ownership and administrator access are checked in server-only handlers; never expose the MySQL URL or database credentials to browser code.
-- Administrator signup requires the server-only `ADMIN_SIGNUP_SECRET`; admin sign-in verifies the account's database-backed admin role.
+- Initial administrator signup requires the server-only `ADMIN_SIGNUP_SECRET` and closes automatically after the first administrator account is created. Further admins are provisioned by the site owner; admin sign-in verifies the account's database-backed admin role.
 - File downloads require a valid session and request ownership or an administrator role. Uploads are limited to 20 MB per file and 50 MB per request.
 
 Use `npm run db:generate` after changing the Drizzle schema, then review the generated SQL before applying it with `npm run db:migrate`.

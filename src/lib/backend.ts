@@ -54,7 +54,12 @@ export const registerFn = createServerFn({ method: "POST" })
     return registerAccount(data);
   });
 
-export const registerAdminFn = createServerFn({ method: "POST" })
+export const getAdminSignupStateFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getAdminSignupState } = await import("./backend.server");
+  return getAdminSignupState();
+});
+
+export const registerInitialAdminFn = createServerFn({ method: "POST" })
   .validator(
     z.object({
       email: emailSchema,
@@ -65,8 +70,8 @@ export const registerAdminFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     assertSameOrigin();
-    const { registerAdminAccount } = await import("./backend.server");
-    return registerAdminAccount(data);
+    const { registerInitialAdmin } = await import("./backend.server");
+    return registerInitialAdmin(data);
   });
 
 export const loginFn = createServerFn({ method: "POST" })

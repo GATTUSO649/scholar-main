@@ -7,37 +7,40 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
-import { adminLoginFn, getAdminStateFn, getCurrentUserFn, registerAdminFn } from "@/lib/backend";
-
-type Mode = "login" | "register";
+import {
+  adminLoginFn,
+  getAdminSignupStateFn,
+  getAdminStateFn,
+  getCurrentUserFn,
+  registerInitialAdminFn,
+} from "@/lib/backend";
+import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/admin/login")({
-  validateSearch: (search: Record<string, unknown>): { mode?: Mode } => ({
+  validateSearch: (search: Record<string, unknown>): { mode?: "login" | "register" } => ({
     mode: search["mode"] === "register" ? "register" : "login",
   }),
   head: () => ({
     meta: [
       { title: "Administrator sign in — ScholarDesk" },
-      { name: "description", content: "Sign in or register an administrator account." },
+      { name: "description", content: "Sign in to your ScholarDesk administrator account." },
     ],
   }),
   component: AdminLoginPage,
 });
 
-const password = z
-  .string()
-  .min(8, "At least 8 characters")
-  .max(128, "Password is too long")
-  .regex(/[A-Z]/, "Include an uppercase letter")
-  .regex(/[a-z]/, "Include a lowercase letter")
-  .regex(/[0-9]/, "Include a number")
-  .regex(/[^A-Za-z0-9]/, "Include a symbol");
-
-const registrationSchema = z
+const signupSchema = z
   .object({
     full_name: z.string().trim().min(2, "Enter your full name").max(100),
     email: z.string().trim().email("Enter a valid email").max(255),
-    password,
+    password: z
+      .string()
+      .min(8, "At least 8 characters")
+      .max(128, "Password is too long")
+      .regex(/[A-Z]/, "Include an uppercase letter")
+      .regex(/[a-z]/, "Include a lowercase letter")
+      .regex(/[0-9]/, "Include a number")
+      .regex(/[^A-Za-z0-9]/, "Include a symbol"),
     confirm: z.string(),
     signup_secret: z.string().min(1, "Enter the admin signup key").max(256),
   })
@@ -46,22 +49,23 @@ const registrationSchema = z
     path: ["confirm"],
   });
 
-const registrationFields: [keyof z.infer<typeof registrationSchema>, string, string?][] = [
-  ["full_name", "Full name"],
-  ["email", "Email", "email"],
-  ["password", "Password", "password"],
-  ["confirm", "Confirm password", "password"],
-  ["signup_secret", "Admin signup key", "password"],
-];
-
 function AdminLoginPage() {
   const { mode = "login" } = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [signedInAsStudent, setSignedInAsStudent] = useState(false);
+  const {
+    data: signupState,
+    isLoading: signupStateLoading,
+    isError: signupStateError,
+  } = useQuery({
+    queryKey: ["admin-signup-state"],
+    queryFn: () => getAdminSignupStateFn(),
+  });
+  const signupAvailable = signupState?.available === true;
 
   useEffect(() => {
     let active = true;
@@ -81,9 +85,9 @@ function AdminLoginPage() {
     };
   }, [navigate]);
 
-  function setMode(nextMode: Mode) {
-    setErrors({});
+  function setMode(nextMode: "login" | "register") {
     setFormError(null);
+    setFieldErrors({});
     navigate({ to: "/admin/login", search: { mode: nextMode }, replace: true });
   }
 
@@ -91,14 +95,18 @@ function AdminLoginPage() {
     event.preventDefault();
     setBusy(true);
     setFormError(null);
-    setErrors({});
+    setFieldErrors({});
     const formData = new FormData(event.currentTarget);
     try {
       let user: { id: string; email: string };
       if (mode === "register") {
-        const parsed = registrationSchema.safeParse(Object.fromEntries(formData));
+        if (!signupAvailable) {
+          setFormError("Initial admin signup is no longer available. Sign in instead.");
+          return;
+        }
+        const parsed = signupSchema.safeParse(Object.fromEntries(formData));
         if (!parsed.success) {
-          setErrors(
+          setFieldErrors(
             Object.fromEntries(
               parsed.error.issues.map((issue) => [issue.path[0] as string, issue.message]),
             ),
@@ -106,7 +114,7 @@ function AdminLoginPage() {
           return;
         }
         const { confirm: _confirm, ...input } = parsed.data;
-        user = await registerAdminFn({ data: input });
+        user = await registerInitialAdminFn({ data: input });
       } else {
         user = await adminLoginFn({
           data: {
@@ -122,10 +130,11 @@ function AdminLoginPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const safeMessages = new Set([
-        "An account with this email already exists. Try logging in or resetting your password.",
+        "The admin signup key is incorrect.",
+        "Initial admin signup is not configured.",
+        "Initial admin signup is closed. Sign in with the existing administrator account.",
+        "An account with this email already exists. Try signing in or resetting your password.",
         "Could not create the administrator account. Please try again.",
-        "Admin signup is not available.",
-        "The admin signup key is invalid.",
         "Email or password is incorrect.",
         "Too many sign-in attempts. Please wait 15 minutes and try again.",
         "Sign-in is temporarily unavailable. Please try again.",
@@ -158,11 +167,11 @@ function AdminLoginPage() {
             <Logo />
           </div>
           <h1 className="text-3xl font-semibold">
-            {mode === "register" ? "Create an admin account" : "Admin sign in"}
+            {mode === "register" ? "Create the initial admin account" : "Admin sign in"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {mode === "register"
-              ? "Registration requires an administrator signup key."
+              ? "Initial setup is available once. Enter the signup key configured by the site owner."
               : "Use your administrator credentials to continue."}
           </p>
           {signedInAsStudent && (
@@ -182,23 +191,45 @@ function AdminLoginPage() {
 
           <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
             {mode === "register" ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {registrationFields.map(([name, label, type]) => (
-                  <div
-                    key={name}
-                    className={name === "full_name" || name === "email" ? "sm:col-span-2" : ""}
-                  >
-                    <Label htmlFor={name}>{label}</Label>
-                    <Input id={name} name={name} type={type ?? "text"} className="mt-1.5" />
-                    {errors[name] && (
-                      <p className="mt-1 text-xs text-destructive">{errors[name]}</p>
-                    )}
-                  </div>
-                ))}
-                <p className="text-xs text-muted-foreground sm:col-span-2">
-                  Password: 8+ characters with uppercase, lowercase, a number and a symbol.
+              signupStateLoading ? (
+                <p className="text-sm text-muted-foreground">Checking initial admin setup…</p>
+              ) : signupStateError ? (
+                <p className="text-sm text-destructive">
+                  Could not check admin setup. Refresh the page and try again.
                 </p>
-              </div>
+              ) : signupAvailable ? (
+                <>
+                  {(
+                    [
+                      ["full_name", "Full name", "text"],
+                      ["email", "Email", "email"],
+                      ["password", "Password", "password"],
+                      ["confirm", "Confirm password", "password"],
+                      ["signup_secret", "Admin signup key", "password"],
+                    ] as const
+                  ).map(([name, label, type]) => (
+                    <div key={name}>
+                      <Label htmlFor={name}>{label}</Label>
+                      <Input id={name} name={name} type={type} required className="mt-1.5" />
+                      {fieldErrors[name] && (
+                        <p className="mt-1 text-xs text-destructive">{fieldErrors[name]}</p>
+                      )}
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    Password: 8+ characters with uppercase, lowercase, a number and a symbol.
+                  </p>
+                  <Button type="submit" className="w-full" size="lg" disabled={busy}>
+                    {busy ? "Please wait…" : "Create initial admin account"}
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {signupState?.reason === "already_created"
+                    ? "The initial admin account has already been created. Sign in to continue."
+                    : "Initial admin signup is not configured. Contact the site owner."}
+                </p>
+              )
             ) : (
               <>
                 <div>
@@ -215,38 +246,40 @@ function AdminLoginPage() {
                     className="mt-1.5"
                   />
                 </div>
+                <Button type="submit" className="w-full" size="lg" disabled={busy}>
+                  {busy ? "Please wait…" : "Sign in"}
+                </Button>
               </>
             )}
-            <Button type="submit" className="w-full" size="lg" disabled={busy}>
-              {busy ? "Please wait…" : mode === "register" ? "Create admin account" : "Sign in"}
-            </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "login" ? (
-              <>
-                Have an admin signup key?{" "}
-                <button
-                  type="button"
-                  onClick={() => setMode("register")}
-                  className="font-semibold text-primary hover:underline"
-                >
-                  Create admin account
-                </button>
-              </>
-            ) : (
-              <>
-                Already registered?{" "}
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className="font-semibold text-primary hover:underline"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </p>
+          {!signupStateLoading && !signupStateError && signupAvailable && (
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              {mode === "login" ? (
+                <>
+                  First-time setup?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("register")}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    Create the initial admin account
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already set up?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </p>
+          )}
           <p className="mt-2 text-center text-xs">
             <Link
               to="/auth"
