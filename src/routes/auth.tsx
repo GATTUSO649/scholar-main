@@ -8,7 +8,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
-import { getCurrentUserFn, loginFn, registerFn, requestPasswordResetFn } from "@/lib/backend";
+import {
+  getAdminStateFn,
+  getCurrentUserFn,
+  loginFn,
+  registerFn,
+  requestPasswordResetFn,
+} from "@/lib/backend";
+import { dashboardRouteFor } from "@/lib/auth";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -75,13 +82,16 @@ function AuthPage() {
 
   useEffect(() => {
     getCurrentUserFn()
-      .then((user) => {
-        if (user) navigate({ to: "/dashboard", replace: true });
+      .then(async (user) => {
+        if (!user) return;
+        const isAdmin = await getAdminStateFn();
+        queryClient.setQueryData(["is-admin", user.id], isAdmin);
+        await navigate({ to: dashboardRouteFor(isAdmin), replace: true });
       })
       .catch((error: unknown) =>
         console.error("Could not check the current sign-in session.", error),
       );
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   const setMode = (m: Mode) => {
     setErrors({});
@@ -102,6 +112,7 @@ function AuthPage() {
     const { confirm: _confirm, ...input } = parsed.data;
     const user = await registerFn({ data: input });
     queryClient.setQueryData(["current-user"], user);
+    queryClient.setQueryData(["is-admin", user.id], false);
     toast.success("Account created");
     await navigate({ to: "/dashboard", replace: true });
   }
@@ -114,7 +125,9 @@ function AuthPage() {
       },
     });
     queryClient.setQueryData(["current-user"], user);
-    await navigate({ to: "/dashboard" });
+    const isAdmin = await getAdminStateFn();
+    queryClient.setQueryData(["is-admin", user.id], isAdmin);
+    await navigate({ to: dashboardRouteFor(isAdmin), replace: true });
   }
 
   async function onForgot(fd: FormData) {

@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { getAdminStateFn, getCurrentUserFn, getProfileFn } from "@/lib/backend";
 
+export function dashboardRouteFor(isAdmin: boolean) {
+  return isAdmin ? "/admin/dashboard" : "/dashboard";
+}
+
 export function useUser() {
   const { data: user, isLoading: loading } = useQuery({
     queryKey: ["current-user"],

@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "ScholarDesk" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e10]:
+        - generic [ref=e11]: Private operations
+        - heading "A clearer view of the work that matters." [level=2] [ref=e13]
+        - paragraph [ref=e14]: Manage requests, support students, and keep your service moving from one secure workspace.
+      - paragraph [ref=e15]: SCHOLARDESK · ADMIN ACCESS
+    - main [ref=e16]:
+      - generic [ref=e18]:
+        - paragraph [ref=e19]: Secure administrator portal
+        - heading "Welcome back" [level=1] [ref=e20]
+        - paragraph [ref=e21]: Sign in to open your ScholarDesk operations workspace.
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - text: Email
+            - textbox "Email" [ref=e24]
+          - generic [ref=e25]:
+            - text: Password
+            - textbox "Password" [ref=e26]
+          - button "Sign in to admin" [ref=e27] [cursor=pointer]
+        - paragraph [ref=e28]:
+          - link "← Student sign in" [ref=e29] [cursor=pointer]:
+            - /url: /auth?mode=login
+  - region "Notifications alt+T"

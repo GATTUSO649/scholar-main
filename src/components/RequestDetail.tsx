@@ -15,26 +15,34 @@ export function useRequest(id: string) {
 
 export type RequestBundle = NonNullable<ReturnType<typeof useRequest>["data"]>;
 
-export function RequestSummary({ data }: { data: RequestBundle }) {
+export function RequestSummary({
+  data,
+  compact = false,
+}: {
+  data: RequestBundle;
+  compact?: boolean;
+}) {
   const r = data.req!;
   const idx = STATUS_ORDER.indexOf(r.status);
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {r.ref} · {r.services?.name}
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold">{r.title}</h1>
+      {!compact && (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              {r.ref} · {r.services?.name}
+            </p>
+            <h1 className="mt-1 text-3xl font-semibold">{r.title}</h1>
+          </div>
+          <div className="flex gap-2">
+            <StatusBadge status={r.status} />
+            <PayBadge status={r.payment_status} />
+          </div>
         </div>
-        <div className="flex gap-2">
-          <StatusBadge status={r.status} />
-          <PayBadge status={r.payment_status} />
-        </div>
-      </div>
+      )}
 
       {r.status !== "cancelled" && (
-        <ol className="grid grid-cols-3 gap-2 rounded-2xl border bg-card p-4 shadow-soft sm:grid-cols-6">
+        <ol className="grid grid-cols-3 gap-2 rounded-2xl border bg-white p-4 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:grid-cols-6">
           {STATUS_ORDER.map((s, i) => (
             <li key={s} className="flex flex-col items-center gap-2 text-center">
               <span
@@ -55,7 +63,7 @@ export function RequestSummary({ data }: { data: RequestBundle }) {
         </ol>
       )}
 
-      <div className="grid gap-4 rounded-2xl border bg-card p-5 text-sm shadow-soft sm:grid-cols-3">
+      <div className="grid gap-4 rounded-2xl border bg-white p-5 text-sm shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:grid-cols-3">
         {[
           ["Course / unit", r.course_unit],
           ["Lecturer", r.lecturer],
@@ -79,7 +87,7 @@ export function RequestSummary({ data }: { data: RequestBundle }) {
       </div>
 
       {(r.grade || r.admin_feedback) && (
-        <div className="rounded-2xl border bg-card p-5 text-sm shadow-soft">
+        <div className="rounded-2xl border bg-white p-5 text-sm shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Grade & feedback</h2>
             {r.grade && (
@@ -97,7 +105,7 @@ export function RequestSummary({ data }: { data: RequestBundle }) {
 
       <div className="grid gap-6 md:grid-cols-2">
         <section>
-          <h2 className="text-lg font-semibold">Files</h2>
+          <h2 className="text-lg font-semibold">Files & deliverables</h2>
           <ul className="mt-3 space-y-2">
             {data.files.length === 0 && (
               <li className="text-sm text-muted-foreground">No files.</li>

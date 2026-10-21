@@ -19,6 +19,8 @@ import {
   Users,
   Menu,
   X,
+  ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import { getCurrentUserFn, logoutFn } from "@/lib/backend";
 import { useIsAdmin, useProfile } from "@/lib/auth";
@@ -57,6 +59,16 @@ function Shell() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const inAdminArea =
+    !!isAdmin &&
+    (path.startsWith("/admin") || path.startsWith("/students") || path.startsWith("/manage"));
+  const pageTitle = path.startsWith("/admin/dashboard")
+    ? "Dashboard"
+    : path.startsWith("/students")
+      ? "Students"
+      : path.startsWith("/manage")
+        ? "Request workspace"
+        : "All requests";
 
   async function signOut() {
     await qc.cancelQueries();
@@ -66,20 +78,21 @@ function Shell() {
     navigate({ to: "/auth", search: { mode: "login" }, replace: true });
   }
 
-  const NavLinks = () => (
+  const NavLinks = ({ admin = false }: { admin?: boolean }) => (
     <nav className="flex flex-1 flex-col gap-1">
-      {studentNav.map((n) => (
-        <NavItem
-          key={n.to}
-          {...n}
-          active={path === n.to || (n.to !== "/dashboard" && path.startsWith(n.to))}
-          onClick={() => setOpen(false)}
-        />
-      ))}
-      {isAdmin && (
+      {!admin &&
+        studentNav.map((n) => (
+          <NavItem
+            key={n.to}
+            {...n}
+            active={path === n.to || (n.to !== "/dashboard" && path.startsWith(n.to))}
+            onClick={() => setOpen(false)}
+          />
+        ))}
+      {admin && (
         <>
-          <p className="mt-6 px-3 pb-1 text-[11px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
-            Admin
+          <p className="mb-2 mt-7 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+            Workspace
           </p>
           {adminNav.map((n) => (
             <NavItem
@@ -88,21 +101,108 @@ function Shell() {
               active={
                 n.to === "/admin"
                   ? path === "/admin" || path.startsWith("/manage")
-                  : path.startsWith(n.to)
+                  : n.to === "/students"
+                    ? path.startsWith("/students")
+                    : path.startsWith(n.to)
               }
               onClick={() => setOpen(false)}
+              admin
             />
           ))}
         </>
       )}
       <button
         onClick={signOut}
-        className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent"
+        className={cn(
+          "mt-auto flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
+          admin
+            ? "text-white/65 hover:bg-white/10 hover:text-white"
+            : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
+        )}
       >
         <LogOut className="h-4 w-4" /> Logout
       </button>
     </nav>
   );
+
+  if (inAdminArea) {
+    const adminLinks = (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-white/10 px-6 py-6">
+          <Logo light />
+          <div className="mt-7 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
+              {profile?.full_name
+                ?.split(/\s+/)
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase() ?? "AD"}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-white">
+                {profile?.full_name || "Administrator"}
+              </span>
+              <span className="block truncate text-xs text-white/45">Admin workspace</span>
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col px-4 py-3">
+          <NavLinks admin />
+          <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" /> System operational
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+              Your private operations console.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+    return (
+      <div className="min-h-screen bg-[#f5f7fa] lg:grid lg:grid-cols-[264px_1fr]">
+        <aside className="sticky top-0 hidden h-screen flex-col bg-[#17263c] text-white lg:flex">
+          {adminLinks}
+        </aside>
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white px-4 py-3 lg:hidden">
+          <Logo />
+          <button
+            onClick={() => setOpen(!open)}
+            className="rounded-lg p-2 text-foreground hover:bg-muted"
+            aria-label={open ? "Close menu" : "Open menu"}
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </header>
+        {open && (
+          <div className="fixed inset-0 top-[57px] z-20 bg-[#17263c] p-4 text-white lg:hidden">
+            {adminLinks}
+          </div>
+        )}
+        <main className="min-w-0">
+          <div className="sticky top-0 z-10 hidden h-[72px] items-center justify-between border-b bg-white/95 px-8 backdrop-blur lg:flex">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>ScholarDesk</span>
+              <ChevronRight className="h-4 w-4" />
+              <span className="font-semibold text-foreground">{pageTitle}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" /> Private workspace
+              </span>
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-[#17263c] text-xs font-bold text-white">
+                {profile?.full_name?.slice(0, 1).toUpperCase() ?? "A"}
+              </span>
+            </div>
+          </div>
+          <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -143,22 +243,28 @@ function NavItem({
   icon: Icon,
   active,
   onClick,
+  admin = false,
 }: {
   to: string;
   label: string;
   icon: typeof User;
   active: boolean;
   onClick: () => void;
+  admin?: boolean;
 }) {
   return (
     <Link
       to={to}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+        "flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
         active
-          ? "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
-          : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
+          ? admin
+            ? "bg-accent font-semibold text-accent-foreground shadow-sm"
+            : "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
+          : admin
+            ? "text-white/65 hover:bg-white/[0.07] hover:text-white"
+            : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
       )}
     >
       <Icon className="h-4 w-4" /> {label}

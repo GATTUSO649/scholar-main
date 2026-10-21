@@ -150,145 +150,183 @@ function AdminLoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-[1fr_1.2fr]">
-      <aside className="hidden flex-col justify-between bg-hero p-10 text-ink-foreground lg:flex">
+    <div className="grid min-h-screen bg-[#f5f7fa] lg:grid-cols-[0.92fr_1.08fr]">
+      <aside className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[#17263c] p-10 text-white lg:flex xl:p-14">
+        <div className="pointer-events-none absolute -right-24 top-1/4 h-80 w-80 rounded-full border-[38px] border-white/[0.04]" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-[#d5ac57]/10 blur-3xl" />
         <Logo light />
-        <div>
-          <h2 className="text-4xl font-semibold leading-tight">ScholarDesk administration.</h2>
-          <p className="mt-4 text-ink-foreground/70">
-            Manage student requests and oversee the service securely.
+        <div className="relative max-w-xl">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            Private operations
+          </span>
+          <h2 className="mt-6 text-4xl font-semibold leading-tight xl:text-5xl">
+            A clearer view of the work that matters.
+          </h2>
+          <p className="mt-5 max-w-md text-sm leading-relaxed text-white/55">
+            Manage requests, support students, and keep your service moving from one secure
+            workspace.
           </p>
         </div>
-        <p className="text-sm text-ink-foreground/50">Administrator access · Private workspace</p>
+        <p className="relative text-xs text-white/40">
+          SCHOLARDESK <span className="px-2">·</span> ADMIN ACCESS
+        </p>
       </aside>
-      <main className="flex items-center justify-center px-5 py-10">
-        <div className="w-full max-w-lg">
+      <main className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <div className="w-full max-w-[480px]">
           <div className="mb-8 lg:hidden">
             <Logo />
           </div>
-          <h1 className="text-3xl font-semibold">
-            {mode === "register" ? "Create the initial admin account" : "Admin sign in"}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {mode === "register"
-              ? "Initial setup is available once. Enter the signup key configured by the site owner."
-              : "Use your administrator credentials to continue."}
-          </p>
-          {signedInAsStudent && (
-            <Alert className="mt-6">
-              <AlertTitle>Student session detected</AlertTitle>
-              <AlertDescription>
-                Sign in with an administrator account to open the admin workspace.
-              </AlertDescription>
-            </Alert>
-          )}
-          {formError && (
-            <Alert variant="destructive" className="mt-6">
-              <AlertTitle>Request not completed</AlertTitle>
-              <AlertDescription>{formError}</AlertDescription>
-            </Alert>
-          )}
+          <section className="rounded-[26px] border bg-white p-6 shadow-[0_24px_70px_-42px_rgba(23,38,60,0.3)] sm:p-9">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#74839a]">
+              Secure administrator portal
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+              {mode === "register" ? "Set up your admin account" : "Welcome back"}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {mode === "register"
+                ? "Initial setup is available once. Use the signup key provided by the site owner."
+                : "Sign in to open your ScholarDesk operations workspace."}
+            </p>
+            {signedInAsStudent && (
+              <Alert className="mt-6">
+                <AlertTitle>Student session detected</AlertTitle>
+                <AlertDescription>
+                  Sign in with an administrator account to open the admin workspace.
+                </AlertDescription>
+              </Alert>
+            )}
+            {formError && (
+              <Alert variant="destructive" className="mt-6">
+                <AlertTitle>Request not completed</AlertTitle>
+                <AlertDescription>{formError}</AlertDescription>
+              </Alert>
+            )}
 
-          <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
-            {mode === "register" ? (
-              signupStateLoading ? (
-                <p className="text-sm text-muted-foreground">Checking initial admin setup…</p>
-              ) : signupStateError ? (
-                <p className="text-sm text-destructive">
-                  Could not check admin setup. Refresh the page and try again.
-                </p>
-              ) : signupAvailable ? (
-                <>
-                  {(
-                    [
-                      ["full_name", "Full name", "text"],
-                      ["email", "Email", "email"],
-                      ["password", "Password", "password"],
-                      ["confirm", "Confirm password", "password"],
-                      ["signup_secret", "Admin signup key", "password"],
-                    ] as const
-                  ).map(([name, label, type]) => (
-                    <div key={name}>
-                      <Label htmlFor={name}>{label}</Label>
-                      <Input id={name} name={name} type={type} required className="mt-1.5" />
-                      {fieldErrors[name] && (
-                        <p className="mt-1 text-xs text-destructive">{fieldErrors[name]}</p>
-                      )}
-                    </div>
-                  ))}
-                  <p className="text-xs text-muted-foreground">
-                    Password: 8+ characters with uppercase, lowercase, a number and a symbol.
+            <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
+              {mode === "register" ? (
+                signupStateLoading ? (
+                  <p className="text-sm text-muted-foreground">Checking initial admin setup…</p>
+                ) : signupStateError ? (
+                  <p className="text-sm text-destructive">
+                    Could not check admin setup. Refresh the page and try again.
                   </p>
-                  <Button type="submit" className="w-full" size="lg" disabled={busy}>
-                    {busy ? "Please wait…" : "Create initial admin account"}
+                ) : signupAvailable ? (
+                  <>
+                    {(
+                      [
+                        ["full_name", "Full name", "text"],
+                        ["email", "Email", "email"],
+                        ["password", "Password", "password"],
+                        ["confirm", "Confirm password", "password"],
+                        ["signup_secret", "Admin signup key", "password"],
+                      ] as const
+                    ).map(([name, label, type]) => (
+                      <div key={name}>
+                        <Label htmlFor={name}>{label}</Label>
+                        <Input
+                          id={name}
+                          name={name}
+                          type={type}
+                          required
+                          className="mt-1.5 h-11 rounded-xl"
+                        />
+                        {fieldErrors[name] && (
+                          <p className="mt-1 text-xs text-destructive">{fieldErrors[name]}</p>
+                        )}
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      Password: 8+ characters with uppercase, lowercase, a number and a symbol.
+                    </p>
+                    <Button
+                      type="submit"
+                      className="mt-2 h-11 w-full rounded-xl"
+                      size="lg"
+                      disabled={busy}
+                    >
+                      {busy ? "Please wait…" : "Create initial admin account"}
+                    </Button>
+                  </>
+                ) : (
+                  <p className="rounded-xl bg-[#f6f8fb] p-4 text-sm text-muted-foreground">
+                    {signupState?.reason === "already_created"
+                      ? "The initial admin account has already been created. Sign in to continue."
+                      : "Initial admin signup is not configured. Contact the site owner."}
+                  </p>
+                )
+              ) : (
+                <>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      className="mt-1.5 h-11 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                      className="mt-1.5 h-11 rounded-xl"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="h-11 w-full rounded-xl"
+                    size="lg"
+                    disabled={busy}
+                  >
+                    {busy ? "Please wait…" : "Sign in to admin"}
                   </Button>
                 </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {signupState?.reason === "already_created"
-                    ? "The initial admin account has already been created. Sign in to continue."
-                    : "Initial admin signup is not configured. Contact the site owner."}
-                </p>
-              )
-            ) : (
-              <>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" required className="mt-1.5" />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    className="mt-1.5"
-                  />
-                </div>
-                <Button type="submit" className="w-full" size="lg" disabled={busy}>
-                  {busy ? "Please wait…" : "Sign in"}
-                </Button>
-              </>
-            )}
-          </form>
-
-          {!signupStateLoading && !signupStateError && signupAvailable && (
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              {mode === "login" ? (
-                <>
-                  First-time setup?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setMode("register")}
-                    className="font-semibold text-primary hover:underline"
-                  >
-                    Create the initial admin account
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already set up?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setMode("login")}
-                    className="font-semibold text-primary hover:underline"
-                  >
-                    Sign in
-                  </button>
-                </>
               )}
+            </form>
+
+            {!signupStateLoading && !signupStateError && signupAvailable && (
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                {mode === "login" ? (
+                  <>
+                    First-time setup?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setMode("register")}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      Create initial account
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already set up?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setMode("login")}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+            <p className="mt-5 border-t pt-4 text-center text-xs">
+              <Link
+                to="/auth"
+                search={{ mode: "login" }}
+                className="font-medium text-muted-foreground hover:text-foreground hover:underline"
+              >
+                ← Student sign in
+              </Link>
             </p>
-          )}
-          <p className="mt-2 text-center text-xs">
-            <Link
-              to="/auth"
-              search={{ mode: "login" }}
-              className="text-muted-foreground hover:underline"
-            >
-              ← Student sign in
-            </Link>
-          </p>
+          </section>
         </div>
       </main>
     </div>
