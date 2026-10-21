@@ -285,6 +285,11 @@ function AuthPage() {
               ← Back to home
             </Link>
           </p>
+          <p className="mt-2 text-center text-xs">
+            <Link to="/admin/login" className="text-muted-foreground hover:underline">
+              Administrator sign in
+            </Link>
+          </p>
         </div>
       </main>
     </div>

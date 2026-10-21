@@ -54,12 +54,35 @@ export const registerFn = createServerFn({ method: "POST" })
     return registerAccount(data);
   });
 
+export const registerAdminFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      email: emailSchema,
+      password: passwordSchema,
+      full_name: z.string().trim().min(2).max(100),
+      signup_secret: z.string().min(1).max(256),
+    }),
+  )
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { registerAdminAccount } = await import("./backend.server");
+    return registerAdminAccount(data);
+  });
+
 export const loginFn = createServerFn({ method: "POST" })
   .validator(z.object({ email: emailSchema, password: z.string().min(1).max(128) }))
   .handler(async ({ data }) => {
     assertSameOrigin();
     const { loginAccount } = await import("./backend.server");
     return loginAccount(data);
+  });
+
+export const adminLoginFn = createServerFn({ method: "POST" })
+  .validator(z.object({ email: emailSchema, password: z.string().min(1).max(128) }))
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { loginAdminAccount } = await import("./backend.server");
+    return loginAdminAccount(data);
   });
 
 export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {

@@ -20,6 +20,7 @@ import { Route as AuthenticatedRequestsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
 import { Route as AuthenticatedSubmitRouteImport } from './routes/_authenticated/submit'
 import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
@@ -79,6 +80,11 @@ const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFilesRoute = ApiFilesRouteImport.update({
   id: '/api/files',
   path: '/api/files',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/students': typeof AuthenticatedStudentsRoute
   '/submit': typeof AuthenticatedSubmitRoute
   '/support': typeof AuthenticatedSupportRoute
+  '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/students': typeof AuthenticatedStudentsRoute
   '/submit': typeof AuthenticatedSubmitRoute
   '/support': typeof AuthenticatedSupportRoute
+  '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
   '/_authenticated/submit': typeof AuthenticatedSubmitRoute
   '/_authenticated/support': typeof AuthenticatedSupportRoute
+  '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/students'
     | '/submit'
     | '/support'
+    | '/admin/login'
     | '/api/files'
     | '/admin/dashboard'
     | '/manage/$id'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/students'
     | '/submit'
     | '/support'
+    | '/admin/login'
     | '/api/files'
     | '/admin/dashboard'
     | '/manage/$id'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/_authenticated/students'
     | '/_authenticated/submit'
     | '/_authenticated/support'
+    | '/admin/login'
     | '/api/files'
     | '/_authenticated/admin/dashboard'
     | '/_authenticated/manage/$id'
@@ -208,6 +220,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  AdminLoginRoute: typeof AdminLoginRoute
   ApiFilesRoute: typeof ApiFilesRoute
 }
 
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSupportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/files': {
       id: '/api/files'
       path: '/api/files'
@@ -364,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  AdminLoginRoute: AdminLoginRoute,
   ApiFilesRoute: ApiFilesRoute,
 }
 export const routeTree = rootRouteImport

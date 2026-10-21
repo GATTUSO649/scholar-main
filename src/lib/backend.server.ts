@@ -181,6 +181,59 @@ export async function registerAccount(input: {
   return { id, email };
 }
 
+export async function registerAdminAccount(input: {
+  email: string;
+  password: string;
+  full_name: string;
+  signup_secret: string;
+}) {
+  const configuredSecret = process.env["ADMIN_SIGNUP_SECRET"];
+  if (!configuredSecret || configuredSecret.length < 32) {
+    throw new AuthError("Admin signup is not available.");
+  }
+
+  const expected = createHash("sha256").update(configuredSecret).digest();
+  const actual = createHash("sha256").update(input.signup_secret).digest();
+  if (!timingSafeEqual(actual, expected)) {
+    throw new AuthError("The admin signup key is invalid.");
+  }
+
+  const email = input.email.trim().toLowerCase();
+  const id = randomUUID();
+  const salt = randomBytes(16);
+  const passwordHash = `${salt.toString("hex")}:${(await derivePassword(input.password, salt)).toString("hex")}`;
+  const sessionToken = randomBytes(32).toString("base64url");
+  try {
+    const db = getDatabase();
+    await db.transaction(async (tx) => {
+      await tx.insert(users).values({ id, email, passwordHash });
+      await tx.insert(profiles).values({
+        id,
+        email,
+        fullName: input.full_name.trim(),
+      });
+      await tx.insert(userRoles).values({ id: randomUUID(), userId: id, role: "admin" });
+      await tx.insert(sessions).values({
+        tokenHash: tokenHash(sessionToken),
+        userId: id,
+        expiresAt: new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000),
+      });
+    });
+    setSessionCookie(sessionToken);
+  } catch (error) {
+    if (isDuplicateKey(error))
+      throw new AuthError(
+        "An account with this email already exists. Try logging in or resetting your password.",
+      );
+    console.error(
+      "Administrator registration failed.",
+      getDatabaseErrorCode(error) ?? "unknown database error",
+    );
+    throw new AuthError("Could not create the administrator account. Please try again.");
+  }
+  return { id, email };
+}
+
 class AuthError extends Error {}
 
 export function getDatabaseErrorCode(error: unknown): string | undefined {
@@ -201,7 +254,7 @@ function isDuplicateKey(error: unknown): boolean {
   return getDatabaseErrorCode(error) === "ER_DUP_ENTRY";
 }
 
-export async function loginAccount(input: { email: string; password: string }) {
+async function authenticateAccount(input: { email: string; password: string }, adminOnly: boolean) {
   try {
     const db = getDatabase();
     const email = input.email.trim().toLowerCase();
@@ -235,6 +288,14 @@ export async function loginAccount(input: { email: string; password: string }) {
       }
     }
     if (!account || !valid) throw new AuthError("Email or password is incorrect.");
+    if (adminOnly) {
+      const [role] = await db
+        .select({ id: userRoles.id })
+        .from(userRoles)
+        .where(and(eq(userRoles.userId, account.id), eq(userRoles.role, "admin")))
+        .limit(1);
+      if (!role) throw new AuthError("Email or password is incorrect.");
+    }
     await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
     await createSession(account.id);
     return { id: account.id, email: account.email };
@@ -243,6 +304,14 @@ export async function loginAccount(input: { email: string; password: string }) {
     console.error("Sign-in failed.", getDatabaseErrorCode(error) ?? "unknown database error");
     throw new AuthError("Sign-in is temporarily unavailable. Please try again.");
   }
+}
+
+export function loginAccount(input: { email: string; password: string }) {
+  return authenticateAccount(input, false);
+}
+
+export function loginAdminAccount(input: { email: string; password: string }) {
+  return authenticateAccount(input, true);
 }
 
 export async function logoutAccount() {
