@@ -29,7 +29,71 @@ const FIELDS = [
   ["full_name", "Full name"],
   ["phone", "Phone"],
   ["country", "Country"],
-  ["institution", "Institution"],
+] as const;
+const KENYAN_UNIVERSITIES = [
+  "Africa International University",
+  "Africa Nazarene University",
+  "Aga Khan University",
+  "Alupe University",
+  "Amref International University",
+  "Catholic University of Eastern Africa",
+  "Chuka University",
+  "Co-operative University of Kenya",
+  "Daystar University",
+  "Dedan Kimathi University of Technology",
+  "Egerton University",
+  "Garissa University",
+  "Great Lakes University of Kisumu",
+  "Gretsa University",
+  "Jaramogi Oginga Odinga University of Science and Technology",
+  "Jomo Kenyatta University of Agriculture and Technology",
+  "Kabarak University",
+  "Kaimosi Friends University",
+  "Karatina University",
+  "KCA University",
+  "Kenyatta University",
+  "Kenya Highlands Evangelical University",
+  "Kenya Methodist University",
+  "Kirinyaga University",
+  "Kiriri Women's University of Science and Technology",
+  "Kisii University",
+  "Laikipia University",
+  "Lukenya University",
+  "Maasai Mara University",
+  "Machakos University",
+  "Management University of Africa",
+  "Maseno University",
+  "Masinde Muliro University of Science and Technology",
+  "Meru University of Science and Technology",
+  "Moi University",
+  "Mount Kenya University",
+  "Multimedia University of Kenya",
+  "Murang'a University of Technology",
+  "Pan Africa Christian University",
+  "Pioneer International University",
+  "Presbyterian University of East Africa",
+  "Pwani University",
+  "Riara University",
+  "Rongo University",
+  "Scott Christian University",
+  "South Eastern Kenya University",
+  "St. Paul's University",
+  "Strathmore University",
+  "Taita Taveta University",
+  "Tangaza University",
+  "Technical University of Kenya",
+  "Technical University of Mombasa",
+  "Tharaka University",
+  "The East African University",
+  "Tom Mboya University",
+  "Umma University",
+  "United States International University-Africa",
+  "University of Eldoret",
+  "University of Embu",
+  "University of Kabianga",
+  "University of Nairobi",
+  "Uzima University",
+  "Zetech University",
 ] as const;
 const STUDY_YEARS = ["1st year", "2nd year", "3rd year", "4th year", "Other"] as const;
 
@@ -138,6 +202,23 @@ function Profile() {
               <Input id={k} name={k} defaultValue={p[k] ?? ""} className="mt-1.5" />
             </div>
           ))}
+          <div>
+            <Label htmlFor="institution">Institution</Label>
+            <Input
+              id="institution"
+              name="institution"
+              list="kenyan-universities"
+              defaultValue={p.institution ?? ""}
+              placeholder="Type or select a university"
+              maxLength={120}
+              className="mt-1.5"
+            />
+            <datalist id="kenyan-universities">
+              {KENYAN_UNIVERSITIES.map((university) => (
+                <option key={university} value={university} />
+              ))}
+            </datalist>
+          </div>
           <div>
             <Label htmlFor="year_of_study">Year of study</Label>
             <Select name="year_of_study" defaultValue={currentStudyYear}>
