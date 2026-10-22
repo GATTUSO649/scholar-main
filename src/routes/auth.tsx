@@ -298,15 +298,6 @@ function AuthPage() {
               ← Back to home
             </Link>
           </p>
-          <p className="mt-2 text-center text-xs">
-            <Link
-              to="/admin/login"
-              search={{ mode: "register" }}
-              className="text-muted-foreground hover:underline"
-            >
-              Administrator sign in or create account
-            </Link>
-          </p>
         </div>
       </main>
     </div>
