@@ -23,11 +23,7 @@ const statusSchema = z.enum([
 const paymentSchema = z.enum(["unpaid", "pending", "paid", "refunded"]);
 
 function assertSameOrigin() {
-  const request = getRequest();
-  const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== request.headers.get("host")) {
-    throw new Error("This request origin is not allowed.");
-  }
+  requireSameOrigin(getRequest());
 }
 
 export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -249,8 +245,23 @@ export const updateRequestFn = createServerFn({ method: "POST" })
   });
 
 export function requireSameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== request.headers.get("host")) {
+  if (!isSameOriginRequest(request)) {
     throw new Error("This request origin is not allowed.");
+  }
+}
+
+export function isSameOriginRequest(request: Request) {
+  const source = request.headers.get("origin") ?? request.headers.get("referer");
+  const host = request.headers.get("host");
+  if (!source || !host) return false;
+
+  try {
+    const sourceUrl = new URL(source);
+    const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+    const requestProtocol = forwardedProtocol || new URL(request.url).protocol.slice(0, -1);
+    if (requestProtocol !== "http" && requestProtocol !== "https") return false;
+    return sourceUrl.origin === new URL(`${requestProtocol}://${host}`).origin;
+  } catch {
+    return false;
   }
 }
