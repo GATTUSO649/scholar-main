@@ -33,7 +33,6 @@ function ManageRoute() {
   );
 }
 
-const CURRENCIES = ["USD", "KES", "GBP", "EUR"];
 const PAYS: PaymentStatus[] = ["unpaid", "pending", "paid", "refunded"];
 
 function Manage() {
@@ -86,6 +85,7 @@ function Manage() {
       </div>
     );
   const r = data.req;
+  const currencies = r.currency === "USD" ? ["USD"] : ["USD", r.currency];
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -281,10 +281,14 @@ function Manage() {
                     defaultValue={r.currency}
                     className="mt-1.5 h-10 w-full rounded-xl border border-input bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   >
-                    {CURRENCIES.map((currency) => (
+                    {currencies.map((currency) => (
                       <option key={currency}>{currency}</option>
                     ))}
                   </select>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    New quotes use USD. This request’s existing currency is preserved unless you
+                    change it; amounts are not automatically converted.
+                  </p>
                 </div>
               </div>
               <div>

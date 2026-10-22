@@ -393,7 +393,7 @@ function AdminDashboard() {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Finance
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-[#17263c]">Paid revenue</h2>
+              <h2 className="mt-1 text-lg font-semibold text-[#17263c]">Paid totals</h2>
             </div>
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
               <Banknote className="h-5 w-5" />
@@ -421,7 +421,8 @@ function AdminDashboard() {
             </p>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            Totals are separated by currency and include requests marked paid.
+            USD is the standard currency for new quotes. Historical paid totals remain grouped by
+            their saved currency.
           </p>
           <Link
             to="/admin"
