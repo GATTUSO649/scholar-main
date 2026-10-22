@@ -194,19 +194,16 @@ function Shell() {
           </div>
         )}
         <main className="min-w-0">
-          <div className="sticky top-0 z-10 hidden h-[72px] items-center justify-between border-b bg-white/95 px-8 backdrop-blur lg:flex">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="sticky top-0 z-10 hidden h-[72px] items-center justify-between border-b border-white/10 bg-[#17263c] px-8 text-white lg:flex">
+            <div className="flex items-center gap-2 text-sm text-white/65">
               <span>ScholarDesk</span>
               <ChevronRight className="h-4 w-4" />
-              <span className="font-semibold text-foreground">{pageTitle}</span>
+              <span className="font-semibold text-white">{pageTitle}</span>
             </div>
             <div className="flex items-center gap-3">
               <NotificationBell />
-              <ProfileShortcut
-                name={profile?.full_name}
-                className="text-[#17263c] hover:bg-[#f1f4f8]"
-              />
-              <span className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              <ProfileShortcut name={profile?.full_name} className="text-white hover:bg-white/10" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70">
                 <ShieldCheck className="h-3.5 w-3.5" /> Private workspace
               </span>
             </div>
