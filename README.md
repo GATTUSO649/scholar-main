@@ -2,6 +2,8 @@
 
 ScholarDesk is a student support portal built with TanStack Start, React, Drizzle ORM and MySQL. The server owns all database access. Browser pages use typed server functions; authentication uses random HttpOnly session cookies stored as hashes in MySQL, and each private operation checks the current user's role or ownership on the server.
 
+The public site has separate pages for `/how-it-works`, `/services`, `/pricing`, `/faq`, and `/contact`.
+
 ## Requirements
 
 - Node.js 20.18 or newer

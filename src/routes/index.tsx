@@ -1,11 +1,6 @@
-import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import {
   Upload,
-  FileSearch,
-  CreditCard,
-  PackageCheck,
   ShieldCheck,
   Clock,
   Lock,
@@ -16,40 +11,12 @@ import {
   ClipboardList,
   Smartphone,
   Globe,
-  Mail,
-  Phone,
-  Keyboard,
-  ScanText,
   LayoutDashboard,
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Logo, BRAND } from "@/components/Logo";
-import { getPublicDataFn } from "@/lib/backend";
 import hero from "@/assets/WhatsApp Image 2026-10-17 at 1.31.14 PM.jpeg";
-
-type ServiceRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  base_price: number | string;
-  currency: string;
-  unit: string;
-};
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -73,64 +40,7 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const ICONS = [PenLine, Search, FileText, Keyboard, ScanText, ClipboardList];
-
-const steps = [
-  {
-    icon: Upload,
-    t: "Submit your request",
-    d: "Describe your task, set a deadline and upload your files.",
-  },
-  {
-    icon: FileSearch,
-    t: "Get a quote",
-    d: "Our team reviews your request and sends a clear price.",
-  },
-  { icon: CreditCard, t: "Pay securely", d: "Pay by M-Pesa, card or other supported methods." },
-  {
-    icon: PackageCheck,
-    t: "Track & receive",
-    d: "Follow progress live and download your feedback.",
-  },
-];
-
-const faqs = [
-  [
-    "What kind of support do you offer?",
-    "Assignment typing, proofreading, plagiarism check and removal, project tasks, research guidance and draft reviews. You choose only what you need.",
-  ],
-  [
-    "How is the price calculated?",
-    "Each service has a base rate (per page, hour or slide). Urgent deadlines and complexity may adjust the final quote, which you approve before paying.",
-  ],
-  [
-    "Which payment methods are accepted?",
-    "M-Pesa for students in Kenya, plus Visa, Mastercard and other international methods in KES, USD, GBP and EUR.",
-  ],
-  [
-    "Are my files private?",
-    "Yes. Files are stored privately and only you and our support team can access them.",
-  ],
-  [
-    "Can I track my request?",
-    "Every request has a live status timeline in your dashboard, from submission to completion.",
-  ],
-];
-
 function Home() {
-  const [selected, setSelected] = useState<ServiceRow | null>(null);
-  const { data: showPrices = true } = useQuery({
-    queryKey: ["site-settings"],
-    queryFn: async () => (await getPublicDataFn()).showPrices,
-  });
-  const { data: services = [] } = useQuery({
-    queryKey: ["services"],
-    queryFn: async () => (await getPublicDataFn()).services,
-  });
-  const SelectedIcon = selected
-    ? ICONS[services.findIndex((s) => s.id === selected.id) % ICONS.length]!
-    : null;
-
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -267,132 +177,6 @@ function Home() {
         </div>
       </div>
 
-      {/* How it works */}
-      <section id="how" className="mx-auto max-w-6xl px-5 py-24">
-        <SectionTitle eyebrow="How it works" title="From upload to feedback in four steps" />
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {steps.map((s, i) => (
-            <div
-              key={s.t}
-              className="group relative rounded-3xl border bg-card p-7 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:border-accent hover:shadow-glow"
-            >
-              <div className="flex items-center justify-between">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary text-primary-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
-                  <s.icon className="h-5 w-5" />
-                </span>
-                <span className="font-display text-4xl text-accent/60">0{i + 1}</span>
-              </div>
-              <h3 className="mt-6 text-lg font-semibold">{s.t}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{s.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Services + pricing */}
-      <section id="services" className="bg-secondary py-20">
-        <div className="mx-auto max-w-6xl px-5">
-          <SectionTitle eyebrow="Services" title="Support that helps you learn" />
-          <div id="pricing" className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {services.map((s, i) => {
-              const Icon = ICONS[i % ICONS.length]!;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSelected(s)}
-                  aria-label={`View details for ${s.name}`}
-                  className="group flex cursor-pointer flex-col rounded-3xl border bg-card p-7 text-left shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:border-accent hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <Icon className="h-6 w-6 text-accent" />
-                  <h3 className="mt-4 text-xl font-semibold">{s.name}</h3>
-                  <p className="mt-2 flex-1 text-sm text-muted-foreground">{s.description}</p>
-                  {showPrices && Number(s.base_price) > 0 ? (
-                    <p className="mt-6 text-sm text-muted-foreground">
-                      {s.unit.startsWith("for ") ? "" : "From "}
-                      <span className="font-display text-2xl font-semibold text-foreground">
-                        {s.currency === "KES" ? "KSh " : "$"}
-                        {Number(s.base_price).toFixed(0)}
-                      </span>{" "}
-                      {s.unit}
-                    </p>
-                  ) : (
-                    <p className="mt-6 text-sm font-medium text-accent">
-                      Price on request — get a free quote
-                    </p>
-                  )}
-                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-accent">
-                    View details{" "}
-                    <span className="transition-transform duration-300 group-hover:translate-x-1">
-                      →
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Final prices depend on deadline and complexity. You approve every quote before paying.
-          </p>
-        </div>
-      </section>
-
-      {/* Service detail popup */}
-      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-md rounded-3xl border-accent/40 p-0 overflow-hidden">
-          {selected && SelectedIcon && (
-            <div>
-              <div className="bg-hero px-7 pb-7 pt-9 text-ink-foreground">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-glow">
-                  <SelectedIcon className="h-7 w-7" />
-                </div>
-                <DialogHeader className="mt-5 space-y-2 text-left">
-                  <DialogTitle className="text-2xl font-semibold text-ink-foreground">
-                    {selected.name}
-                  </DialogTitle>
-                  <DialogDescription className="text-sm leading-relaxed text-ink-foreground/75">
-                    {selected.description}
-                  </DialogDescription>
-                </DialogHeader>
-                {showPrices && Number(selected.base_price) > 0 && (
-                  <p className="mt-4 text-sm text-ink-foreground/85">
-                    {selected.unit.startsWith("for ") ? "" : "From "}
-                    <span className="font-display text-3xl font-semibold text-gradient-gold">
-                      {selected.currency === "KES" ? "KSh " : "$"}
-                      {Number(selected.base_price).toFixed(0)}
-                    </span>{" "}
-                    {selected.unit}
-                  </p>
-                )}
-              </div>
-              <div className="px-7 py-6">
-                <ul className="space-y-3 text-sm text-muted-foreground">
-                  {[
-                    "Submit your task with a clear deadline",
-                    "We review it and send you a free quote",
-                    "You approve the quote, then pay securely",
-                    "Track progress live and download the finished work",
-                  ].map((line) => (
-                    <li key={line} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-                <Button asChild className="mt-6 w-full h-11 text-base">
-                  <Link to="/submit" search={{ service: selected.id }}>
-                    Request this service →
-                  </Link>
-                </Button>
-                <p className="mt-3 text-center text-xs text-muted-foreground">
-                  No payment needed to get a quote.
-                </p>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* Why + payments + dashboard */}
       <section className="mx-auto max-w-6xl px-5 py-20">
         <SectionTitle eyebrow="Why choose us" title="Built for students, everywhere" />
@@ -484,56 +268,6 @@ function Home() {
                 </figcaption>
               </figure>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section id="faq" className="bg-secondary py-20">
-        <div className="mx-auto max-w-3xl px-5">
-          <SectionTitle eyebrow="FAQ" title="Frequently asked questions" />
-          <Accordion type="single" collapsible className="mt-10">
-            {faqs.map(([q, a]) => (
-              <AccordionItem key={q} value={q!}>
-                <AccordionTrigger className="text-left text-base">{q}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">{a}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-      </section>
-
-      {/* Contact / CTA */}
-      <section id="contact" className="bg-hero text-ink-foreground">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-20 md:grid-cols-2">
-          <div>
-            <h2 className="text-3xl font-semibold sm:text-4xl">Ready to get started?</h2>
-            <p className="mt-4 text-ink-foreground/75">
-              Create a free account and submit your first request in minutes.
-            </p>
-            <Button asChild variant="hero" size="lg" className="mt-8">
-              <Link to="/auth" search={{ mode: "register" }}>
-                Create my account
-              </Link>
-            </Button>
-          </div>
-          <div className="space-y-4 text-ink-foreground/85">
-            <h3 className="text-xl font-semibold text-ink-foreground">Contact support</h3>
-            <p className="flex items-center gap-3">
-              <Mail className="h-5 w-5 text-accent" /> support@scholardesk.app
-            </p>
-            <p className="flex items-center gap-3">
-              <Phone className="h-5 w-5 text-accent" /> +254 700 000 000
-            </p>
-            <p className="text-sm text-ink-foreground/60">Mon–Sat, 8:00–20:00 EAT</p>
-          </div>
-        </div>
-        <div className="border-t border-ink-foreground/10">
-          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 text-sm text-ink-foreground/60 sm:flex-row">
-            <Logo light />
-            <p>
-              © {new Date().getFullYear()} {BRAND}. Academic support within integrity guidelines.
-            </p>
           </div>
         </div>
       </section>

@@ -208,54 +208,70 @@ function AdminLoginPage() {
 
             <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
               {mode === "register" ? (
-                signupStateLoading ? (
-                  <p className="text-sm text-muted-foreground">Checking admin signup setup…</p>
-                ) : signupStateError ? (
-                  <p className="text-sm text-destructive">
-                    Could not check admin setup. Refresh the page and try again.
+                <>
+                  {signupStateLoading ? (
+                    <p className="text-sm text-muted-foreground">Checking admin signup setup…</p>
+                  ) : signupStateError ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>Could not check signup setup</AlertTitle>
+                      <AlertDescription>
+                        Refresh the page to verify that admin signup is configured.
+                      </AlertDescription>
+                    </Alert>
+                  ) : !signupAvailable ? (
+                    <Alert>
+                      <AlertTitle>Admin signup is not enabled on this server</AlertTitle>
+                      <AlertDescription>
+                        In Render, add ADMIN_SIGNUP_SECRET under your service’s Environment
+                        settings, then redeploy. Enter the same key below; it must be at least 32
+                        characters. Keep it private.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                  {(
+                    [
+                      ["full_name", "Full name", "text"],
+                      ["email", "Email", "email"],
+                      ["password", "Password", "password"],
+                      ["confirm", "Confirm password", "password"],
+                      ["signup_secret", "Admin signup key", "password"],
+                    ] as const
+                  ).map(([name, label, type]) => (
+                    <div key={name}>
+                      <Label htmlFor={name}>{label}</Label>
+                      <Input
+                        id={name}
+                        name={name}
+                        type={type}
+                        required
+                        autoComplete={
+                          name === "password"
+                            ? "new-password"
+                            : name === "confirm"
+                              ? "new-password"
+                              : name === "email"
+                                ? "email"
+                                : undefined
+                        }
+                        className="mt-1.5 h-11 rounded-xl"
+                      />
+                      {fieldErrors[name] && (
+                        <p className="mt-1 text-xs text-destructive">{fieldErrors[name]}</p>
+                      )}
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    Password: 8+ characters with uppercase, lowercase, a number and a symbol.
                   </p>
-                ) : signupAvailable ? (
-                  <>
-                    {(
-                      [
-                        ["full_name", "Full name", "text"],
-                        ["email", "Email", "email"],
-                        ["password", "Password", "password"],
-                        ["confirm", "Confirm password", "password"],
-                        ["signup_secret", "Admin signup key", "password"],
-                      ] as const
-                    ).map(([name, label, type]) => (
-                      <div key={name}>
-                        <Label htmlFor={name}>{label}</Label>
-                        <Input
-                          id={name}
-                          name={name}
-                          type={type}
-                          required
-                          className="mt-1.5 h-11 rounded-xl"
-                        />
-                        {fieldErrors[name] && (
-                          <p className="mt-1 text-xs text-destructive">{fieldErrors[name]}</p>
-                        )}
-                      </div>
-                    ))}
-                    <p className="text-xs text-muted-foreground">
-                      Password: 8+ characters with uppercase, lowercase, a number and a symbol.
-                    </p>
-                    <Button
-                      type="submit"
-                      className="mt-2 h-11 w-full rounded-xl"
-                      size="lg"
-                      disabled={busy}
-                    >
-                      {busy ? "Please wait…" : "Create admin account"}
-                    </Button>
-                  </>
-                ) : (
-                  <p className="rounded-xl bg-[#f6f8fb] p-4 text-sm text-muted-foreground">
-                    Administrator signup is not configured. Contact the site owner.
-                  </p>
-                )
+                  <Button
+                    type="submit"
+                    className="mt-2 h-11 w-full rounded-xl"
+                    size="lg"
+                    disabled={busy || signupStateLoading || signupStateError || !signupAvailable}
+                  >
+                    {busy ? "Please wait…" : "Create admin account"}
+                  </Button>
+                </>
               ) : (
                 <>
                   <div>
@@ -302,20 +318,16 @@ function AdminLoginPage() {
                 </button>
               </p>
             ) : (
-              !signupStateLoading &&
-              !signupStateError &&
-              signupAvailable && (
-                <p className="mt-6 text-center text-sm text-muted-foreground">
-                  Need an admin account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setMode("register")}
-                    className="font-semibold text-primary hover:underline"
-                  >
-                    Create admin account
-                  </button>
-                </p>
-              )
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                Need an admin account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setMode("register")}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Create admin account
+                </button>
+              </p>
             )}
             <p className="mt-5 border-t pt-4 text-center text-xs">
               <Link

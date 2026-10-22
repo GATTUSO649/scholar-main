@@ -22,4 +22,18 @@ describe("App routing", () => {
 
     expect(matches.at(-1)?.routeId).toBe("/admin/login");
   });
+
+  it.each([
+    ["/how-it-works", "/how-it-works"],
+    ["/services", "/services"],
+    ["/pricing", "/pricing"],
+    ["/faq", "/faq"],
+    ["/contact", "/contact"],
+  ])("matches the standalone public page %s", (path, routeId) => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    const matches = router.matchRoutes(path);
+
+    expect(matches.at(-1)?.routeId).toBe(routeId);
+  });
 });
