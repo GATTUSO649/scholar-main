@@ -29,6 +29,13 @@
       "when": 1792677600000,
       "tag": "0003_kes_request_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1792680000000,
+      "tag": "0004_practicum_report_writing",
+      "breakpoints": true
     }
   ]
 }
