@@ -21,11 +21,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getAdminRequestsFn, getAdminStudentCountFn } from "@/lib/backend";
 import { AdminGate } from "@/components/AdminGate";
 import { RequestTable } from "@/components/RequestTable";
-import { ACTIVE, STATUS_LABEL, STATUS_ORDER, type RequestStatus } from "@/lib/status";
+import { getAdminRequestsFn, getAdminStudentCountFn } from "@/lib/backend";
 import { money } from "@/lib/requests";
+import { ACTIVE, STATUS_LABEL, STATUS_ORDER, type RequestStatus } from "@/lib/status";
 
 export const Route = createFileRoute("/_authenticated/admin/dashboard")({
   head: () => ({
@@ -64,19 +64,33 @@ function AdminDashboard() {
     queryKey: ["admin-student-count"],
     queryFn: () => getAdminStudentCountFn(),
   });
+
   const requests = reqs ?? [];
   const now = new Date();
-  const newToday = requests.filter(
-    (request) => new Date(request.created_at).toDateString() === now.toDateString(),
-  ).length;
+  const today = now.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const newRequests = requests.filter((request) => request.status === "submitted");
+  const activeRequests = requests.filter((request) => ACTIVE.includes(request.status));
   const awaitingPayment = requests.filter(
     (request) =>
-      request.status === "awaiting_payment" ||
-      (request.payment_status === "pending" && ACTIVE.includes(request.status)),
-  ).length;
-  const overdue = requests.filter(
+      request.payment_status === "pending" ||
+      (request.status === "awaiting_payment" && request.payment_status !== "paid"),
+  );
+  const overdueRequests = requests.filter(
     (request) =>
       request.deadline && new Date(request.deadline) < now && ACTIVE.includes(request.status),
+  );
+  const dueSoon = requests.filter((request) => {
+    if (!request.deadline || !ACTIVE.includes(request.status)) return false;
+    const deadline = new Date(request.deadline).getTime();
+    return deadline >= now.getTime() && deadline <= now.getTime() + 7 * 24 * 60 * 60 * 1000;
+  });
+  const newToday = requests.filter(
+    (request) => new Date(request.created_at).toDateString() === now.toDateString(),
   ).length;
   const revenueByCurrency = requests.reduce<Record<string, number>>((totals, request) => {
     if (request.payment_status === "paid") {
@@ -85,40 +99,51 @@ function AdminDashboard() {
     return totals;
   }, {});
   const revenueCurrencies = Object.entries(revenueByCurrency);
-  const recent = requests.slice(0, 6);
-  const metrics = [
+
+  const kpis: {
+    label: string;
+    value: string | number;
+    detail: string;
+    icon: typeof FilePlus2;
+    to: "/admin" | "/students";
+    tint: string;
+  }[] = [
     {
-      label: "New requests",
-      value: requests.filter((request) => request.status === "submitted").length,
-      footnote: `${newToday} received today`,
+      label: "Total requests",
+      value: requestsLoading || requestsError ? "—" : requests.length,
+      detail: `${newToday} received today`,
       icon: FilePlus2,
-      color: "text-sky-700 bg-sky-50",
+      to: "/admin",
+      tint: "bg-sky-50 text-sky-700",
+    },
+    {
+      label: "Needs review",
+      value: requestsLoading || requestsError ? "—" : newRequests.length,
+      detail: "New submissions",
+      icon: Clock3,
+      to: "/admin",
+      tint: "bg-amber-50 text-amber-700",
     },
     {
       label: "Active work",
-      value: requests.filter((request) => ACTIVE.includes(request.status)).length,
-      footnote: "Moving through the queue",
-      icon: Clock3,
-      color: "text-indigo-700 bg-indigo-50",
+      value: requestsLoading || requestsError ? "—" : activeRequests.length,
+      detail: "Open requests in progress",
+      icon: CheckCircle2,
+      to: "/admin",
+      tint: "bg-indigo-50 text-indigo-700",
     },
     {
-      label: "Awaiting payment",
-      value: awaitingPayment,
-      footnote: "Quote sent to student",
-      icon: Banknote,
-      color: "text-amber-700 bg-amber-50",
-    },
-    {
-      label: "Overdue",
-      value: overdue,
-      footnote: "Active past deadline",
-      icon: CalendarClock,
-      color: "text-rose-700 bg-rose-50",
+      label: "Students",
+      value: studentsLoading || studentsError ? "—" : (studentCount ?? 0),
+      detail: "Registered accounts",
+      icon: Users,
+      to: "/students",
+      tint: "bg-violet-50 text-violet-700",
     },
   ];
+
   const allStatuses: RequestStatus[] = [...STATUS_ORDER, "cancelled"];
   const statusCounts = allStatuses.map((status) => ({
-    status,
     label: STATUS_LABEL[status],
     count: requests.filter((request) => request.status === status).length,
   }));
@@ -129,146 +154,214 @@ function AdminDashboard() {
       month: month.toLocaleDateString(undefined, { month: "short" }),
     };
   });
-  const requestCountsByMonth = new Map(monthKeys.map(({ key }) => [key, 0]));
+  const monthlyCounts = new Map(monthKeys.map(({ key }) => [key, 0]));
   requests.forEach((request) => {
     const created = new Date(request.created_at);
     const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}`;
-    if (requestCountsByMonth.has(key)) {
-      requestCountsByMonth.set(key, (requestCountsByMonth.get(key) ?? 0) + 1);
+    if (monthlyCounts.has(key)) {
+      monthlyCounts.set(key, (monthlyCounts.get(key) ?? 0) + 1);
     }
   });
   const requestTrend = monthKeys.map(({ key, month }) => ({
     month,
-    requests: requestCountsByMonth.get(key) ?? 0,
+    requests: monthlyCounts.get(key) ?? 0,
   }));
 
   return (
     <div className="space-y-7">
-      <header className="relative overflow-hidden rounded-[26px] bg-[#17263c] px-6 py-7 text-white shadow-[0_18px_40px_-28px_rgba(23,38,60,0.8)] sm:px-9 sm:py-9">
-        <div className="pointer-events-none absolute -right-12 -top-24 h-72 w-72 rounded-full border-[34px] border-white/[0.04]" />
-        <div className="pointer-events-none absolute right-36 top-20 h-40 w-40 rounded-full bg-[#d5ac57]/10 blur-3xl" />
-        <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
-          <div>
-            <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Operations overview
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-[40px]">
-              Good {now.getHours() < 12 ? "morning" : now.getHours() < 18 ? "afternoon" : "evening"}
-            </h1>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/60">
-              Here’s the latest across requests, payments, and student activity.
-            </p>
-          </div>
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#718096]">
+            Admin workspace
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#17263c] sm:text-4xl">
+            Dashboard
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Monitor operations, handle urgent work, and keep student requests moving.
+          </p>
+          <p className="mt-2 text-xs font-medium text-[#718096]">{today}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/students"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-white px-4 text-sm font-semibold text-[#263b58] shadow-sm transition-colors hover:bg-[#f8fafc]"
+          >
+            <Users className="h-4 w-4" /> Students
+          </Link>
           <Link
             to="/admin"
-            className="inline-flex h-11 items-center justify-center gap-2 self-start rounded-xl bg-accent px-4 text-sm font-bold text-accent-foreground transition-transform hover:-translate-y-0.5 md:self-auto"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#17263c] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#263b58]"
           >
-            Open request queue <ArrowRight className="h-4 w-4" />
+            View request queue <ArrowRight className="h-4 w-4" />
           </Link>
-        </div>
-        <div className="relative mt-8 flex flex-wrap gap-x-7 gap-y-3 border-t border-white/10 pt-5 text-xs text-white/55">
-          <span>{requestsLoading ? "…" : requests.length} total requests</span>
-          <span>{studentsLoading ? "…" : (studentCount ?? 0)} students</span>
-          <span>
-            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-          </span>
         </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <article
-            key={metric.label}
-            className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-muted-foreground">{metric.label}</p>
-              <span className={`grid h-9 w-9 place-items-center rounded-xl ${metric.color}`}>
-                <metric.icon className="h-4 w-4" />
-              </span>
-            </div>
-            <p className="mt-4 text-3xl font-bold tracking-tight">
-              {requestsLoading ? "—" : metric.value}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">{metric.footnote}</p>
-          </article>
-        ))}
-      </section>
-
       {requestsError && (
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4 text-sm">
-          <p className="font-semibold text-destructive">Could not load request analytics</p>
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm">
+          <p className="font-semibold text-destructive">Request data could not be loaded</p>
           <p className="mt-1 text-muted-foreground">
-            {requestError instanceof Error ? requestError.message : "Refresh to try again."}
+            {requestError instanceof Error
+              ? requestError.message
+              : "Refresh the page to try again."}
           </p>
         </div>
       )}
 
-      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.5fr]">
-        <article className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">Financial snapshot</p>
-              <h2 className="mt-2 text-lg font-semibold">Paid revenue</h2>
-            </div>
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-              <Banknote className="h-5 w-5" />
-            </span>
-          </div>
-          <p className="mt-7 text-3xl font-bold tracking-tight">
-            {requestsLoading
-              ? "—"
-              : revenueCurrencies.length > 1
-                ? "Multiple currencies"
-                : revenueCurrencies.length
-                  ? money(revenueCurrencies[0]?.[1], revenueCurrencies[0]?.[0])
-                  : money(0)}
-          </p>
-          {!requestsLoading && revenueCurrencies.length > 1 && (
-            <div className="mt-3 space-y-1">
-              {revenueCurrencies.map(([currency, amount]) => (
-                <p key={currency} className="text-sm font-semibold">
-                  {money(amount, currency)}
+      <section aria-label="Key statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((metric) => (
+          <Link
+            key={metric.label}
+            to={metric.to}
+            className="group rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] transition-all hover:-translate-y-0.5 hover:border-[#bdc9d8] hover:shadow-md"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
+                <p className="mt-3 text-3xl font-bold tracking-tight text-[#17263c]">
+                  {metric.value}
                 </p>
-              ))}
+              </div>
+              <span className={`grid h-10 w-10 place-items-center rounded-xl ${metric.tint}`}>
+                <metric.icon className="h-5 w-5" />
+              </span>
             </div>
-          )}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Paid requests{revenueCurrencies.length > 1 ? " (by currency below)" : ""}
-          </p>
-          <div className="mt-6 border-t pt-4">
-            <Link
-              to="/admin"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#314d70] hover:underline"
-            >
-              Review payments <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </article>
+            <div className="mt-4 flex items-center justify-between border-t pt-3">
+              <span className="text-xs text-muted-foreground">{metric.detail}</span>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </div>
+          </Link>
+        ))}
+      </section>
 
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.85fr)]">
         <article className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-6">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">Workload</p>
-              <h2 className="mt-2 text-lg font-semibold">Request pipeline</h2>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Requests
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-[#17263c]">Submission activity</h2>
+              <p className="mt-1 text-xs text-muted-foreground">New requests received each month</p>
             </div>
-            <span className="rounded-lg bg-[#f3f6fa] px-2.5 py-1.5 text-xs font-semibold text-[#536982]">
-              {requestsLoading ? "…" : requests.length} total
+            <span className="rounded-lg bg-[#f3f6fa] px-3 py-1.5 text-xs font-semibold text-[#536982]">
+              Last 6 months
             </span>
           </div>
           {requestsLoading ? (
-            <div className="mt-6 space-y-4">
-              {Array.from({ length: 4 }, (_, index) => (
-                <div key={index} className="h-7 animate-pulse rounded-lg bg-muted" />
-              ))}
-            </div>
+            <div className="mt-5 h-[260px] animate-pulse rounded-xl bg-muted" />
           ) : (
-            <div className="mt-5 h-[230px] w-full" role="img" aria-label="Requests by status">
+            <div className="mt-5 h-[260px] w-full" role="img" aria-label="Monthly request volume">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={requestTrend}
+                  margin={{ top: 10, right: 12, bottom: 0, left: -18 }}
+                >
+                  <defs>
+                    <linearGradient id="requestVolumeFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#496b91" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#496b91" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#e9edf2" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="requests"
+                    name="Requests"
+                    stroke="#385575"
+                    strokeWidth={2.5}
+                    fill="url(#requestVolumeFill)"
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </article>
+
+        <article className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Action center
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-[#17263c]">Needs your attention</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Priorities for the admin team</p>
+          </div>
+          <div className="mt-4 divide-y">
+            <AttentionLink
+              label="New requests to review"
+              detail="Open and assess submissions"
+              count={requestsLoading || requestsError ? "—" : newRequests.length}
+              icon={FilePlus2}
+              tone="text-sky-700 bg-sky-50"
+            />
+            <AttentionLink
+              label="Past deadline"
+              detail="Active requests need follow-up"
+              count={requestsLoading || requestsError ? "—" : overdueRequests.length}
+              icon={CalendarClock}
+              tone="text-rose-700 bg-rose-50"
+            />
+            <AttentionLink
+              label="Due in 7 days"
+              detail="Plan the upcoming workload"
+              count={requestsLoading || requestsError ? "—" : dueSoon.length}
+              icon={Clock3}
+              tone="text-amber-700 bg-amber-50"
+            />
+            <AttentionLink
+              label="Awaiting payment"
+              detail="Requests with payment pending"
+              count={requestsLoading || requestsError ? "—" : awaitingPayment.length}
+              icon={Banknote}
+              tone="text-emerald-700 bg-emerald-50"
+            />
+          </div>
+          <Link
+            to="/admin"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#314d70] hover:underline"
+          >
+            Open request queue <ArrowRight className="h-4 w-4" />
+          </Link>
+        </article>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <article className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Workload
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-[#17263c]">Requests by status</h2>
+            </div>
+            <span className="rounded-lg bg-[#f3f6fa] px-2.5 py-1.5 text-xs font-semibold text-[#536982]">
+              {requestsLoading || requestsError ? "—" : requests.length} total
+            </span>
+          </div>
+          {requestsLoading ? (
+            <div className="mt-5 h-[245px] animate-pulse rounded-xl bg-muted" />
+          ) : (
+            <div className="mt-5 h-[245px] w-full" role="img" aria-label="Requests by status">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={statusCounts}
                   layout="vertical"
-                  margin={{ top: 4, right: 12, bottom: 4, left: 4 }}
+                  margin={{ top: 4, right: 16, bottom: 4, left: 4 }}
                 >
                   <CartesianGrid stroke="#e9edf2" horizontal={false} />
                   <XAxis
@@ -281,7 +374,7 @@ function AdminDashboard() {
                   <YAxis
                     type="category"
                     dataKey="label"
-                    width={105}
+                    width={112}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 11 }}
@@ -293,59 +386,65 @@ function AdminDashboard() {
             </div>
           )}
         </article>
-      </section>
 
-      <section className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground">Request activity</p>
-            <h2 className="mt-2 text-lg font-semibold">Submissions over the last six months</h2>
+        <article className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Finance
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-[#17263c]">Paid revenue</h2>
+            </div>
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+              <Banknote className="h-5 w-5" />
+            </span>
           </div>
-          <span className="rounded-lg bg-[#f3f6fa] px-2.5 py-1.5 text-xs font-semibold text-[#536982]">
-            {requestsLoading ? "…" : requests.length} total requests
-          </span>
-        </div>
-        {requestsLoading ? (
-          <div className="mt-5 h-[250px] animate-pulse rounded-xl bg-muted" />
-        ) : (
-          <div className="mt-5 h-[250px] w-full" role="img" aria-label="Monthly request volume">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={requestTrend} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
-                <CartesianGrid stroke="#e9edf2" vertical={false} />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
-                <YAxis
-                  allowDecimals={false}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11 }}
-                />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="requests"
-                  name="Requests"
-                  stroke="#385575"
-                  strokeWidth={2}
-                  fill="#dce6f1"
-                  activeDot={{ r: 5 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+          {requestsLoading ? (
+            <div className="mt-5 h-24 animate-pulse rounded-xl bg-muted" />
+          ) : revenueCurrencies.length ? (
+            <div className="mt-5 space-y-3">
+              {revenueCurrencies.map(([currency, amount]) => (
+                <div
+                  key={currency}
+                  className="flex items-center justify-between rounded-xl bg-[#f7f9fc] px-4 py-3"
+                >
+                  <span className="text-sm font-medium text-muted-foreground">{currency}</span>
+                  <span className="text-lg font-bold text-[#17263c]">
+                    {money(amount, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-xl bg-[#f7f9fc] p-4 text-sm text-muted-foreground">
+              No payments have been recorded yet.
+            </p>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Totals are separated by currency and include requests marked paid.
+          </p>
+          <Link
+            to="/admin"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#314d70] hover:underline"
+          >
+            Review payments <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </article>
       </section>
 
       <section className="overflow-hidden rounded-2xl border bg-white shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">
-        <div className="flex items-center justify-between gap-3 border-b px-5 py-5 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-5 sm:px-6">
           <div>
-            <p className="text-xs font-semibold text-muted-foreground">Latest activity</p>
-            <h2 className="mt-1 text-lg font-semibold">Recent requests</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Work queue
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-[#17263c]">Latest requests</h2>
           </div>
           <Link
             to="/admin"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#314d70] hover:underline"
           >
-            View queue <ArrowRight className="h-4 w-4" />
+            View all requests <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
         {requestsLoading ? (
@@ -359,44 +458,40 @@ function AdminDashboard() {
             Recent requests are unavailable.
           </p>
         ) : (
-          <RequestTable rows={recent} admin />
+          <RequestTable rows={requests.slice(0, 5)} admin />
         )}
       </section>
-
-      <section className="grid gap-3 sm:grid-cols-2">
-        <Link
-          to="/students"
-          className="group flex items-center gap-4 rounded-2xl border bg-white p-5 transition-colors hover:border-[#9aa9bd] hover:bg-[#fbfcfe]"
-        >
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-violet-50 text-violet-700">
-            <Users className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Student directory</span>
-            <span className="mt-1 block text-xs text-muted-foreground">
-              {studentsError
-                ? "Student count unavailable"
-                : `${studentsLoading ? "…" : (studentCount ?? 0)} registered students`}
-            </span>
-          </span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-        </Link>
-        <Link
-          to="/admin"
-          className="group flex items-center gap-4 rounded-2xl border bg-white p-5 transition-colors hover:border-[#9aa9bd] hover:bg-[#fbfcfe]"
-        >
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-            <CheckCircle2 className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold">Keep work moving</span>
-            <span className="mt-1 block text-xs text-muted-foreground">
-              Review, quote, and update request progress
-            </span>
-          </span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-        </Link>
-      </section>
     </div>
+  );
+}
+
+function AttentionLink({
+  label,
+  detail,
+  count,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  detail: string;
+  count: string | number;
+  icon: typeof FilePlus2;
+  tone: string;
+}) {
+  return (
+    <Link
+      to="/admin"
+      className="group flex items-center gap-3 py-3 transition-colors first:pt-2 last:pb-2"
+    >
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${tone}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-[#263b58]">{label}</span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{detail}</span>
+      </span>
+      <span className="text-lg font-bold tabular-nums text-[#17263c]">{count}</span>
+      <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+    </Link>
   );
 }

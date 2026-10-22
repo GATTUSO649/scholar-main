@@ -132,12 +132,10 @@ export const saveProfileFn = createServerFn({ method: "POST" })
   .validator(
     z.object({
       full_name: z.string().trim().min(1).max(100),
-      reg_number: z.string().max(50),
       phone: z.string().max(40),
       country: z.string().max(60),
       institution: z.string().max(120),
-      course: z.string().max(120),
-      year_of_study: z.string().max(20),
+      year_of_study: z.enum(["1st year", "2nd year", "3rd year", "4th year", "Other"]),
     }),
   )
   .handler(async ({ data }) => {

@@ -178,6 +178,7 @@ function Shell() {
           <Logo />
           <div className="flex items-center gap-1">
             <NotificationBell />
+            <ProfileShortcut name={profile?.full_name} className="text-foreground hover:bg-muted" />
             <button
               onClick={() => setOpen(!open)}
               className="rounded-lg p-2 text-foreground hover:bg-muted"
@@ -201,11 +202,12 @@ function Shell() {
             </div>
             <div className="flex items-center gap-3">
               <NotificationBell />
+              <ProfileShortcut
+                name={profile?.full_name}
+                className="text-[#17263c] hover:bg-[#f1f4f8]"
+              />
               <span className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5" /> Private workspace
-              </span>
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-[#17263c] text-xs font-bold text-white">
-                {profile?.full_name?.slice(0, 1).toUpperCase() ?? "A"}
               </span>
             </div>
           </div>
@@ -228,6 +230,10 @@ function Shell() {
         <Logo light />
         <div className="flex items-center gap-1 text-sidebar-foreground">
           <NotificationBell />
+          <ProfileShortcut
+            name={profile?.full_name}
+            className="text-sidebar-foreground hover:bg-sidebar-accent"
+          />
           <button
             onClick={() => setOpen(!open)}
             className="rounded-lg p-2 hover:bg-sidebar-accent"
@@ -249,7 +255,10 @@ function Shell() {
             Welcome back,{" "}
             <span className="font-semibold text-foreground">{profile?.full_name}</span>
           </div>
-          <NotificationBell />
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <ProfileShortcut name={profile?.full_name} className="text-foreground hover:bg-muted" />
+          </div>
         </div>
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
           <p className="mb-1 text-sm text-muted-foreground">{profile?.email}</p>
@@ -257,6 +266,37 @@ function Shell() {
         </div>
       </main>
     </div>
+  );
+}
+
+function ProfileShortcut({
+  name,
+  className,
+}: {
+  name?: string | null | undefined;
+  className: string;
+}) {
+  const initials =
+    name
+      ?.trim()
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "P";
+
+  return (
+    <Link
+      to="/profile"
+      aria-label="Open profile"
+      title="Profile"
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors",
+        className,
+      )}
+    >
+      {initials}
+    </Link>
   );
 }
 

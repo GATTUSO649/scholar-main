@@ -5,6 +5,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { changePasswordFn, saveProfileFn } from "@/lib/backend";
 import { useProfile } from "@/lib/auth";
 
@@ -20,13 +27,11 @@ export const Route = createFileRoute("/_authenticated/profile")({
 
 const FIELDS = [
   ["full_name", "Full name"],
-  ["reg_number", "Admission number"],
   ["phone", "Phone"],
   ["country", "Country"],
   ["institution", "Institution"],
-  ["course", "Course / program"],
-  ["year_of_study", "Year of study"],
 ] as const;
+const STUDY_YEARS = ["1st year", "2nd year", "3rd year", "4th year", "Other"] as const;
 
 function Profile() {
   const { user } = Route.useRouteContext();
@@ -35,13 +40,24 @@ function Profile() {
   const [profileBusy, setProfileBusy] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
   if (isLoading || !p) return <p className="text-muted-foreground">Loading…</p>;
+  const currentStudyYear =
+    STUDY_YEARS.find((year) => year === p.year_of_study) ?? (p.year_of_study ? "Other" : undefined);
 
   async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
-    const patch = Object.fromEntries(
-      FIELDS.map(([k]) => [k, (fd[k] ?? "").trim().slice(0, 120)]),
-    ) as Record<(typeof FIELDS)[number][0], string>;
+    const yearOfStudy = STUDY_YEARS.find((year) => year === fd["year_of_study"]);
+    if (!yearOfStudy) {
+      toast.error("Select your year of study.");
+      return;
+    }
+    const patch = {
+      full_name: fd["full_name"]?.trim().slice(0, 100) ?? "",
+      phone: fd["phone"]?.trim().slice(0, 40) ?? "",
+      country: fd["country"]?.trim().slice(0, 60) ?? "",
+      institution: fd["institution"]?.trim().slice(0, 120) ?? "",
+      year_of_study: yearOfStudy,
+    };
     if (!patch["full_name"]) {
       toast.error("Name is required");
       return;
@@ -122,6 +138,21 @@ function Profile() {
               <Input id={k} name={k} defaultValue={p[k] ?? ""} className="mt-1.5" />
             </div>
           ))}
+          <div>
+            <Label htmlFor="year_of_study">Year of study</Label>
+            <Select name="year_of_study" defaultValue={currentStudyYear}>
+              <SelectTrigger id="year_of_study" className="mt-1.5 w-full">
+                <SelectValue placeholder="Select year of study" />
+              </SelectTrigger>
+              <SelectContent>
+                {STUDY_YEARS.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="sm:col-span-2">
             <Button disabled={profileBusy}>{profileBusy ? "Saving…" : "Save profile"}</Button>
           </div>

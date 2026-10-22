@@ -485,21 +485,17 @@ export async function isCurrentUserAdmin() {
 
 export async function saveProfile(input: {
   full_name: string;
-  reg_number: string;
   phone: string;
   country: string;
   institution: string;
-  course: string;
   year_of_study: string;
 }) {
   const user = await requireUser();
   const values = {
     fullName: input.full_name.trim(),
-    regNumber: input.reg_number.trim() || null,
     phone: input.phone.trim() || null,
     country: input.country.trim() || null,
     institution: input.institution.trim() || null,
-    course: input.course.trim() || null,
     yearOfStudy: input.year_of_study.trim() || null,
     updatedAt: new Date(),
   };
