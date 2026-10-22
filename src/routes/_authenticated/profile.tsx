@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -96,6 +106,87 @@ const KENYAN_UNIVERSITIES = [
   "Zetech University",
 ] as const;
 const STUDY_YEARS = ["1st year", "2nd year", "3rd year", "4th year", "Other"] as const;
+
+function InstitutionCombobox({ value }: { value: string }) {
+  const [open, setOpen] = useState(false);
+  const [institution, setInstitution] = useState(value);
+  const [query, setQuery] = useState("");
+  const customInstitution = query.trim();
+  const hasExactMatch = KENYAN_UNIVERSITIES.some(
+    (university) => university.toLowerCase() === customInstitution.toLowerCase(),
+  );
+
+  function chooseInstitution(nextInstitution: string) {
+    setInstitution(nextInstitution);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <input type="hidden" name="institution" value={institution} />
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setQuery("");
+        }}
+      >
+        <PopoverTrigger asChild>
+          <Button
+            id="institution"
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="mt-1.5 w-full justify-between font-normal"
+          >
+            <span className="truncate">{institution || "Select or type institution"}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
+          <Command>
+            <CommandInput
+              autoComplete="off"
+              maxLength={120}
+              placeholder="Search universities..."
+              value={query}
+              onValueChange={setQuery}
+            />
+            <CommandList>
+              <CommandEmpty>No matching university.</CommandEmpty>
+              <CommandGroup heading="Universities in Kenya">
+                {KENYAN_UNIVERSITIES.map((university) => (
+                  <CommandItem
+                    key={university}
+                    value={university}
+                    onSelect={() => chooseInstitution(university)}
+                  >
+                    <Check
+                      className={`mr-2 h-4 w-4 ${institution === university ? "opacity-100" : "opacity-0"}`}
+                    />
+                    {university}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              {customInstitution && !hasExactMatch && (
+                <CommandGroup heading="Custom institution">
+                  <CommandItem
+                    value={customInstitution}
+                    onSelect={() => chooseInstitution(customInstitution)}
+                  >
+                    Use "{customInstitution}"
+                  </CommandItem>
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+}
 
 function Profile() {
   const { user } = Route.useRouteContext();
@@ -204,20 +295,7 @@ function Profile() {
           ))}
           <div>
             <Label htmlFor="institution">Institution</Label>
-            <Input
-              id="institution"
-              name="institution"
-              list="kenyan-universities"
-              defaultValue={p.institution ?? ""}
-              placeholder="Type or select a university"
-              maxLength={120}
-              className="mt-1.5"
-            />
-            <datalist id="kenyan-universities">
-              {KENYAN_UNIVERSITIES.map((university) => (
-                <option key={university} value={university} />
-              ))}
-            </datalist>
+            <InstitutionCombobox value={p.institution ?? ""} />
           </div>
           <div>
             <Label htmlFor="year_of_study">Year of study</Label>
