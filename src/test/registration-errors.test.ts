@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getDatabaseErrorCode, isAdminSignupConfigured } from "@/lib/backend.server";
+import {
+  canUseStudentPortal,
+  getDatabaseErrorCode,
+  isAdminSignupConfigured,
+} from "@/lib/backend.server";
 
 describe("database error handling", () => {
   it("reads MySQL error codes from Drizzle's wrapped cause", () => {
@@ -28,5 +32,20 @@ describe("admin signup configuration", () => {
     expect(isAdminSignupConfigured(undefined)).toBe(false);
     expect(isAdminSignupConfigured("x".repeat(31))).toBe(false);
     expect(isAdminSignupConfigured("x".repeat(32))).toBe(true);
+  });
+});
+
+describe("student portal login roles", () => {
+  it("allows student accounts", () => {
+    expect(canUseStudentPortal(["student"])).toBe(true);
+  });
+
+  it("blocks administrator accounts even if they also have a student role", () => {
+    expect(canUseStudentPortal(["admin"])).toBe(false);
+    expect(canUseStudentPortal(["admin", "student"])).toBe(false);
+  });
+
+  it("blocks accounts without a student role", () => {
+    expect(canUseStudentPortal([])).toBe(false);
   });
 });

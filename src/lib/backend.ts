@@ -78,8 +78,8 @@ export const loginFn = createServerFn({ method: "POST" })
   .validator(z.object({ email: emailSchema, password: z.string().min(1).max(128) }))
   .handler(async ({ data }) => {
     assertSameOrigin();
-    const { loginAccount } = await import("./backend.server");
-    return loginAccount(data);
+    const { loginStudentAccount } = await import("./backend.server");
+    return loginStudentAccount(data);
   });
 
 export const adminLoginFn = createServerFn({ method: "POST" })
@@ -110,6 +110,19 @@ export const resetPasswordFn = createServerFn({ method: "POST" })
     assertSameOrigin();
     const { resetPassword } = await import("./backend.server");
     await resetPassword(data.token, data.password);
+  });
+
+export const changePasswordFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      currentPassword: z.string().min(1).max(128),
+      newPassword: passwordSchema,
+    }),
+  )
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { changeAccountPassword } = await import("./backend.server");
+    return changeAccountPassword(data);
   });
 
 export const getProfileFn = createServerFn({ method: "GET" })

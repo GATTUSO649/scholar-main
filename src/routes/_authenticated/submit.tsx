@@ -167,6 +167,265 @@ const SERVICE_DETAILS: Record<string, { intro: string; fields: DetailField[] }> 
       },
     ],
   },
+  "Microsoft Word": {
+    intro: "Tell us about the Word document or task you need support with.",
+    fields: [
+      {
+        key: "word_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Formatting",
+          "Styles and layout",
+          "References",
+          "Templates",
+          "Accessibility",
+          "Other",
+        ],
+      },
+      { key: "word_pages", label: "Approximate number of pages", type: "number" },
+    ],
+  },
+  "Microsoft Excel": {
+    intro: "Tell us about the spreadsheet and what you want to accomplish.",
+    fields: [
+      {
+        key: "excel_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: ["Formulas", "Charts", "Pivot tables", "Data cleanup", "Workbook setup", "Other"],
+      },
+      { key: "excel_rows", label: "Approximate number of rows", type: "number" },
+    ],
+  },
+  "Microsoft PowerPoint": {
+    intro: "Tell us about the presentation you are preparing.",
+    fields: [
+      { key: "slide_count", label: "Approximate number of slides", type: "number" },
+      {
+        key: "presentation_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Slide formatting",
+          "Charts and diagrams",
+          "Speaker notes",
+          "Accessibility",
+          "Other",
+        ],
+      },
+    ],
+  },
+  "Microsoft Outlook": {
+    intro: "Tell us about the Outlook setup or workflow you need help with.",
+    fields: [
+      {
+        key: "outlook_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Email setup",
+          "Calendar",
+          "Rules and organization",
+          "Contacts",
+          "Troubleshooting",
+          "Other",
+        ],
+      },
+    ],
+  },
+  "Microsoft Teams": {
+    intro: "Tell us about your Teams workspace or meeting setup.",
+    fields: [
+      {
+        key: "teams_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Meetings",
+          "Class or project team setup",
+          "File sharing",
+          "Channels",
+          "Troubleshooting",
+          "Other",
+        ],
+      },
+      { key: "teams_members", label: "Approximate number of members", type: "number" },
+    ],
+  },
+  "Microsoft OneDrive": {
+    intro: "Tell us about your file storage, sync, or sharing needs.",
+    fields: [
+      {
+        key: "onedrive_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Setup",
+          "File sync",
+          "Sharing and permissions",
+          "Organization",
+          "Troubleshooting",
+          "Other",
+        ],
+      },
+    ],
+  },
+  "Microsoft OneNote": {
+    intro: "Tell us about your notes or notebook setup.",
+    fields: [
+      {
+        key: "onenote_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Notebook setup",
+          "Organization",
+          "Templates",
+          "Collaboration",
+          "Sync troubleshooting",
+          "Other",
+        ],
+      },
+    ],
+  },
+  "Microsoft Forms": {
+    intro: "Tell us about the form, survey, or quiz you want to create.",
+    fields: [
+      {
+        key: "forms_task",
+        label: "What are you creating?",
+        type: "select",
+        options: ["Survey", "Quiz", "Registration form", "Feedback form", "Other"],
+      },
+      { key: "forms_questions", label: "Approximate number of questions", type: "number" },
+    ],
+  },
+  "Microsoft SharePoint": {
+    intro: "Tell us about the SharePoint site, library, or collaboration setup.",
+    fields: [
+      {
+        key: "sharepoint_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Site setup",
+          "Document library",
+          "Lists",
+          "Access and permissions",
+          "Troubleshooting",
+          "Other",
+        ],
+      },
+    ],
+  },
+  "Microsoft Access": {
+    intro: "Tell us about the database task or issue.",
+    fields: [
+      {
+        key: "access_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Database design",
+          "Tables and relationships",
+          "Queries",
+          "Forms and reports",
+          "Troubleshooting",
+          "Other",
+        ],
+      },
+    ],
+  },
+  "Microsoft Planner": {
+    intro: "Tell us about the plan, tasks, or team workflow you want to organize.",
+    fields: [
+      {
+        key: "planner_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Plan setup",
+          "Task organization",
+          "Group assignment workflow",
+          "Progress tracking",
+          "Other",
+        ],
+      },
+      { key: "planner_tasks", label: "Approximate number of tasks", type: "number" },
+    ],
+  },
+  "Microsoft Project": {
+    intro: "Tell us about your project plan and what you want to track.",
+    fields: [
+      {
+        key: "project_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Project plan setup",
+          "Timeline and dependencies",
+          "Resource planning",
+          "Progress tracking",
+          "Other",
+        ],
+      },
+      { key: "project_tasks", label: "Approximate number of tasks", type: "number" },
+    ],
+  },
+  "Microsoft Visio": {
+    intro: "Tell us about the diagram or process map you need to create.",
+    fields: [
+      {
+        key: "visio_type",
+        label: "What type of diagram?",
+        type: "select",
+        options: ["Flowchart", "Process map", "Network diagram", "Organization chart", "Other"],
+      },
+      { key: "visio_pages", label: "Approximate number of pages", type: "number" },
+    ],
+  },
+  "Microsoft Loop": {
+    intro: "Tell us about the shared workspace or collaborative project.",
+    fields: [
+      {
+        key: "loop_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: ["Workspace setup", "Project planning", "Shared notes", "Task tracking", "Other"],
+      },
+    ],
+  },
+  "Microsoft Sway": {
+    intro: "Tell us about the interactive presentation or report you are preparing.",
+    fields: [
+      {
+        key: "sway_type",
+        label: "What are you creating?",
+        type: "select",
+        options: ["Presentation", "Report", "Story", "Portfolio", "Other"],
+      },
+    ],
+  },
+  "Microsoft 365 Setup & Support": {
+    intro: "Tell us about your Microsoft 365 account, apps, or device setup.",
+    fields: [
+      {
+        key: "m365_task",
+        label: "What do you need help with?",
+        type: "select",
+        options: [
+          "Installation",
+          "Account setup",
+          "App configuration",
+          "Licensing guidance",
+          "Troubleshooting",
+          "Other",
+        ],
+      },
+      { key: "m365_apps", label: "Which apps or devices are involved?" },
+    ],
+  },
 };
 
 function Submit() {

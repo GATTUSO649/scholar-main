@@ -5,7 +5,7 @@ import {
   timingSafeEqual,
   createHash,
 } from "node:crypto";
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   loginAttempts,
@@ -64,6 +64,22 @@ type PaymentState = "unpaid" | "pending" | "paid" | "refunded";
 
 function tokenHash(token: string) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+async function passwordMatches(password: string, encodedHash: string) {
+  const [saltHex, hashHex] = encodedHash.split(":");
+  if (!saltHex || !hashHex) return false;
+  const actual = await derivePassword(password, Buffer.from(saltHex, "hex"));
+  const expected = Buffer.from(hashHex, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+function encodePassword(password: string, salt: Buffer, hash: Buffer) {
+  return `${salt.toString("hex")}:${hash.toString("hex")}`;
+}
+
+export function canUseStudentPortal(roles: readonly Role[]) {
+  return roles.includes("student") && !roles.includes("admin");
 }
 
 function mapProfile(row: typeof profiles.$inferSelect): ProfileDto {
@@ -295,23 +311,16 @@ async function authenticateAccount(input: { email: string; password: string }, a
       throw new AuthError("Too many sign-in attempts. Please wait 15 minutes and try again.");
     }
     const [account] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    let valid = false;
-    if (account) {
-      const [saltHex, hashHex] = account.passwordHash.split(":");
-      if (saltHex && hashHex) {
-        const actual = await derivePassword(input.password, Buffer.from(saltHex, "hex"));
-        const expected = Buffer.from(hashHex, "hex");
-        valid = actual.length === expected.length && timingSafeEqual(actual, expected);
-      }
-    }
+    const valid = account ? await passwordMatches(input.password, account.passwordHash) : false;
     if (!account || !valid) throw new AuthError("Email or password is incorrect.");
-    if (adminOnly) {
-      const [role] = await db
-        .select({ id: userRoles.id })
-        .from(userRoles)
-        .where(and(eq(userRoles.userId, account.id), eq(userRoles.role, "admin")))
-        .limit(1);
-      if (!role) throw new AuthError("Email or password is incorrect.");
+    const roles = await db
+      .select({ role: userRoles.role })
+      .from(userRoles)
+      .where(eq(userRoles.userId, account.id));
+    const isAdmin = roles.some((role) => role.role === "admin");
+    const isStudent = roles.some((role) => role.role === "student");
+    if (adminOnly ? !isAdmin : !canUseStudentPortal(roles.map((role) => role.role))) {
+      throw new AuthError("Email or password is incorrect.");
     }
     await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
     await createSession(account.id);
@@ -323,7 +332,7 @@ async function authenticateAccount(input: { email: string; password: string }, a
   }
 }
 
-export function loginAccount(input: { email: string; password: string }) {
+export function loginStudentAccount(input: { email: string; password: string }) {
   return authenticateAccount(input, false);
 }
 
@@ -407,6 +416,42 @@ export async function resetPassword(token: string, password: string) {
     await tx.delete(sessions).where(eq(sessions.userId, reset.userId));
   });
   clearSessionCookie();
+}
+
+export async function changeAccountPassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const user = await requireUser();
+  const sessionToken = getCookie(SESSION_COOKIE);
+  if (!sessionToken) throw new AuthError("Your session has expired. Sign in again.");
+
+  const db = getDatabase();
+  const [account] = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+  if (!account || !(await passwordMatches(input.currentPassword, account.passwordHash))) {
+    throw new AuthError("Current password is incorrect.");
+  }
+
+  const salt = randomBytes(16);
+  const passwordHash = encodePassword(
+    input.newPassword,
+    salt,
+    await derivePassword(input.newPassword, salt),
+  );
+  const currentSessionHash = tokenHash(sessionToken);
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+    await tx
+      .delete(sessions)
+      .where(and(eq(sessions.userId, user.id), ne(sessions.tokenHash, currentSessionHash)));
+    await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
+  });
+
+  return { success: true };
 }
 
 export async function getProfile(userId?: string) {

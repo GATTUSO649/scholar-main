@@ -74,9 +74,10 @@ Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DI
 
 ## Data and access
 
-- `users`, `profiles`, `user_roles`, and `sessions` hold accounts and roles.
-- `services`, `requests`, `request_updates`, `request_files`, and `site_settings` hold application data.
+- `users`, `profiles`, `user_roles`, and `sessions` hold accounts and roles. Students can update their profile, change a password after verifying their current password, and reset a forgotten password by email.
+- `services`, `requests`, `request_updates`, `request_files`, and `site_settings` hold application data. The service catalog includes Microsoft Word, Excel, PowerPoint, Outlook, Teams, OneDrive, OneNote, Forms, SharePoint, Access and Microsoft 365 setup/support, alongside academic proofreading, project and research support.
 - Student request/file ownership and administrator access are checked in server-only handlers; never expose the MySQL URL or database credentials to browser code.
+- Student sign-in accepts student accounts only; accounts with the administrator role must use the separate admin sign-in page. Changing a password signs out other active sessions.
 - Administrator signup requires the server-only `ADMIN_SIGNUP_SECRET`; admin sign-in verifies each account's database-backed admin role.
 - File downloads require a valid session and request ownership or an administrator role. Uploads are limited to 20 MB per file and 50 MB per request.
 

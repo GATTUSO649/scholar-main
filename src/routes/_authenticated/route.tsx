@@ -22,17 +22,25 @@ import {
   ChevronRight,
   ShieldCheck,
 } from "lucide-react";
-import { getCurrentUserFn, logoutFn } from "@/lib/backend";
+import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
 import { useIsAdmin, useProfile } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const user = await getCurrentUserFn();
     if (!user) throw redirect({ to: "/auth", search: { mode: "login" } });
-    return { user };
+    const isAdmin = await getAdminStateFn();
+    const isAdminPage =
+      location.pathname.startsWith("/admin") ||
+      location.pathname.startsWith("/students") ||
+      location.pathname.startsWith("/manage");
+    if (isAdmin && !isAdminPage && location.pathname !== "/profile") {
+      throw redirect({ to: "/admin/dashboard" });
+    }
+    return { user, isAdmin };
   },
   component: Shell,
 });
@@ -41,7 +49,7 @@ const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/submit", label: "Submit request", icon: FilePlus2 },
   { to: "/requests", label: "My requests", icon: FolderOpen },
-  { to: "/profile", label: "Profile", icon: User },
+  { to: "/profile", label: "Account & profile", icon: User },
   { to: "/support", label: "Help & support", icon: LifeBuoy },
 ] as const;
 
