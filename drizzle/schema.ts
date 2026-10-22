@@ -232,3 +232,28 @@ export const siteSettings = mysqlTable("site_settings", {
     .notNull()
     .default(sql`CURRENT_TIMESTAMP(3)`),
 });
+
+export const notifications = mysqlTable(
+  "notifications",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestId: varchar("request_id", { length: 36 }).references(() => requests.id, {
+      onDelete: "set null",
+    }),
+    type: varchar("type", { length: 40 }).notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    message: varchar("message", { length: 500 }).notNull(),
+    href: varchar("href", { length: 255 }).notNull(),
+    readAt: datetime("read_at", { mode: "date", fsp: 3 }),
+    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
+    index("notifications_user_read_created_idx").on(table.userId, table.readAt, table.createdAt),
+  ],
+);

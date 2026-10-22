@@ -25,6 +25,7 @@ import {
 import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
 import { useIsAdmin, useProfile } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
+import { NotificationBell } from "@/components/NotificationBell";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -175,13 +176,16 @@ function Shell() {
         </aside>
         <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white px-4 py-3 lg:hidden">
           <Logo />
-          <button
-            onClick={() => setOpen(!open)}
-            className="rounded-lg p-2 text-foreground hover:bg-muted"
-            aria-label={open ? "Close menu" : "Open menu"}
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <button
+              onClick={() => setOpen(!open)}
+              className="rounded-lg p-2 text-foreground hover:bg-muted"
+              aria-label={open ? "Close menu" : "Open menu"}
+            >
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </header>
         {open && (
           <div className="fixed inset-0 top-[57px] z-20 bg-[#17263c] p-4 text-white lg:hidden">
@@ -196,6 +200,7 @@ function Shell() {
               <span className="font-semibold text-foreground">{pageTitle}</span>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationBell />
               <span className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5" /> Private workspace
               </span>
@@ -221,13 +226,16 @@ function Shell() {
 
       <header className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-4 py-3 lg:hidden">
         <Logo light />
-        <button
-          onClick={() => setOpen(!open)}
-          className="text-sidebar-foreground"
-          aria-label="Menu"
-        >
-          {open ? <X /> : <Menu />}
-        </button>
+        <div className="flex items-center gap-1 text-sidebar-foreground">
+          <NotificationBell />
+          <button
+            onClick={() => setOpen(!open)}
+            className="rounded-lg p-2 hover:bg-sidebar-accent"
+            aria-label={open ? "Close menu" : "Open menu"}
+          >
+            {open ? <X /> : <Menu />}
+          </button>
+        </div>
       </header>
       {open && (
         <div className="fixed inset-0 top-14 z-20 flex flex-col bg-sidebar p-5 text-sidebar-foreground lg:hidden">
@@ -236,6 +244,13 @@ function Shell() {
       )}
 
       <main className="min-w-0">
+        <div className="sticky top-0 z-10 hidden h-[72px] items-center justify-between border-b bg-white/95 px-8 backdrop-blur lg:flex">
+          <div className="text-sm text-muted-foreground">
+            Welcome back,{" "}
+            <span className="font-semibold text-foreground">{profile?.full_name}</span>
+          </div>
+          <NotificationBell />
+        </div>
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
           <p className="mb-1 text-sm text-muted-foreground">{profile?.email}</p>
           <Outlet />

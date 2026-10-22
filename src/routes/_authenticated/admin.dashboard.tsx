@@ -10,10 +10,21 @@ import {
   FilePlus2,
   Users,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { getAdminRequestsFn, getAdminStudentCountFn } from "@/lib/backend";
 import { AdminGate } from "@/components/AdminGate";
 import { RequestTable } from "@/components/RequestTable";
-import { ACTIVE, STATUS_LABEL, STATUS_ORDER } from "@/lib/status";
+import { ACTIVE, STATUS_LABEL, STATUS_ORDER, type RequestStatus } from "@/lib/status";
 import { money } from "@/lib/requests";
 
 export const Route = createFileRoute("/_authenticated/admin/dashboard")({
@@ -67,9 +78,13 @@ function AdminDashboard() {
     (request) =>
       request.deadline && new Date(request.deadline) < now && ACTIVE.includes(request.status),
   ).length;
-  const revenue = requests
-    .filter((request) => request.payment_status === "paid")
-    .reduce((sum, request) => sum + Number(request.price ?? 0), 0);
+  const revenueByCurrency = requests.reduce<Record<string, number>>((totals, request) => {
+    if (request.payment_status === "paid") {
+      totals[request.currency] = (totals[request.currency] ?? 0) + Number(request.price ?? 0);
+    }
+    return totals;
+  }, {});
+  const revenueCurrencies = Object.entries(revenueByCurrency);
   const recent = requests.slice(0, 6);
   const metrics = [
     {
@@ -101,11 +116,31 @@ function AdminDashboard() {
       color: "text-rose-700 bg-rose-50",
     },
   ];
-  const statusCounts = STATUS_ORDER.map((status) => ({
+  const allStatuses: RequestStatus[] = [...STATUS_ORDER, "cancelled"];
+  const statusCounts = allStatuses.map((status) => ({
     status,
+    label: STATUS_LABEL[status],
     count: requests.filter((request) => request.status === status).length,
   }));
-  const maxStatusCount = Math.max(1, ...statusCounts.map((item) => item.count));
+  const monthKeys = Array.from({ length: 6 }, (_, index) => {
+    const month = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
+    return {
+      key: `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`,
+      month: month.toLocaleDateString(undefined, { month: "short" }),
+    };
+  });
+  const requestCountsByMonth = new Map(monthKeys.map(({ key }) => [key, 0]));
+  requests.forEach((request) => {
+    const created = new Date(request.created_at);
+    const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}`;
+    if (requestCountsByMonth.has(key)) {
+      requestCountsByMonth.set(key, (requestCountsByMonth.get(key) ?? 0) + 1);
+    }
+  });
+  const requestTrend = monthKeys.map(({ key, month }) => ({
+    month,
+    requests: requestCountsByMonth.get(key) ?? 0,
+  }));
 
   return (
     <div className="space-y-7">
@@ -181,9 +216,26 @@ function AdminDashboard() {
             </span>
           </div>
           <p className="mt-7 text-3xl font-bold tracking-tight">
-            {requestsLoading ? "—" : money(revenue)}
+            {requestsLoading
+              ? "—"
+              : revenueCurrencies.length > 1
+                ? "Multiple currencies"
+                : revenueCurrencies.length
+                  ? money(revenueCurrencies[0]?.[1], revenueCurrencies[0]?.[0])
+                  : money(0)}
           </p>
-          <p className="mt-2 text-xs text-muted-foreground">Sum of requests marked as paid</p>
+          {!requestsLoading && revenueCurrencies.length > 1 && (
+            <div className="mt-3 space-y-1">
+              {revenueCurrencies.map(([currency, amount]) => (
+                <p key={currency} className="text-sm font-semibold">
+                  {money(amount, currency)}
+                </p>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Paid requests{revenueCurrencies.length > 1 ? " (by currency below)" : ""}
+          </p>
           <div className="mt-6 border-t pt-4">
             <Link
               to="/admin"
@@ -211,30 +263,76 @@ function AdminDashboard() {
               ))}
             </div>
           ) : (
-            <div className="mt-6 space-y-4">
-              {statusCounts.map(({ status, count }) => (
-                <div key={status} className="grid grid-cols-[112px_1fr_32px] items-center gap-3">
-                  <span className="truncate text-xs font-medium text-muted-foreground">
-                    {STATUS_LABEL[status]}
-                  </span>
-                  <div
-                    className="h-2 overflow-hidden rounded-full bg-[#f0f2f6]"
-                    role="progressbar"
-                    aria-label={`${STATUS_LABEL[status]} requests`}
-                    aria-valuenow={count}
-                    aria-valuemax={maxStatusCount}
-                  >
-                    <div
-                      className="h-full rounded-full bg-[#385575] transition-[width]"
-                      style={{ width: `${(count / maxStatusCount) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-right text-xs font-bold">{count}</span>
-                </div>
-              ))}
+            <div className="mt-5 h-[230px] w-full" role="img" aria-label="Requests by status">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={statusCounts}
+                  layout="vertical"
+                  margin={{ top: 4, right: 12, bottom: 4, left: 4 }}
+                >
+                  <CartesianGrid stroke="#e9edf2" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    width={105}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <Tooltip cursor={{ fill: "#f3f6fa" }} />
+                  <Bar dataKey="count" name="Requests" fill="#385575" radius={[0, 5, 5, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )}
         </article>
+      </section>
+
+      <section className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">Request activity</p>
+            <h2 className="mt-2 text-lg font-semibold">Submissions over the last six months</h2>
+          </div>
+          <span className="rounded-lg bg-[#f3f6fa] px-2.5 py-1.5 text-xs font-semibold text-[#536982]">
+            {requestsLoading ? "…" : requests.length} total requests
+          </span>
+        </div>
+        {requestsLoading ? (
+          <div className="mt-5 h-[250px] animate-pulse rounded-xl bg-muted" />
+        ) : (
+          <div className="mt-5 h-[250px] w-full" role="img" aria-label="Monthly request volume">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={requestTrend} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+                <CartesianGrid stroke="#e9edf2" vertical={false} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="requests"
+                  name="Requests"
+                  stroke="#385575"
+                  strokeWidth={2}
+                  fill="#dce6f1"
+                  activeDot={{ r: 5 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </section>
 
       <section className="overflow-hidden rounded-2xl border bg-white shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">

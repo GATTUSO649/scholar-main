@@ -166,6 +166,25 @@ export const getMyUpdateCountFn = createServerFn({ method: "GET" }).handler(asyn
   return getMyUpdateCount();
 });
 
+export const getMyNotificationsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getMyNotifications } = await import("./backend.server");
+  return getMyNotifications();
+});
+
+export const markNotificationReadFn = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { markNotificationRead } = await import("./backend.server");
+    return markNotificationRead(data.id);
+  });
+
+export const markAllNotificationsReadFn = createServerFn({ method: "POST" }).handler(async () => {
+  assertSameOrigin();
+  const { markAllNotificationsRead } = await import("./backend.server");
+  return markAllNotificationsRead();
+});
+
 export const getRequestBundleFn = createServerFn({ method: "GET" })
   .validator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {

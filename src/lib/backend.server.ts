@@ -5,10 +5,11 @@ import {
   timingSafeEqual,
   createHash,
 } from "node:crypto";
-import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   loginAttempts,
+  notifications,
   passwordResetTokens,
   profiles,
   requestFiles,
@@ -61,6 +62,15 @@ type RequestState =
   | "completed"
   | "cancelled";
 type PaymentState = "unpaid" | "pending" | "paid" | "refunded";
+export type NotificationDto = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  href: string;
+  read_at: string | null;
+  created_at: string;
+};
 
 function tokenHash(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -580,6 +590,57 @@ export async function getMyUpdateCount() {
   return Number(row?.count ?? 0);
 }
 
+export async function getMyNotifications() {
+  const user = await requireUser();
+  const db = getDatabase();
+  const [rows, [unreadRow]] = await Promise.all([
+    db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, user.id))
+      .orderBy(desc(notifications.createdAt))
+      .limit(20),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, user.id), isNull(notifications.readAt))),
+  ]);
+  return {
+    items: rows.map((row): NotificationDto => ({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      message: row.message,
+      href: row.href,
+      read_at: row.readAt?.toISOString() ?? null,
+      created_at: row.createdAt.toISOString(),
+    })),
+    unreadCount: Number(unreadRow?.count ?? 0),
+  };
+}
+
+export async function markNotificationRead(id: string) {
+  const user = await requireUser();
+  await getDatabase()
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(notifications.id, id),
+        eq(notifications.userId, user.id),
+        isNull(notifications.readAt),
+      ),
+    );
+}
+
+export async function markAllNotificationsRead() {
+  const user = await requireUser();
+  await getDatabase()
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(eq(notifications.userId, user.id), isNull(notifications.readAt)));
+}
+
 export async function getRequestBundle(id: string) {
   const user = await requireUser();
   const db = getDatabase();
@@ -657,20 +718,39 @@ export async function createRequest(input: {
   if (!service) throw new Error("The selected support service is unavailable.");
   const id = randomUUID();
   const ref = `REQ-${randomBytes(3).toString("hex").toUpperCase()}`;
-  await db.insert(requests).values({
-    id,
-    ref,
-    studentId: user.id,
-    serviceId: input.service_id,
-    title: input.title.trim(),
-    courseUnit: input.course_unit?.trim() || null,
-    lecturer: input.lecturer?.trim() || null,
-    academicLevel: input.academic_level || null,
-    description: input.description.trim(),
-    numQuestions: input.num_questions ?? null,
-    numPages: input.num_pages ?? null,
-    deadline,
-    preferredDate,
+  await db.transaction(async (tx) => {
+    await tx.insert(requests).values({
+      id,
+      ref,
+      studentId: user.id,
+      serviceId: input.service_id,
+      title: input.title.trim(),
+      courseUnit: input.course_unit?.trim() || null,
+      lecturer: input.lecturer?.trim() || null,
+      academicLevel: input.academic_level || null,
+      description: input.description.trim(),
+      numQuestions: input.num_questions ?? null,
+      numPages: input.num_pages ?? null,
+      deadline,
+      preferredDate,
+    });
+    const adminUsers = await tx
+      .select({ userId: userRoles.userId })
+      .from(userRoles)
+      .where(eq(userRoles.role, "admin"));
+    if (adminUsers.length) {
+      await tx.insert(notifications).values(
+        adminUsers.map(({ userId }) => ({
+          id: randomUUID(),
+          userId,
+          requestId: id,
+          type: "new_request",
+          title: "New student request",
+          message: `A student submitted “${input.title.trim()}” (${ref}).`,
+          href: `/manage/${id}`,
+        })),
+      );
+    }
   });
   return { id };
 }
@@ -752,6 +832,44 @@ export async function updateRequest(input: {
         status: input.status !== current.status ? input.status : null,
         note: input.note,
         createdBy: user.id,
+      });
+    }
+    const studentVisibleChange =
+      input.status !== current.status ||
+      input.payment_status !== current.paymentStatus ||
+      input.price !== current.price ||
+      input.grade !== current.grade ||
+      input.admin_feedback !== current.adminFeedback ||
+      Boolean(input.note);
+    if (studentVisibleChange) {
+      const title =
+        input.status !== current.status
+          ? "Request status changed"
+          : input.payment_status !== current.paymentStatus
+            ? "Payment status updated"
+            : input.price !== current.price
+              ? "Your quote was updated"
+              : input.grade !== current.grade || input.admin_feedback !== current.adminFeedback
+                ? "New feedback is available"
+                : "New request update";
+      const message =
+        input.status !== current.status
+          ? `Request ${current.ref} is now ${input.status.replaceAll("_", " ")}.`
+          : input.payment_status !== current.paymentStatus
+            ? `Payment status for request ${current.ref} is now ${input.payment_status}.`
+            : input.price !== current.price
+              ? `The quote for request ${current.ref} has changed.`
+              : input.grade !== current.grade || input.admin_feedback !== current.adminFeedback
+                ? `New feedback has been added to request ${current.ref}.`
+                : `There is a new update for request ${current.ref}.`;
+      await tx.insert(notifications).values({
+        id: randomUUID(),
+        userId: current.studentId,
+        requestId: current.id,
+        type: "request_update",
+        title,
+        message,
+        href: `/request/${current.id}`,
       });
     }
   });

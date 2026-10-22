@@ -3,6 +3,7 @@
 ScholarDesk is a student support portal built with TanStack Start, React, Drizzle ORM and MySQL. The server owns all database access. Browser pages use typed server functions; authentication uses random HttpOnly session cookies stored as hashes in MySQL, and each private operation checks the current user's role or ownership on the server.
 
 The public site has separate pages for `/how-it-works`, `/services`, `/pricing`, `/faq`, and `/contact`.
+The administrator workspace includes request and student management, request/revenue summaries, charts, and an in-app notification center. Students receive notifications when administrators update their requests.
 
 ## Requirements
 
@@ -75,7 +76,9 @@ Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DI
 ## Data and access
 
 - `users`, `profiles`, `user_roles`, and `sessions` hold accounts and roles. Students can update their profile, change a password after verifying their current password, and reset a forgotten password by email.
-- `services`, `requests`, `request_updates`, `request_files`, and `site_settings` hold application data. The service catalog includes Microsoft Word, Excel, PowerPoint, Outlook, Teams, OneDrive, OneNote, Forms, SharePoint, Access and Microsoft 365 setup/support, alongside academic proofreading, project and research support.
+- `services`, `requests`, `request_updates`, `request_files`, `notifications`, and `site_settings` hold application data. New student requests notify administrators; request status and feedback changes notify the owning student. Notifications are private to the signed-in account and can be marked read in the header.
+- The admin dashboard shows request workload by status, six-month request volume, registered students, deadlines, and paid totals grouped by currency. Quick links lead to the request queue and student directory.
+- The service catalog includes Microsoft Word, Excel, PowerPoint, Outlook, Teams, OneDrive, OneNote, Forms, SharePoint, Access and Microsoft 365 setup/support, alongside academic proofreading, project and research support.
 - Student request/file ownership and administrator access are checked in server-only handlers; never expose the MySQL URL or database credentials to browser code.
 - Student sign-in accepts student accounts only; accounts with the administrator role must use the separate admin sign-in page. Changing a password signs out other active sessions.
 - Administrator signup requires the server-only `ADMIN_SIGNUP_SECRET`; admin sign-in verifies each account's database-backed admin role.

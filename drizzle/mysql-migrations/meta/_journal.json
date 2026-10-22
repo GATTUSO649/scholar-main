@@ -15,6 +15,13 @@
       "when": 1792674000000,
       "tag": "0001_microsoft_365_services",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1792669418106,
+      "tag": "0002_equal_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }

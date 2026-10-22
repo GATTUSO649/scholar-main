@@ -126,9 +126,16 @@ function Admin() {
       `${request.title} ${request.ref} ${request.profiles?.full_name ?? ""}`.toLowerCase();
     return matchesFilter && searchable.includes(query.trim().toLowerCase());
   });
-  const revenue = requests
-    .filter((request) => request.payment_status === "paid")
-    .reduce((sum, request) => sum + Number(request.price ?? 0), 0);
+  const revenueByCurrency = requests.reduce<Record<string, number>>((totals, request) => {
+    if (request.payment_status === "paid") {
+      totals[request.currency] = (totals[request.currency] ?? 0) + Number(request.price ?? 0);
+    }
+    return totals;
+  }, {});
+  const revenueSummary =
+    Object.entries(revenueByCurrency)
+      .map(([currency, amount]) => money(amount, currency))
+      .join(" · ") || money(0);
   const overdue = requests.filter(
     (request) =>
       request.deadline &&
@@ -175,9 +182,9 @@ function Admin() {
           tone={overdue ? "rose" : "green"}
         />
         <Metric
-          label="Paid revenue"
-          value={isLoading ? "—" : money(revenue)}
-          detail="Completed payments"
+          label="Paid totals"
+          value={isLoading ? "—" : revenueSummary}
+          detail="Grouped by currency"
           tone="gold"
         />
       </section>
