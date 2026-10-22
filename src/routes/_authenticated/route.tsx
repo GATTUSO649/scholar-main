@@ -174,14 +174,14 @@ function Shell() {
         <aside className="sticky top-0 hidden h-screen flex-col bg-[#17263c] text-white lg:flex">
           {adminLinks}
         </aside>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white px-4 py-3 lg:hidden">
-          <Logo />
-          <div className="flex items-center gap-1">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-[#17263c] px-4 py-3 text-white lg:hidden">
+          <Logo light />
+          <div className="flex items-center gap-1 text-white">
             <NotificationBell />
-            <ProfileShortcut name={profile?.full_name} className="text-foreground hover:bg-muted" />
+            <ProfileShortcut name={profile?.full_name} className="text-white hover:bg-white/10" />
             <button
               onClick={() => setOpen(!open)}
-              className="rounded-lg p-2 text-foreground hover:bg-muted"
+              className="rounded-lg p-2 text-white hover:bg-white/10"
               aria-label={open ? "Close menu" : "Open menu"}
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
