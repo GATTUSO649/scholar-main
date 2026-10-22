@@ -181,29 +181,26 @@ export async function registerAccount(input: {
   return { id, email };
 }
 
-export async function getAdminSignupState() {
-  const secret = process.env["ADMIN_SIGNUP_SECRET"];
-  if (!secret || secret.length < 32) return { available: false, reason: "not_configured" as const };
-
-  const [admin] = await getDatabase()
-    .select({ id: userRoles.id })
-    .from(userRoles)
-    .where(eq(userRoles.role, "admin"))
-    .limit(1);
-  return admin
-    ? { available: false, reason: "already_created" as const }
-    : { available: true, reason: null };
+export function isAdminSignupConfigured(secret: string | undefined): secret is string {
+  return typeof secret === "string" && secret.length >= 32;
 }
 
-export async function registerInitialAdmin(input: {
+export function getAdminSignupState() {
+  if (!isAdminSignupConfigured(process.env["ADMIN_SIGNUP_SECRET"])) {
+    return { available: false, reason: "not_configured" as const };
+  }
+  return { available: true, reason: null };
+}
+
+export async function registerAdmin(input: {
   email: string;
   password: string;
   full_name: string;
   signup_secret: string;
 }) {
   const configuredSecret = process.env["ADMIN_SIGNUP_SECRET"];
-  if (!configuredSecret || configuredSecret.length < 32) {
-    throw new AuthError("Initial admin signup is not configured.");
+  if (!isAdminSignupConfigured(configuredSecret)) {
+    throw new AuthError("Administrator signup is not configured.");
   }
 
   const expected = createHash("sha256").update(configuredSecret).digest();
@@ -224,16 +221,6 @@ export async function registerInitialAdmin(input: {
         .insert(siteSettings)
         .values({ id: 1, showPrices: true })
         .onDuplicateKeyUpdate({ set: { showPrices: sql`show_prices` } });
-      const [existingAdmin] = await tx
-        .select({ id: userRoles.id })
-        .from(userRoles)
-        .where(eq(userRoles.role, "admin"))
-        .limit(1);
-      if (existingAdmin) {
-        throw new AuthError(
-          "Initial admin signup is closed. Sign in with the existing administrator account.",
-        );
-      }
 
       await tx.insert(users).values({ id, email, passwordHash });
       await tx.insert(profiles).values({
@@ -253,10 +240,10 @@ export async function registerInitialAdmin(input: {
     if (error instanceof AuthError) throw error;
     if (isDuplicateKey(error))
       throw new AuthError(
-        "An account with this email already exists. Try signing in or resetting your password.",
+        "An account with this email already exists. Sign in or use a different email address.",
       );
     console.error(
-      "Initial administrator registration failed.",
+      "Administrator registration failed.",
       getDatabaseErrorCode(error) ?? "unknown database error",
     );
     throw new AuthError("Could not create the administrator account. Please try again.");

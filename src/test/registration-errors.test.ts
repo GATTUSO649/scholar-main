@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDatabaseErrorCode } from "@/lib/backend.server";
+import { getDatabaseErrorCode, isAdminSignupConfigured } from "@/lib/backend.server";
 
 describe("database error handling", () => {
   it("reads MySQL error codes from Drizzle's wrapped cause", () => {
@@ -20,5 +20,13 @@ describe("database error handling", () => {
     error.cause = error;
 
     expect(getDatabaseErrorCode(error)).toBeUndefined();
+  });
+});
+
+describe("admin signup configuration", () => {
+  it("requires a configured secret with at least 32 characters", () => {
+    expect(isAdminSignupConfigured(undefined)).toBe(false);
+    expect(isAdminSignupConfigured("x".repeat(31))).toBe(false);
+    expect(isAdminSignupConfigured("x".repeat(32))).toBe(true);
   });
 });

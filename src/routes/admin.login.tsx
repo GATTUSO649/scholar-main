@@ -12,7 +12,7 @@ import {
   getAdminSignupStateFn,
   getAdminStateFn,
   getCurrentUserFn,
-  registerInitialAdminFn,
+  registerAdminFn,
 } from "@/lib/backend";
 import { useQuery } from "@tanstack/react-query";
 
@@ -74,8 +74,11 @@ function AdminLoginPage() {
         if (!user) return;
         const isAdmin = await getAdminStateFn();
         if (!active) return;
-        if (isAdmin) await navigate({ to: "/admin/dashboard", replace: true });
-        else setSignedInAsStudent(true);
+        if (isAdmin && mode !== "register") {
+          await navigate({ to: "/admin/dashboard", replace: true });
+        } else if (!isAdmin) {
+          setSignedInAsStudent(true);
+        }
       })
       .catch((error: unknown) =>
         console.error("Could not check the current administrator session.", error),
@@ -83,7 +86,7 @@ function AdminLoginPage() {
     return () => {
       active = false;
     };
-  }, [navigate]);
+  }, [mode, navigate]);
 
   function setMode(nextMode: "login" | "register") {
     setFormError(null);
@@ -101,7 +104,7 @@ function AdminLoginPage() {
       let user: { id: string; email: string };
       if (mode === "register") {
         if (!signupAvailable) {
-          setFormError("Initial admin signup is no longer available. Sign in instead.");
+          setFormError("Administrator signup is not configured. Contact the site owner.");
           return;
         }
         const parsed = signupSchema.safeParse(Object.fromEntries(formData));
@@ -114,7 +117,7 @@ function AdminLoginPage() {
           return;
         }
         const { confirm: _confirm, ...input } = parsed.data;
-        user = await registerInitialAdminFn({ data: input });
+        user = await registerAdminFn({ data: input });
       } else {
         user = await adminLoginFn({
           data: {
@@ -131,9 +134,8 @@ function AdminLoginPage() {
       const message = error instanceof Error ? error.message : "";
       const safeMessages = new Set([
         "The admin signup key is incorrect.",
-        "Initial admin signup is not configured.",
-        "Initial admin signup is closed. Sign in with the existing administrator account.",
-        "An account with this email already exists. Try signing in or resetting your password.",
+        "Administrator signup is not configured.",
+        "An account with this email already exists. Sign in or use a different email address.",
         "Could not create the administrator account. Please try again.",
         "Email or password is incorrect.",
         "Too many sign-in attempts. Please wait 15 minutes and try again.",
@@ -186,10 +188,10 @@ function AdminLoginPage() {
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {mode === "register"
-                ? "Initial setup is available once. Use the signup key provided by the site owner."
+                ? "Create an administrator account with the signup key provided by the site owner."
                 : "Sign in to open your ScholarDesk operations workspace."}
             </p>
-            {signedInAsStudent && (
+            {signedInAsStudent && mode !== "register" && (
               <Alert className="mt-6">
                 <AlertTitle>Student session detected</AlertTitle>
                 <AlertDescription>
@@ -207,7 +209,7 @@ function AdminLoginPage() {
             <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
               {mode === "register" ? (
                 signupStateLoading ? (
-                  <p className="text-sm text-muted-foreground">Checking initial admin setup…</p>
+                  <p className="text-sm text-muted-foreground">Checking admin signup setup…</p>
                 ) : signupStateError ? (
                   <p className="text-sm text-destructive">
                     Could not check admin setup. Refresh the page and try again.
@@ -246,14 +248,12 @@ function AdminLoginPage() {
                       size="lg"
                       disabled={busy}
                     >
-                      {busy ? "Please wait…" : "Create initial admin account"}
+                      {busy ? "Please wait…" : "Create admin account"}
                     </Button>
                   </>
                 ) : (
                   <p className="rounded-xl bg-[#f6f8fb] p-4 text-sm text-muted-foreground">
-                    {signupState?.reason === "already_created"
-                      ? "The initial admin account has already been created. Sign in to continue."
-                      : "Initial admin signup is not configured. Contact the site owner."}
+                    Administrator signup is not configured. Contact the site owner.
                   </p>
                 )
               ) : (
@@ -290,32 +290,32 @@ function AdminLoginPage() {
               )}
             </form>
 
-            {!signupStateLoading && !signupStateError && signupAvailable && (
+            {mode === "register" ? (
               <p className="mt-6 text-center text-sm text-muted-foreground">
-                {mode === "login" ? (
-                  <>
-                    First-time setup?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setMode("register")}
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      Create initial account
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Already set up?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setMode("login")}
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      Sign in
-                    </button>
-                  </>
-                )}
+                Already have an admin account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setMode("login")}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Sign in
+                </button>
               </p>
+            ) : (
+              !signupStateLoading &&
+              !signupStateError &&
+              signupAvailable && (
+                <p className="mt-6 text-center text-sm text-muted-foreground">
+                  Need an admin account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("register")}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    Create admin account
+                  </button>
+                </p>
+              )
             )}
             <p className="mt-5 border-t pt-4 text-center text-xs">
               <Link
