@@ -800,9 +800,9 @@ export async function updateRequest(input: {
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(requests).where(eq(requests.id, input.id)).limit(1);
     if (!current) throw new Error("Request not found.");
-    if (input.currency !== "USD" && input.currency !== current.currency) {
+    if (input.currency !== "KES" && input.currency !== current.currency) {
       throw new Error(
-        "New quotes must use USD. Existing request currencies cannot be changed to another currency.",
+        "New quotes must use KES. Existing request currencies can only be changed to KES.",
       );
     }
     const gradeChanged =

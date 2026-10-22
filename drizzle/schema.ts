@@ -151,7 +151,7 @@ export const requests = mysqlTable(
       .notNull()
       .default("unpaid"),
     price: decimal("price", { precision: 10, scale: 2, mode: "number" }),
-    currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+    currency: varchar("currency", { length: 3 }).notNull().default("KES"),
     adminNotes: text("admin_notes"),
     grade: varchar("grade", { length: 20 }),
     adminFeedback: text("admin_feedback"),

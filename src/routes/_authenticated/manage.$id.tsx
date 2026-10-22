@@ -85,7 +85,7 @@ function Manage() {
       </div>
     );
   const r = data.req;
-  const currencies = r.currency === "USD" ? ["USD"] : ["USD", r.currency];
+  const currencies = r.currency === "KES" ? ["KES"] : ["KES", r.currency];
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -286,8 +286,8 @@ function Manage() {
                     ))}
                   </select>
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    New quotes use USD. This request’s existing currency is preserved unless you
-                    change it; amounts are not automatically converted.
+                    New quotes use KES. Changing this request’s currency does not convert its
+                    amount.
                   </p>
                 </div>
               </div>

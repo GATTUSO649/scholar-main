@@ -32,7 +32,7 @@ export const fmtDate = (d?: string | null) =>
     ? new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
     : "—";
 
-export const money = (n?: number | null, c = "USD") =>
+export const money = (n?: number | null, c = "KES") =>
   n == null
     ? "—"
-    : new Intl.NumberFormat(undefined, { style: "currency", currency: c }).format(Number(n));
+    : new Intl.NumberFormat("en-KE", { style: "currency", currency: c }).format(Number(n));

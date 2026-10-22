@@ -1,0 +1,1 @@
+ALTER TABLE `requests` MODIFY COLUMN `currency` varchar(3) NOT NULL DEFAULT 'KES';

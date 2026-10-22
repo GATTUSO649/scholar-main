@@ -92,13 +92,8 @@ function AdminDashboard() {
   const newToday = requests.filter(
     (request) => new Date(request.created_at).toDateString() === now.toDateString(),
   ).length;
-  const revenueByCurrency = requests.reduce<Record<string, number>>((totals, request) => {
-    if (request.payment_status === "paid") {
-      totals[request.currency] = (totals[request.currency] ?? 0) + Number(request.price ?? 0);
-    }
-    return totals;
-  }, {});
-  const revenueCurrencies = Object.entries(revenueByCurrency);
+  const paidRequests = requests.filter((request) => request.payment_status === "paid");
+  const paidTotal = paidRequests.reduce((total, request) => total + Number(request.price ?? 0), 0);
 
   const kpis: {
     label: string;
@@ -401,19 +396,12 @@ function AdminDashboard() {
           </div>
           {requestsLoading ? (
             <div className="mt-5 h-24 animate-pulse rounded-xl bg-muted" />
-          ) : revenueCurrencies.length ? (
+          ) : paidRequests.length ? (
             <div className="mt-5 space-y-3">
-              {revenueCurrencies.map(([currency, amount]) => (
-                <div
-                  key={currency}
-                  className="flex items-center justify-between rounded-xl bg-[#f7f9fc] px-4 py-3"
-                >
-                  <span className="text-sm font-medium text-muted-foreground">{currency}</span>
-                  <span className="text-lg font-bold text-[#17263c]">
-                    {money(amount, currency)}
-                  </span>
-                </div>
-              ))}
+              <div className="flex items-center justify-between rounded-xl bg-[#f7f9fc] px-4 py-3">
+                <span className="text-sm font-medium text-muted-foreground">KES</span>
+                <span className="text-lg font-bold text-[#17263c]">{money(paidTotal, "KES")}</span>
+              </div>
             </div>
           ) : (
             <p className="mt-5 rounded-xl bg-[#f7f9fc] p-4 text-sm text-muted-foreground">
@@ -421,8 +409,7 @@ function AdminDashboard() {
             </p>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            USD is the standard currency for new quotes. Historical paid totals remain grouped by
-            their saved currency.
+            Paid totals are displayed as KES; saved amounts are not converted.
           </p>
           <Link
             to="/admin"
