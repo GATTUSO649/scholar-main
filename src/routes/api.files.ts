@@ -5,6 +5,7 @@ import {
   getAuthorizedFile,
   authorizedUploadTarget,
   addRequestFile,
+  completeRequestDelivery,
   deleteRequestFile,
 } from "@/lib/backend.server";
 import { requireSameOrigin } from "@/lib/backend";
@@ -96,6 +97,7 @@ export const Route = createFileRoute("/api/files")({
                 kind,
               });
             }
+            if (kind === "delivery") await completeRequestDelivery(requestId);
           } catch (error) {
             await Promise.all(
               uploaded.flatMap((key) => [

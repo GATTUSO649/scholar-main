@@ -130,19 +130,22 @@ export function RequestSummary({
             ))}
           </ul>
         </section>
-        <section>
+        <section className="rounded-2xl border border-[#263a57] bg-[#17263c] p-5 text-white">
           <h2 className="text-lg font-semibold">Updates</h2>
           <ul className="mt-3 space-y-3">
             {data.updates.length === 0 && (
-              <li className="text-sm text-muted-foreground">
+              <li className="text-sm text-white/60">
                 No updates yet — we'll post here as your request moves along.
               </li>
             )}
             {data.updates.map((u) => (
-              <li key={u.id} className="rounded-xl border bg-card p-4 text-sm">
+              <li
+                key={u.id}
+                className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm"
+              >
                 <div className="flex items-center justify-between gap-2">
                   {u.status ? <StatusBadge status={u.status} /> : <span />}
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-white/55">
                     {new Date(u.created_at).toLocaleString()}
                   </span>
                 </div>

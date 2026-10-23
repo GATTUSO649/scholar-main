@@ -944,6 +944,41 @@ export async function addRequestFile(input: {
   });
 }
 
+export async function completeRequestDelivery(requestId: string) {
+  const user = await requireAdmin();
+  const db = getDatabase();
+  await db.transaction(async (tx) => {
+    const [request] = await tx
+      .select({ id: requests.id, studentId: requests.studentId, ref: requests.ref })
+      .from(requests)
+      .where(eq(requests.id, requestId))
+      .limit(1);
+    if (!request) throw new Error("Request not found.");
+
+    const note = "Completed work files are ready to download.";
+    await tx
+      .update(requests)
+      .set({ status: "completed", updatedAt: new Date() })
+      .where(eq(requests.id, requestId));
+    await tx.insert(requestUpdates).values({
+      id: randomUUID(),
+      requestId,
+      status: "completed",
+      note,
+      createdBy: user.id,
+    });
+    await tx.insert(notifications).values({
+      id: randomUUID(),
+      userId: request.studentId,
+      requestId,
+      type: "delivery_ready",
+      title: "Completed work is ready",
+      message: `Completed work for request ${request.ref} is ready to download.`,
+      href: `/request/${requestId}`,
+    });
+  });
+}
+
 export async function deleteRequestFile(storageKey: string) {
   await getDatabase().delete(requestFiles).where(eq(requestFiles.storageKey, storageKey));
 }

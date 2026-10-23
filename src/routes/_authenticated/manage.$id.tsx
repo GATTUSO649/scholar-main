@@ -112,10 +112,16 @@ function Manage() {
         .slice(0, 4000) || null;
     setBusy(true);
     try {
+      const hasDeliveryFiles = files.length > 0;
+      if (hasDeliveryFiles) {
+        const uploaded = await uploadFiles(id, files, "delivery");
+        if (!uploaded) return;
+        setFiles([]);
+      }
       await updateRequestFn({
         data: {
           id,
-          status,
+          status: hasDeliveryFiles ? "completed" : status,
           payment_status,
           price,
           currency: String(formData.get("currency")) as "USD" | "KES" | "GBP" | "EUR",
@@ -125,22 +131,13 @@ function Manage() {
           note: note || null,
         },
       });
-      let filesUploaded = true;
-      if (files.length && studentId) {
-        filesUploaded = await uploadFiles(id, files, "delivery");
-        if (filesUploaded) setFiles([]);
-      }
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["request", id] }),
         qc.invalidateQueries({ queryKey: ["admin-requests"] }),
       ]);
       const noteField = form.querySelector<HTMLTextAreaElement>("#note");
       if (noteField) noteField.value = "";
-      toast[filesUploaded ? "success" : "error"](
-        filesUploaded
-          ? "Request updated successfully."
-          : "Request was saved, but the delivery files could not be uploaded.",
-      );
+      toast.success("Request updated successfully.");
     } catch (saveError) {
       toast.error(saveError instanceof Error ? saveError.message : "Could not update the request.");
     } finally {
@@ -366,7 +363,7 @@ function Manage() {
                       {files.length ? `${files.length} file(s) selected` : "Choose delivery files"}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      Upload completed work
+                      Uploading marks the request complete and notifies the student
                     </span>
                   </span>
                   <input
