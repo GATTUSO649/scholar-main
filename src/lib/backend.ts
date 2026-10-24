@@ -154,6 +154,16 @@ export const getPublicDataFn = createServerFn({ method: "GET" }).handler(async (
   return getPublicData();
 });
 
+export const getLibraryResourcesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getLibraryResources } = await import("./backend.server");
+  return getLibraryResources();
+});
+
+export const getAdminLibraryResourcesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getAdminLibraryResources } = await import("./backend.server");
+  return getAdminLibraryResources();
+});
+
 export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getMyRequests } = await import("./backend.server");
   return getMyRequests();

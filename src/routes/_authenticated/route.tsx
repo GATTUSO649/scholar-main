@@ -17,6 +17,7 @@ import {
   LogOut,
   Shield,
   Users,
+  BookOpen,
   Menu,
   X,
   ChevronRight,
@@ -57,6 +58,7 @@ const studentNav = [
 const adminNav = [
   { to: "/admin/dashboard", label: "Admin dashboard", icon: LayoutDashboard },
   { to: "/admin", label: "All requests", icon: Shield },
+  { to: "/admin/resources", label: "Download library", icon: BookOpen },
   { to: "/students", label: "Students", icon: Users },
 ] as const;
 
@@ -73,11 +75,13 @@ function Shell() {
     (path.startsWith("/admin") || path.startsWith("/students") || path.startsWith("/manage"));
   const pageTitle = path.startsWith("/admin/dashboard")
     ? "Dashboard"
-    : path.startsWith("/students")
-      ? "Students"
-      : path.startsWith("/manage")
-        ? "Request workspace"
-        : "All requests";
+    : path.startsWith("/admin/resources")
+      ? "Download library"
+      : path.startsWith("/students")
+        ? "Students"
+        : path.startsWith("/manage")
+          ? "Request workspace"
+          : "All requests";
 
   async function signOut() {
     await qc.cancelQueries();
@@ -112,7 +116,9 @@ function Shell() {
                   ? path === "/admin" || path.startsWith("/manage")
                   : n.to === "/students"
                     ? path.startsWith("/students")
-                    : path.startsWith(n.to)
+                    : n.to === "/admin/resources"
+                      ? path.startsWith("/admin/resources")
+                      : path.startsWith(n.to)
               }
               onClick={() => setOpen(false)}
               admin

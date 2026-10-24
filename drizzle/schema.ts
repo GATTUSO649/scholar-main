@@ -225,6 +225,29 @@ export const requestFiles = mysqlTable(
   ],
 );
 
+export const libraryResources = mysqlTable(
+  "library_resources",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    title: varchar("title", { length: 200 }).notNull(),
+    description: text("description").notNull(),
+    category: mysqlEnum("category", ["novel", "business_plan", "article"]).notNull(),
+    storageKey: varchar("storage_key", { length: 36 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    size: int("size").notNull(),
+    uploadedBy: varchar("uploaded_by", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [
+    uniqueIndex("library_resources_storage_key_unique").on(table.storageKey),
+    index("library_resources_category_created_idx").on(table.category, table.createdAt),
+  ],
+);
+
 export const siteSettings = mysqlTable("site_settings", {
   id: int("id").primaryKey().default(1),
   showPrices: boolean("show_prices").notNull().default(true),

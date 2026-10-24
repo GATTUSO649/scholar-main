@@ -9,6 +9,7 @@ import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   loginAttempts,
+  libraryResources,
   notifications,
   passwordResetTokens,
   profiles,
@@ -529,6 +530,82 @@ export async function getPublicData() {
       created_at: row.createdAt.toISOString(),
     })),
   };
+}
+
+function mapLibraryResource(row: typeof libraryResources.$inferSelect) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    category: row.category,
+    name: row.name,
+    size: row.size,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+export async function getLibraryResources() {
+  const rows = await getDatabase()
+    .select()
+    .from(libraryResources)
+    .orderBy(desc(libraryResources.createdAt));
+  return rows.map(mapLibraryResource);
+}
+
+export async function getAdminLibraryResources() {
+  await requireAdmin();
+  return getLibraryResources();
+}
+
+export async function requireLibraryAdmin() {
+  await requireAdmin();
+}
+
+export async function createLibraryResource(input: {
+  title: string;
+  description: string;
+  category: "novel" | "business_plan" | "article";
+  storageKey: string;
+  name: string;
+  size: number;
+}) {
+  const user = await requireAdmin();
+  await getDatabase().insert(libraryResources).values({
+    id: randomUUID(),
+    title: input.title,
+    description: input.description,
+    category: input.category,
+    storageKey: input.storageKey,
+    name: input.name,
+    size: input.size,
+    uploadedBy: user.id,
+  });
+  return { success: true };
+}
+
+export async function getLibraryResourceForDownload(id: string) {
+  const [resource] = await getDatabase()
+    .select({
+      id: libraryResources.id,
+      storageKey: libraryResources.storageKey,
+      name: libraryResources.name,
+    })
+    .from(libraryResources)
+    .where(eq(libraryResources.id, id))
+    .limit(1);
+  return resource ?? null;
+}
+
+export async function deleteLibraryResource(id: string) {
+  await requireAdmin();
+  const [resource] = await getDatabase()
+    .select({ storageKey: libraryResources.storageKey })
+    .from(libraryResources)
+    .where(eq(libraryResources.id, id))
+    .limit(1);
+  if (!resource) return null;
+  await getDatabase().delete(libraryResources).where(eq(libraryResources.id, id));
+  return resource;
 }
 
 function mapRequest(

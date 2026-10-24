@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as DownloadsRouteImport } from './routes/downloads'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as PricingRouteImport } from './routes/pricing'
@@ -27,7 +28,9 @@ import { Route as AuthenticatedSubmitRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as ApiFilesRouteImport } from './routes/api.files'
+import { Route as ApiLibraryRouteImport } from './routes/api.library'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
+import { Route as AuthenticatedAdminResourcesRouteImport } from './routes/_authenticated/admin.resources'
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
 import { Route as AuthenticatedRequestIdRouteImport } from './routes/_authenticated/request.$id'
 
@@ -48,6 +51,11 @@ const AuthRoute = AuthRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadsRoute = DownloadsRouteImport.update({
+  id: '/downloads',
+  path: '/downloads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaqRoute = FaqRouteImport.update({
@@ -120,10 +128,21 @@ const ApiFilesRoute = ApiFilesRouteImport.update({
   path: '/api/files',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLibraryRoute = ApiLibraryRouteImport.update({
+  id: '/api/library',
+  path: '/api/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminDashboardRoute =
   AuthenticatedAdminDashboardRouteImport.update({
     id: '/dashboard',
     path: '/dashboard',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminResourcesRoute =
+  AuthenticatedAdminResourcesRouteImport.update({
+    id: '/resources',
+    path: '/resources',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedManageIdRoute = AuthenticatedManageIdRouteImport.update({
@@ -141,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/downloads': typeof DownloadsRoute
   '/faq': typeof FaqRoute
   '/how-it-works': typeof HowItWorksRoute
   '/pricing': typeof PricingRoute
@@ -155,7 +175,9 @@ export interface FileRoutesByFullPath {
   '/support': typeof AuthenticatedSupportRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
+  '/api/library': typeof ApiLibraryRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
 }
@@ -163,6 +185,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/downloads': typeof DownloadsRoute
   '/faq': typeof FaqRoute
   '/how-it-works': typeof HowItWorksRoute
   '/pricing': typeof PricingRoute
@@ -177,7 +200,9 @@ export interface FileRoutesByTo {
   '/support': typeof AuthenticatedSupportRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
+  '/api/library': typeof ApiLibraryRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
 }
@@ -187,6 +212,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/downloads': typeof DownloadsRoute
   '/faq': typeof FaqRoute
   '/how-it-works': typeof HowItWorksRoute
   '/pricing': typeof PricingRoute
@@ -201,7 +227,9 @@ export interface FileRoutesById {
   '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
+  '/api/library': typeof ApiLibraryRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
   '/_authenticated/request/$id': typeof AuthenticatedRequestIdRoute
 }
@@ -211,6 +239,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/contact'
+    | '/downloads'
     | '/faq'
     | '/how-it-works'
     | '/pricing'
@@ -225,7 +254,9 @@ export interface FileRouteTypes {
     | '/support'
     | '/admin/login'
     | '/api/files'
+    | '/api/library'
     | '/admin/dashboard'
+    | '/admin/resources'
     | '/manage/$id'
     | '/request/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -233,6 +264,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/contact'
+    | '/downloads'
     | '/faq'
     | '/how-it-works'
     | '/pricing'
@@ -247,7 +279,9 @@ export interface FileRouteTypes {
     | '/support'
     | '/admin/login'
     | '/api/files'
+    | '/api/library'
     | '/admin/dashboard'
+    | '/admin/resources'
     | '/manage/$id'
     | '/request/$id'
   id:
@@ -256,6 +290,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/contact'
+    | '/downloads'
     | '/faq'
     | '/how-it-works'
     | '/pricing'
@@ -270,7 +305,9 @@ export interface FileRouteTypes {
     | '/_authenticated/support'
     | '/admin/login'
     | '/api/files'
+    | '/api/library'
     | '/_authenticated/admin/dashboard'
+    | '/_authenticated/admin/resources'
     | '/_authenticated/manage/$id'
     | '/_authenticated/request/$id'
   fileRoutesById: FileRoutesById
@@ -280,6 +317,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
+  DownloadsRoute: typeof DownloadsRoute
   FaqRoute: typeof FaqRoute
   HowItWorksRoute: typeof HowItWorksRoute
   PricingRoute: typeof PricingRoute
@@ -287,6 +325,7 @@ export interface RootRouteChildren {
   ServicesRoute: typeof ServicesRoute
   AdminLoginRoute: typeof AdminLoginRoute
   ApiFilesRoute: typeof ApiFilesRoute
+  ApiLibraryRoute: typeof ApiLibraryRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -317,6 +356,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/downloads': {
+      id: '/downloads'
+      path: '/downloads'
+      fullPath: '/downloads'
+      preLoaderRoute: typeof DownloadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faq': {
@@ -417,11 +463,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/library': {
+      id: '/api/library'
+      path: '/api/library'
+      fullPath: '/api/library'
+      preLoaderRoute: typeof ApiLibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/dashboard': {
       id: '/_authenticated/admin/dashboard'
       path: '/dashboard'
       fullPath: '/admin/dashboard'
       preLoaderRoute: typeof AuthenticatedAdminDashboardRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/resources': {
+      id: '/_authenticated/admin/resources'
+      path: '/resources'
+      fullPath: '/admin/resources'
+      preLoaderRoute: typeof AuthenticatedAdminResourcesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/manage/$id': {
@@ -443,10 +503,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
+  AuthenticatedAdminResourcesRoute: typeof AuthenticatedAdminResourcesRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
+  AuthenticatedAdminResourcesRoute: AuthenticatedAdminResourcesRoute,
 }
 
 const AuthenticatedAdminRouteWithChildren =
@@ -484,6 +546,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
+  DownloadsRoute: DownloadsRoute,
   FaqRoute: FaqRoute,
   HowItWorksRoute: HowItWorksRoute,
   PricingRoute: PricingRoute,
@@ -491,6 +554,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServicesRoute: ServicesRoute,
   AdminLoginRoute: AdminLoginRoute,
   ApiFilesRoute: ApiFilesRoute,
+  ApiLibraryRoute: ApiLibraryRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

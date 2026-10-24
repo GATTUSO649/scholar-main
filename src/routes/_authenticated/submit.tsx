@@ -605,11 +605,11 @@ function Submit() {
         )}
 
         <div>
-          <Label htmlFor="course_unit">Course / unit</Label>
+          <Label htmlFor="course_unit">Course / unit (optional)</Label>
           <Input id="course_unit" name="course_unit" className="mt-1.5" />
         </div>
         <div>
-          <Label htmlFor="lecturer">Lecturer / tutor name</Label>
+          <Label htmlFor="lecturer">Lecturer / tutor name (optional)</Label>
           <Input id="lecturer" name="lecturer" className="mt-1.5" />
         </div>
         <div className="sm:col-span-2">
