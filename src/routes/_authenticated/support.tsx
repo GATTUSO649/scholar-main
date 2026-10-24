@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Mail, Phone, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/support")({
-  head: () => ({ meta: [{ title: "Help & support — ScholarDesk" }, { name: "description", content: "Get help with your account or requests." }] }),
+  head: () => ({
+    meta: [
+      { title: "Help & support — ScholarDesk" },
+      { name: "description", content: "Get help with your account or requests." },
+    ],
+  }),
   component: Support,
 });
 
@@ -23,7 +28,9 @@ function Support() {
           </div>
         ))}
       </div>
-      <p className="mt-6 text-sm text-muted-foreground">Please include your request reference (e.g. REQ-AB12CD) when contacting us.</p>
+      <p className="mt-6 text-sm text-muted-foreground">
+        Please include your request reference (e.g. REQ-AB12CD) when contacting us.
+      </p>
     </div>
   );
 }

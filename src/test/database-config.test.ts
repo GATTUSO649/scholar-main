@@ -46,6 +46,24 @@ describe("Database environment configuration", () => {
     expect(url.pathname).toBe("/scholar_desk");
   });
 
+  it("trims whitespace from configured connection values", () => {
+    const url = new URL(
+      resolveDatabaseUrl({
+        MYSQLHOST: "  localhost  ",
+        MYSQLPORT: " 3307 ",
+        MYSQLUSER: "  root  ",
+        MYSQL_ROOT_PASSWORD: "  local-secret  ",
+        MYSQL_DATABASE: "  scholar_desk  ",
+      }),
+    );
+
+    expect(url.hostname).toBe("localhost");
+    expect(url.port).toBe("3307");
+    expect(decodeURIComponent(url.username)).toBe("root");
+    expect(url.password).toBe("local-secret");
+    expect(url.pathname).toBe("/scholar_desk");
+  });
+
   it("uses a valid migration URL and ignores a non-URL migration value", () => {
     expect(
       resolveMigrationDatabaseUrl({

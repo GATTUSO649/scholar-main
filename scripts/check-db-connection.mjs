@@ -1,25 +1,30 @@
 import mysql from "mysql2/promise";
 
+function normalizeEnvValue(value) {
+  return typeof value === "string" ? value.trim() || undefined : undefined;
+}
+
 function getConnectionUrl(environment) {
-  const directUrl = environment.MYSQL_URL?.trim();
+  const directUrl = normalizeEnvValue(environment.MYSQL_URL);
   if (directUrl) return directUrl;
 
-  const host = environment.MYSQLHOST?.trim();
-  const username = environment.MYSQLUSER?.trim();
-  const database = environment.MYSQLDATABASE?.trim() || environment.MYSQL_DATABASE?.trim();
+  const host = normalizeEnvValue(environment.MYSQLHOST);
+  const username = normalizeEnvValue(environment.MYSQLUSER);
+  const database =
+    normalizeEnvValue(environment.MYSQLDATABASE) || normalizeEnvValue(environment.MYSQL_DATABASE);
   if (!host || !username || !database) {
     throw new Error("Configure MYSQL_URL or MYSQLHOST, MYSQLUSER, and MYSQLDATABASE.");
   }
 
   const url = new URL("mysql://localhost");
   url.hostname = host;
-  url.port = environment.MYSQLPORT?.trim() || "3306";
+  url.port = normalizeEnvValue(environment.MYSQLPORT) || "3306";
   url.username = username;
   const password =
-    environment.MYSQLPASSWORD ||
-    (username === "root" ? environment.MYSQL_ROOT_PASSWORD : undefined);
+    normalizeEnvValue(environment.MYSQLPASSWORD) ||
+    (username === "root" ? normalizeEnvValue(environment.MYSQL_ROOT_PASSWORD) : undefined);
   if (password) url.password = password;
-  url.pathname = `/${database}`;
+  url.pathname = `/${database.replace(/^\/+/, "")}`;
   return url.toString();
 }
 
