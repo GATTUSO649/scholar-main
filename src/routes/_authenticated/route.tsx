@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   FilePlus2,
@@ -68,6 +69,7 @@ function Shell() {
   const { data: profile } = useProfile(user.id);
   const { data: isAdmin } = useIsAdmin(user.id);
   const [open, setOpen] = useState(false);
+  const [leavingPortal, setLeavingPortal] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -84,12 +86,37 @@ function Shell() {
           ? "Request workspace"
           : "All requests";
 
-  async function signOut() {
-    await qc.cancelQueries();
-    qc.clear();
-    await logoutFn();
-    qc.setQueryData(["current-user"], null);
-    navigate({ to: "/auth", search: { mode: "login" }, replace: true });
+  async function leavePortal(to: "/" | "/library" | "/auth") {
+    if (leavingPortal) return;
+    setLeavingPortal(true);
+    try {
+      await qc.cancelQueries();
+      await logoutFn();
+      qc.clear();
+      qc.setQueryData(["current-user"], null);
+      if (to === "/auth") {
+        await navigate({ to, search: { mode: "login" }, replace: true });
+      } else {
+        await navigate({ to, replace: true });
+      }
+    } catch (error) {
+      console.error("Could not close the portal session.", error);
+      toast.error("Could not safely leave the portal. Please try again.");
+    } finally {
+      setLeavingPortal(false);
+    }
+  }
+
+  function handlePublicNavigation(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    to: "/" | "/library",
+  ) {
+    setOpen(false);
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
+    void leavePortal(to);
   }
 
   const NavLinks = ({ admin = false }: { admin?: boolean }) => (
@@ -100,7 +127,10 @@ function Shell() {
             key={n.to}
             {...n}
             active={path === n.to || (n.to !== "/dashboard" && path.startsWith(n.to))}
-            onClick={() => setOpen(false)}
+            onClick={(event) => {
+              if (n.to === "/library") handlePublicNavigation(event, "/library");
+              else setOpen(false);
+            }}
           />
         ))}
       {admin && (
@@ -128,9 +158,10 @@ function Shell() {
         </>
       )}
       <button
-        onClick={signOut}
+        onClick={() => void leavePortal("/auth")}
+        disabled={leavingPortal}
         className={cn(
-          "mt-auto flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
+          "mt-auto flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors disabled:cursor-wait disabled:opacity-60",
           admin
             ? "text-white/65 hover:bg-white/10 hover:text-white"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
@@ -145,7 +176,7 @@ function Shell() {
     const adminLinks = (
       <div className="flex h-full flex-col">
         <div className="border-b border-white/10 px-6 py-6">
-          <Logo light />
+          <Logo light onClick={(event) => handlePublicNavigation(event, "/")} />
           <div className="mt-7 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
               {profile?.full_name
@@ -182,7 +213,7 @@ function Shell() {
           {adminLinks}
         </aside>
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-[#17263c] px-4 py-3 text-white lg:hidden">
-          <Logo light />
+          <Logo light onClick={(event) => handlePublicNavigation(event, "/")} />
           <div className="flex items-center gap-1 text-white">
             <NotificationBell />
             <ProfileShortcut name={profile?.full_name} className="text-white hover:bg-white/10" />
@@ -226,7 +257,7 @@ function Shell() {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="sticky top-0 hidden h-screen flex-col gap-8 bg-sidebar p-5 text-sidebar-foreground lg:flex">
-        <Logo light />
+        <Logo light onClick={(event) => handlePublicNavigation(event, "/")} />
         <NavLinks />
       </aside>
 
@@ -316,7 +347,7 @@ function NavItem({
   label: string;
   icon: typeof User;
   active: boolean;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLAnchorElement>) => void;
   admin?: boolean;
 }) {
   return (

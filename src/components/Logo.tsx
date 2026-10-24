@@ -3,9 +3,15 @@ import { GraduationCap } from "lucide-react";
 
 export const BRAND = "ScholarDesk";
 
-export function Logo({ light = false }: { light?: boolean }) {
+export function Logo({
+  light = false,
+  onClick,
+}: {
+  light?: boolean;
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
   return (
-    <Link to="/" className="flex items-center gap-2">
+    <Link to="/" onClick={onClick} className="flex items-center gap-2">
       <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-foreground">
         <GraduationCap className="h-5 w-5" />
       </span>
