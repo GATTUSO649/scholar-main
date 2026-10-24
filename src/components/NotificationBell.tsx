@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Bell, CheckCheck } from "lucide-react";
@@ -16,9 +17,25 @@ export function NotificationBell() {
   const { data, isLoading, isError } = useQuery({
     queryKey: notificationQueryKey,
     queryFn: () => getMyNotificationsFn(),
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
     refetchOnWindowFocus: true,
   });
+  const notificationIds = data?.items.map((item) => item.id).join(",") ?? "";
+  const hasNotificationData = data !== undefined;
+  const previousNotificationIds = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!hasNotificationData) return;
+    const currentIds = new Set(notificationIds ? notificationIds.split(",") : []);
+    const previousIds = previousNotificationIds.current;
+    previousNotificationIds.current = currentIds;
+    if (previousIds && [...currentIds].some((id) => !previousIds.has(id))) {
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-requests"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-requests"] }),
+        queryClient.invalidateQueries({ queryKey: ["request"] }),
+      ]);
+    }
+  }, [hasNotificationData, notificationIds, queryClient]);
   const markRead = useMutation({
     mutationFn: (id: string) => markNotificationReadFn({ data: { id } }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationQueryKey }),

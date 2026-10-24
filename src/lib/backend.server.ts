@@ -784,27 +784,30 @@ export async function createRequest(input: {
   if (!service) throw new Error("The selected support service is unavailable.");
   const id = randomUUID();
   const ref = `REQ-${randomBytes(3).toString("hex").toUpperCase()}`;
-  await db.transaction(async (tx) => {
-    await tx.insert(requests).values({
-      id,
-      ref,
-      studentId: user.id,
-      serviceId: input.service_id,
-      title: input.title.trim(),
-      courseUnit: input.course_unit?.trim() || null,
-      lecturer: input.lecturer?.trim() || null,
-      academicLevel: input.academic_level || null,
-      description: input.description.trim(),
-      numQuestions: input.num_questions ?? null,
-      numPages: input.num_pages ?? null,
-      deadline,
-      preferredDate,
-    });
-    const adminUsers = await tx
-      .select({ userId: userRoles.userId })
-      .from(userRoles)
-      .where(eq(userRoles.role, "admin"));
-    if (adminUsers.length) {
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(requests).values({
+        id,
+        ref,
+        studentId: user.id,
+        serviceId: input.service_id,
+        title: input.title.trim(),
+        courseUnit: input.course_unit?.trim() || null,
+        lecturer: input.lecturer?.trim() || null,
+        academicLevel: input.academic_level || null,
+        description: input.description.trim(),
+        numQuestions: input.num_questions ?? null,
+        numPages: input.num_pages ?? null,
+        deadline,
+        preferredDate,
+      });
+      const adminUsers = await tx
+        .select({ userId: userRoles.userId })
+        .from(userRoles)
+        .where(eq(userRoles.role, "admin"));
+      if (!adminUsers.length) {
+        throw new Error("No administrator is configured to receive student requests.");
+      }
       await tx.insert(notifications).values(
         adminUsers.map(({ userId }) => ({
           id: randomUUID(),
@@ -816,8 +819,20 @@ export async function createRequest(input: {
           href: `/manage/${id}`,
         })),
       );
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "No administrator is configured to receive student requests."
+    ) {
+      throw error;
     }
-  });
+    console.error(
+      "Student request creation failed.",
+      getDatabaseErrorCode(error) ?? "unknown database error",
+    );
+    throw new Error("Could not submit your request. Please try again.");
+  }
   return { id };
 }
 
@@ -1012,6 +1027,35 @@ export async function addRequestFile(input: {
     size: input.size,
     kind: input.kind,
   });
+}
+
+export async function notifyAdminsOfStudentUpload(requestId: string) {
+  const user = await requireUser();
+  const db = getDatabase();
+  const [request] = await db
+    .select({ id: requests.id, ref: requests.ref })
+    .from(requests)
+    .where(and(eq(requests.id, requestId), eq(requests.studentId, user.id)))
+    .limit(1);
+  if (!request) throw new Error("Request not found.");
+  const admins = await db
+    .select({ userId: userRoles.userId })
+    .from(userRoles)
+    .where(eq(userRoles.role, "admin"));
+  if (!admins.length) {
+    throw new Error("No administrator is configured to receive request file notifications.");
+  }
+  await db.insert(notifications).values(
+    admins.map(({ userId }) => ({
+      id: randomUUID(),
+      userId,
+      requestId,
+      type: "request_files",
+      title: "Student uploaded request files",
+      message: `A student added files to request ${request.ref}.`,
+      href: `/manage/${requestId}`,
+    })),
+  );
 }
 
 export async function completeRequestDelivery(requestId: string) {

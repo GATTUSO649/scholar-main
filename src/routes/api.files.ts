@@ -7,6 +7,8 @@ import {
   addRequestFile,
   completeRequestDelivery,
   deleteRequestFile,
+  getDatabaseErrorCode,
+  notifyAdminsOfStudentUpload,
 } from "@/lib/backend.server";
 import { requireSameOrigin } from "@/lib/backend";
 
@@ -33,7 +35,12 @@ function errorResponse(error: unknown) {
         : message.includes("allowed") || message.includes("file") || message.includes("upload")
           ? 400
           : 500;
-  if (status === 500) console.error("File operation failed", error);
+  if (status === 500) {
+    console.error(
+      "File operation failed.",
+      getDatabaseErrorCode(error) ?? (error instanceof Error ? error.name : "unknown error"),
+    );
+  }
   return Response.json({ error: status === 500 ? "File operation failed." : message }, { status });
 }
 
@@ -98,6 +105,7 @@ export const Route = createFileRoute("/api/files")({
               });
             }
             if (kind === "delivery") await completeRequestDelivery(requestId);
+            else await notifyAdminsOfStudentUpload(requestId);
           } catch (error) {
             await Promise.all(
               uploaded.flatMap((key) => [

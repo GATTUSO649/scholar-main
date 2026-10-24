@@ -1,4 +1,4 @@
-CREATE TABLE `library_resources` (
+CREATE TABLE IF NOT EXISTS `library_resources` (
 	`id` varchar(36) NOT NULL,
 	`title` varchar(200) NOT NULL,
 	`description` text NOT NULL,
@@ -12,5 +12,4 @@ CREATE TABLE `library_resources` (
 	CONSTRAINT `library_resources_storage_key_unique` UNIQUE(`storage_key`)
 );
 --> statement-breakpoint
-ALTER TABLE `library_resources` ADD CONSTRAINT `library_resources_uploaded_by_users_id_fk` FOREIGN KEY (`uploaded_by`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX `library_resources_category_created_idx` ON `library_resources` (`category`,`created_at`);

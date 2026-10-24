@@ -1,6 +1,7 @@
 UPDATE `services`
 SET `active` = true
 WHERE `name` IN ('Tutoring Session', 'Formatting & Referencing', 'Presentation Support');
+--> statement-breakpoint
 
 INSERT INTO `services` (`id`, `name`, `description`, `base_price`, `currency`, `unit`, `active`, `sort`) VALUES
 ('d0a432a1-6212-4ea2-8ce1-3f124b8c1001', 'Microsoft Word', 'Help with document formatting, styles, page layout, references, templates and accessibility.', 0.00, 'KES', 'price on request', true, 20),

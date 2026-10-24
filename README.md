@@ -77,7 +77,7 @@ Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DI
 
 - `users`, `profiles`, `user_roles`, and `sessions` hold accounts and roles. Students can update their profile, change a password after verifying their current password, and reset a forgotten password by email.
 - Student registration creates the account, then returns to sign-in; students log in before entering the portal.
-- `services`, `requests`, `request_updates`, `request_files`, `library_resources`, `notifications`, and `site_settings` hold application data. New student requests notify administrators; request status and feedback changes notify the owning student. Notifications are private to the signed-in account and can be marked read in the header.
+- `services`, `requests`, `request_updates`, `request_files`, `library_resources`, `notifications`, and `site_settings` hold application data. New requests and student file uploads notify administrators; status, quote, payment, feedback, and delivery changes notify the owning student. The notification bell refreshes every five seconds and refreshes the related request views when a new event arrives. Notifications are private to the signed-in account and can be marked read in the header.
 - Administrators manage public novels, business plans, and articles from **Library** in the admin workspace. Students use the protected `/portal/library` page inside the student portal; visitors can open the separate public `/library` page (`/downloads` remains a redirect for older links). Library file bytes are stored under the private `FILE_STORAGE_DIR`; downloads are streamed through the application as attachments. Keep this directory on persistent private storage and include it in backups.
 - KES is the standard currency for new quotes. Existing quotes and paid totals retain their saved currency; changing an existing request to KES does not automatically convert its amount. The admin dashboard shows paid totals grouped by currency, request workload, six-month request volume, students, and deadlines.
 - The service catalog includes Microsoft Word, Excel, PowerPoint, Outlook, Teams, OneDrive, OneNote, Forms, SharePoint, Access and Microsoft 365 setup/support, alongside academic proofreading, project and research support.
@@ -86,7 +86,7 @@ Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DI
 - Administrator signup requires the server-only `ADMIN_SIGNUP_SECRET`; admin sign-in verifies each account's database-backed admin role.
 - Request file downloads require a valid session and request ownership or an administrator role. Request uploads are limited to 20 MB per file and 50 MB per request. Public library uploads are administrator-only, limited to 25 MB, and accept PDF, EPUB, Word, or plain-text files.
 
-Use `npm run db:generate` after changing the Drizzle schema, then review the generated SQL before applying it with `npm run db:migrate`. The download library is added by migration `0005_productive_star_brand.sql`; it creates a new table and does not modify or remove existing records.
+Use `npm run db:generate` after changing the Drizzle schema, then review the generated SQL before applying it with `npm run db:migrate`. Migration `0005_productive_star_brand.sql` creates the library table; `0006_notification_schema_integrity.sql` aligns foreign-key collations and ensures the notification/library indexes and constraints exist. These migrations do not delete existing records.
 
 ```sh
 git clone <this-repository-url>

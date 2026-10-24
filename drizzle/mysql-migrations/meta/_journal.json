@@ -43,6 +43,13 @@
       "when": 1792839686355,
       "tag": "0005_productive_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1792858047767,
+      "tag": "0006_notification_schema_integrity",
+      "breakpoints": true
     }
   ]
 }

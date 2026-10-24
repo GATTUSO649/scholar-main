@@ -38,8 +38,8 @@ function Detail() {
           <div className="flex-1">
             <p className="font-semibold">Your quote is ready: {money(r.price, r.currency)}</p>
             <p className="text-sm text-muted-foreground">
-              Online payment (M-Pesa and card) is coming soon. Our team will contact you with
-              payment details.
+              Payment is arranged directly with our team. Please wait for payment instructions
+              before sending any money.
             </p>
           </div>
         </div>
