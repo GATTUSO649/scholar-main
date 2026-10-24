@@ -51,6 +51,7 @@ const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/submit", label: "Submit request", icon: FilePlus2 },
   { to: "/requests", label: "My requests", icon: FolderOpen },
+  { to: "/library", label: "Library", icon: BookOpen },
   { to: "/profile", label: "Account & profile", icon: User },
   { to: "/support", label: "Help & support", icon: LifeBuoy },
 ] as const;
@@ -58,7 +59,7 @@ const studentNav = [
 const adminNav = [
   { to: "/admin/dashboard", label: "Admin dashboard", icon: LayoutDashboard },
   { to: "/admin", label: "All requests", icon: Shield },
-  { to: "/admin/resources", label: "Download library", icon: BookOpen },
+  { to: "/admin/resources", label: "Library", icon: BookOpen },
   { to: "/students", label: "Students", icon: Users },
 ] as const;
 
@@ -76,7 +77,7 @@ function Shell() {
   const pageTitle = path.startsWith("/admin/dashboard")
     ? "Dashboard"
     : path.startsWith("/admin/resources")
-      ? "Download library"
+      ? "Library"
       : path.startsWith("/students")
         ? "Students"
         : path.startsWith("/manage")

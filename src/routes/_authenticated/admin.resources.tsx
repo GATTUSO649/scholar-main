@@ -13,7 +13,7 @@ import { getAdminLibraryResourcesFn } from "@/lib/backend";
 export const Route = createFileRoute("/_authenticated/admin/resources")({
   head: () => ({
     meta: [
-      { title: "Download library — ScholarDesk" },
+      { title: "Library management — ScholarDesk" },
       { name: "description", content: "Manage public novels, business plans, and articles." },
     ],
   }),
@@ -90,7 +90,7 @@ function AdminResources() {
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#687b93]">
           Public content
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Download library</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Library</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Upload novels, business plans, and articles for visitors to download.
         </p>
@@ -156,16 +156,16 @@ function AdminResources() {
 
       <section className="overflow-hidden rounded-2xl border bg-white shadow-soft">
         <div className="border-b px-5 py-4 sm:px-6">
-          <h2 className="font-semibold">Published downloads</h2>
+          <h2 className="font-semibold">Published resources</h2>
         </div>
         {isLoading ? (
-          <p className="p-5 text-sm text-muted-foreground">Loading downloads…</p>
+          <p className="p-5 text-sm text-muted-foreground">Loading resources…</p>
         ) : isError ? (
           <p className="p-5 text-sm text-destructive">
-            Could not load downloads. Refresh to retry.
+            Could not load resources. Refresh to retry.
           </p>
         ) : resources.length === 0 ? (
-          <p className="p-5 text-sm text-muted-foreground">No downloads have been published yet.</p>
+          <p className="p-5 text-sm text-muted-foreground">No resources have been published yet.</p>
         ) : (
           <ul className="divide-y">
             {resources.map((resource) => (

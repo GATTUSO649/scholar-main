@@ -97,39 +97,210 @@
   --sidebar-accent-foreground: oklch(0.98 0.01 85);
   --sidebar-border: oklch(0.3 0.05 262);
   --sidebar-ring: oklch(0.78 0.15 70);
-  --gradient-hero: radial-gradient(ellipse at top right, oklch(0.32 0.08 262), oklch(0.18 0.05 262) 70%);
+  --gradient-hero: radial-gradient(
+    ellipse at top right,
+    oklch(0.32 0.08 262),
+    oklch(0.18 0.05 262) 70%
+  );
   --shadow-soft: 0 1px 2px oklch(0.2 0.05 262 / 0.04), 0 8px 24px -8px oklch(0.2 0.05 262 / 0.12);
   --shadow-glow: 0 10px 40px -10px oklch(0.78 0.15 70 / 0.5);
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
   }
-  h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
 }
 
-@utility bg-hero { background: var(--gradient-hero); }
-@utility shadow-soft { box-shadow: var(--shadow-soft); }
-@utility shadow-glow { box-shadow: var(--shadow-glow); }
+@utility bg-hero {
+  background: var(--gradient-hero);
+}
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+@utility shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
 
-@keyframes float-y { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-12px) } }
-@keyframes blob { 0%,100% { transform: translate(0,0) scale(1) } 33% { transform: translate(40px,-30px) scale(1.1) } 66% { transform: translate(-30px,20px) scale(.95) } }
-@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-@keyframes rise { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
-@utility animate-float { animation: float-y 6s ease-in-out infinite; }
-@utility animate-blob { animation: blob 18s ease-in-out infinite; }
-@utility animate-marquee { animation: marquee 30s linear infinite; }
-@utility animate-rise { animation: rise .8s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(40px, -30px) scale(1.1);
+  }
+  66% {
+    transform: translate(-30px, 20px) scale(0.95);
+  }
+}
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes auth-book-open-forward {
+  0% {
+    opacity: 0.55;
+    transform: perspective(1800px) rotateY(-82deg);
+    box-shadow: -28px 12px 42px -32px oklch(0.2 0.05 262 / 0.5);
+  }
+  45% {
+    opacity: 0.9;
+    transform: perspective(1800px) rotateY(-38deg);
+    box-shadow: -18px 12px 34px -28px oklch(0.2 0.05 262 / 0.36);
+  }
+  78% {
+    opacity: 1;
+    transform: perspective(1800px) rotateY(8deg);
+    box-shadow: -6px 12px 28px -30px oklch(0.2 0.05 262 / 0.2);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1800px) rotateY(0);
+    box-shadow: 0 24px 80px -32px oklch(0.2 0.05 262 / 0.3);
+  }
+}
+@keyframes auth-book-open-back {
+  0% {
+    opacity: 0.55;
+    transform: perspective(1800px) rotateY(82deg);
+    box-shadow: 28px 12px 42px -32px oklch(0.2 0.05 262 / 0.5);
+  }
+  45% {
+    opacity: 0.9;
+    transform: perspective(1800px) rotateY(38deg);
+    box-shadow: 18px 12px 34px -28px oklch(0.2 0.05 262 / 0.36);
+  }
+  78% {
+    opacity: 1;
+    transform: perspective(1800px) rotateY(-8deg);
+    box-shadow: 6px 12px 28px -30px oklch(0.2 0.05 262 / 0.2);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1800px) rotateY(0);
+    box-shadow: 0 24px 80px -32px oklch(0.2 0.05 262 / 0.3);
+  }
+}
+@utility animate-float {
+  animation: float-y 6s ease-in-out infinite;
+}
+@utility animate-blob {
+  animation: blob 18s ease-in-out infinite;
+}
+@utility animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+@utility animate-rise {
+  animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.auth-book-page {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+.auth-book-page::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+}
+.auth-book-page-forward {
+  transform-origin: left center;
+  animation: auth-book-open-forward 2.4s cubic-bezier(0.35, 0.05, 0.2, 1) both;
+}
+.auth-book-page-forward::before {
+  left: 0;
+  background: linear-gradient(90deg, oklch(0.2 0.05 262 / 0.18), transparent);
+  animation: auth-book-spine-forward 2.4s ease-out both;
+}
+.auth-book-page-back {
+  transform-origin: right center;
+  animation: auth-book-open-back 2.4s cubic-bezier(0.35, 0.05, 0.2, 1) both;
+}
+.auth-book-page-back::before {
+  right: 0;
+  background: linear-gradient(270deg, oklch(0.2 0.05 262 / 0.18), transparent);
+  animation: auth-book-spine-back 2.4s ease-out both;
+}
+@keyframes auth-book-spine-forward {
+  0%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes auth-book-spine-back {
+  0%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-book-page-forward,
+  .auth-book-page-back,
+  .auth-book-page-forward::before,
+  .auth-book-page-back::before {
+    animation: none;
+  }
+}
 @utility text-gradient-gold {
   background: linear-gradient(100deg, var(--accent), oklch(0.88 0.12 85), var(--accent));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
-@utility glass { background: oklch(1 0 0 / 0.06); backdrop-filter: blur(14px); border: 1px solid oklch(1 0 0 / 0.12); }
+@utility glass {
+  background: oklch(1 0 0 / 0.06);
+  backdrop-filter: blur(14px);
+  border: 1px solid oklch(1 0 0 / 0.12);
+}
 @utility bg-grid {
-  background-image: linear-gradient(oklch(1 0 0 / .05) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / .05) 1px, transparent 1px);
+  background-image:
+    linear-gradient(oklch(1 0 0 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 0.05) 1px, transparent 1px);
   background-size: 48px 48px;
 }

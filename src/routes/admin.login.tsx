@@ -57,6 +57,7 @@ function AdminLoginPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [signedInAsStudent, setSignedInAsStudent] = useState(false);
+  const [turnDirection, setTurnDirection] = useState<"forward" | "back">("forward");
   const {
     data: signupState,
     isLoading: signupStateLoading,
@@ -89,6 +90,7 @@ function AdminLoginPage() {
   }, [mode, navigate]);
 
   function setMode(nextMode: "login" | "register") {
+    setTurnDirection(nextMode === "login" ? "back" : "forward");
     setFormError(null);
     setFieldErrors({});
     navigate({ to: "/admin/login", search: { mode: nextMode }, replace: true });
@@ -179,7 +181,10 @@ function AdminLoginPage() {
           <div className="mb-8 lg:hidden">
             <Logo />
           </div>
-          <section className="rounded-[26px] border bg-white p-6 shadow-[0_24px_70px_-42px_rgba(23,38,60,0.3)] sm:p-9">
+          <section
+            key={mode}
+            className={`auth-book-page auth-book-page-${turnDirection} relative overflow-hidden rounded-[26px] border bg-white p-6 shadow-[0_24px_70px_-42px_rgba(23,38,60,0.3)] sm:p-9`}
+          >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#74839a]">
               Secure administrator portal
             </p>

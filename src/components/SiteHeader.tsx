@@ -8,7 +8,7 @@ import { dashboardRouteFor, useIsAdmin, useUser } from "@/lib/auth";
 const navigation = [
   { to: "/how-it-works", label: "How it works" },
   { to: "/services", label: "Services" },
-  { to: "/downloads", label: "Downloads" },
+  { to: "/library", label: "Library" },
   { to: "/pricing", label: "Pricing" },
   { to: "/faq", label: "FAQ" },
   { to: "/contact", label: "Contact" },

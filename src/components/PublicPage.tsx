@@ -18,8 +18,8 @@ export function PublicPage({ children }: { children: ReactNode }) {
             <Link to="/services" className="hover:text-white">
               Services
             </Link>
-            <Link to="/downloads" className="hover:text-white">
-              Downloads
+            <Link to="/library" className="hover:text-white">
+              Library
             </Link>
             <Link to="/pricing" className="hover:text-white">
               Pricing

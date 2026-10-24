@@ -26,6 +26,7 @@ describe("App routing", () => {
   it.each([
     ["/how-it-works", "/how-it-works"],
     ["/services", "/services"],
+    ["/library", "/library"],
     ["/downloads", "/downloads"],
     ["/pricing", "/pricing"],
     ["/faq", "/faq"],

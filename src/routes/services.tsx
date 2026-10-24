@@ -104,10 +104,10 @@ function ServicesPage() {
               </p>
             </div>
             <Link
-              to="/downloads"
+              to="/library"
               className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
             >
-              Browse the download library <ArrowRight className="h-4 w-4" />
+              Browse the Library <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
