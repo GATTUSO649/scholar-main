@@ -37,6 +37,7 @@ const schema = z.object({
 });
 
 const LEVELS = ["Certificate", "Diploma", "Undergraduate", "Masters", "PhD"];
+const SERVICES_WITHOUT_UPLOADS = new Set(["Assignment Typing", "Practicum Report Writing"]);
 
 type DetailField = {
   key: string;
@@ -444,6 +445,7 @@ function Submit() {
 
   const selectedService = services.find((s) => s.id === serviceId);
   const details = selectedService ? SERVICE_DETAILS[selectedService.name] : undefined;
+  const uploadsAllowed = !selectedService || !SERVICES_WITHOUT_UPLOADS.has(selectedService.name);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -459,6 +461,9 @@ function Submit() {
       setErrors({ deadline: "Deadline must be in the future" });
       return;
     }
+    const requestService = services.find((service) => service.id === p.data.service_id);
+    const requestAllowsUploads =
+      !requestService || !SERVICES_WITHOUT_UPLOADS.has(requestService.name);
     setErrors({});
     setBusy(true);
     let description = p.data.description;
@@ -487,7 +492,10 @@ function Submit() {
             : null,
         },
       });
-      const filesUploaded = files.length ? await uploadFiles(data.id, files, "submission") : true;
+      const filesUploaded =
+        requestAllowsUploads && files.length
+          ? await uploadFiles(data.id, files, "submission")
+          : true;
       setBusy(false);
       qc.invalidateQueries({ queryKey: ["my-requests"] });
       toast[filesUploaded ? "success" : "error"](
@@ -527,7 +535,14 @@ function Submit() {
             id="service_id"
             name="service_id"
             value={serviceId}
-            onChange={(e) => setServiceId(e.target.value)}
+            onChange={(e) => {
+              const nextServiceId = e.target.value;
+              const nextService = services.find((service) => service.id === nextServiceId);
+              setServiceId(nextServiceId);
+              if (nextService && SERVICES_WITHOUT_UPLOADS.has(nextService.name)) {
+                setFiles([]);
+              }
+            }}
             className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="" disabled>
@@ -624,44 +639,46 @@ function Submit() {
             className="mt-1.5"
           />
         </div>
-        <div className="sm:col-span-2">
-          <Label>Files (PDF, Word, images — up to 20MB each)</Label>
-          <label className="mt-1.5 flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-muted-foreground hover:bg-muted">
-            <Upload className="h-6 w-6" />
-            <span className="mt-2">Tap to choose files</span>
-            <input
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) =>
-                setFiles(
-                  [...files, ...Array.from(e.target.files ?? [])].filter(
-                    (f) => f.size <= 20 * 1024 * 1024,
-                  ),
-                )
-              }
-            />
-          </label>
-          {files.length > 0 && (
-            <ul className="mt-3 space-y-1 text-sm">
-              {files.map((f, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between rounded-md bg-muted px-3 py-1.5"
-                >
-                  <span className="truncate">{f.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setFiles(files.filter((_, j) => j !== i))}
-                    aria-label="Remove"
+        {uploadsAllowed && (
+          <div className="sm:col-span-2">
+            <Label>Files (PDF, Word, images — up to 20MB each)</Label>
+            <label className="mt-1.5 flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-muted-foreground hover:bg-muted">
+              <Upload className="h-6 w-6" />
+              <span className="mt-2">Tap to choose files</span>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) =>
+                  setFiles(
+                    [...files, ...Array.from(e.target.files ?? [])].filter(
+                      (f) => f.size <= 20 * 1024 * 1024,
+                    ),
+                  )
+                }
+              />
+            </label>
+            {files.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm">
+                {files.map((f, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between rounded-md bg-muted px-3 py-1.5"
                   >
-                    <X className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                    <span className="truncate">{f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                      aria-label="Remove"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         <div className="sm:col-span-2">
           <Button size="lg" disabled={busy} className="w-full sm:w-auto">
             {busy ? "Submitting…" : "Submit request"}
