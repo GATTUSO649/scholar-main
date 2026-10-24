@@ -618,11 +618,11 @@ function Submit() {
           {err("description")}
         </div>
         <div>
-          <Label htmlFor="num_questions">Number of questions</Label>
+          <Label htmlFor="num_questions">Number of questions (optional)</Label>
           <Input id="num_questions" name="num_questions" type="number" min={0} className="mt-1.5" />
         </div>
         <div>
-          <Label htmlFor="num_pages">Number of pages</Label>
+          <Label htmlFor="num_pages">Number of pages (optional)</Label>
           <Input id="num_pages" name="num_pages" type="number" min={0} className="mt-1.5" />
         </div>
         <div>

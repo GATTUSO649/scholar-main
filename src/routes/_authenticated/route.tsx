@@ -52,7 +52,7 @@ const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/submit", label: "Submit request", icon: FilePlus2 },
   { to: "/requests", label: "My requests", icon: FolderOpen },
-  { to: "/library", label: "Library", icon: BookOpen },
+  { to: "/portal/library", label: "Library", icon: BookOpen },
   { to: "/profile", label: "Account & profile", icon: User },
   { to: "/support", label: "Help & support", icon: LifeBuoy },
 ] as const;
@@ -86,7 +86,7 @@ function Shell() {
           ? "Request workspace"
           : "All requests";
 
-  async function leavePortal(to: "/" | "/library" | "/auth") {
+  async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
     setLeavingPortal(true);
     try {
@@ -107,16 +107,13 @@ function Shell() {
     }
   }
 
-  function handlePublicNavigation(
-    event: React.MouseEvent<HTMLAnchorElement>,
-    to: "/" | "/library",
-  ) {
+  function handlePublicNavigation(event: React.MouseEvent<HTMLAnchorElement>) {
     setOpen(false);
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
     event.preventDefault();
-    void leavePortal(to);
+    void leavePortal("/");
   }
 
   const NavLinks = ({ admin = false }: { admin?: boolean }) => (
@@ -127,10 +124,7 @@ function Shell() {
             key={n.to}
             {...n}
             active={path === n.to || (n.to !== "/dashboard" && path.startsWith(n.to))}
-            onClick={(event) => {
-              if (n.to === "/library") handlePublicNavigation(event, "/library");
-              else setOpen(false);
-            }}
+            onClick={() => setOpen(false)}
           />
         ))}
       {admin && (
@@ -176,7 +170,7 @@ function Shell() {
     const adminLinks = (
       <div className="flex h-full flex-col">
         <div className="border-b border-white/10 px-6 py-6">
-          <Logo light onClick={(event) => handlePublicNavigation(event, "/")} />
+          <Logo light onClick={handlePublicNavigation} />
           <div className="mt-7 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
               {profile?.full_name
@@ -213,7 +207,7 @@ function Shell() {
           {adminLinks}
         </aside>
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-[#17263c] px-4 py-3 text-white lg:hidden">
-          <Logo light onClick={(event) => handlePublicNavigation(event, "/")} />
+          <Logo light onClick={handlePublicNavigation} />
           <div className="flex items-center gap-1 text-white">
             <NotificationBell />
             <ProfileShortcut name={profile?.full_name} className="text-white hover:bg-white/10" />
@@ -257,7 +251,7 @@ function Shell() {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="sticky top-0 hidden h-screen flex-col gap-8 bg-sidebar p-5 text-sidebar-foreground lg:flex">
-        <Logo light onClick={(event) => handlePublicNavigation(event, "/")} />
+        <Logo light onClick={handlePublicNavigation} />
         <NavLinks />
       </aside>
 

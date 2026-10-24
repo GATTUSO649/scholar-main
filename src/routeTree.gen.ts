@@ -33,6 +33,7 @@ import { Route as ApiLibraryRouteImport } from './routes/api.library'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
 import { Route as AuthenticatedAdminResourcesRouteImport } from './routes/_authenticated/admin.resources'
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
+import { Route as AuthenticatedPortalLibraryRouteImport } from './routes/_authenticated/portal.library'
 import { Route as AuthenticatedRequestIdRouteImport } from './routes/_authenticated/request.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -156,6 +157,12 @@ const AuthenticatedManageIdRoute = AuthenticatedManageIdRouteImport.update({
   path: '/manage/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPortalLibraryRoute =
+  AuthenticatedPortalLibraryRouteImport.update({
+    id: '/portal/library',
+    path: '/portal/library',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRequestIdRoute = AuthenticatedRequestIdRouteImport.update({
   id: '/request/$id',
   path: '/request/$id',
@@ -186,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
+  '/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
 }
 export interface FileRoutesByTo {
@@ -212,6 +220,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
+  '/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
 }
 export interface FileRoutesById {
@@ -240,6 +249,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
+  '/_authenticated/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/_authenticated/request/$id': typeof AuthenticatedRequestIdRoute
 }
 export interface FileRouteTypes {
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/resources'
     | '/manage/$id'
+    | '/portal/library'
     | '/request/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/resources'
     | '/manage/$id'
+    | '/portal/library'
     | '/request/$id'
   id:
     | '__root__'
@@ -321,6 +333,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/dashboard'
     | '/_authenticated/admin/resources'
     | '/_authenticated/manage/$id'
+    | '/_authenticated/portal/library'
     | '/_authenticated/request/$id'
   fileRoutesById: FileRoutesById
 }
@@ -511,6 +524,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedManageIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/portal/library': {
+      id: '/_authenticated/portal/library'
+      path: '/portal/library'
+      fullPath: '/portal/library'
+      preLoaderRoute: typeof AuthenticatedPortalLibraryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/request/$id': {
       id: '/_authenticated/request/$id'
       path: '/request/$id'
@@ -543,6 +563,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSubmitRoute: typeof AuthenticatedSubmitRoute
   AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
   AuthenticatedManageIdRoute: typeof AuthenticatedManageIdRoute
+  AuthenticatedPortalLibraryRoute: typeof AuthenticatedPortalLibraryRoute
   AuthenticatedRequestIdRoute: typeof AuthenticatedRequestIdRoute
 }
 
@@ -555,6 +576,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSubmitRoute: AuthenticatedSubmitRoute,
   AuthenticatedSupportRoute: AuthenticatedSupportRoute,
   AuthenticatedManageIdRoute: AuthenticatedManageIdRoute,
+  AuthenticatedPortalLibraryRoute: AuthenticatedPortalLibraryRoute,
   AuthenticatedRequestIdRoute: AuthenticatedRequestIdRoute,
 }
 
