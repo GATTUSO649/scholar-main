@@ -90,7 +90,7 @@ function PriceVisibility() {
   );
 }
 
-type QueueFilter = "all" | "new" | "active" | "completed" | "cancelled";
+type QueueFilter = "all" | "new" | "active" | "completed" | "declined" | "cancelled";
 
 function Admin() {
   const [query, setQuery] = useState("");
@@ -114,6 +114,7 @@ function Admin() {
     { id: "new", label: "New" },
     { id: "active", label: "In progress" },
     { id: "completed", label: "Completed" },
+    { id: "declined", label: "Declined" },
     { id: "cancelled", label: "Cancelled" },
   ];
   const rows = requests.filter((request) => {

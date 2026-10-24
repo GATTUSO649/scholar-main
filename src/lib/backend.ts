@@ -18,6 +18,7 @@ const statusSchema = z.enum([
   "awaiting_payment",
   "in_progress",
   "completed",
+  "declined",
   "cancelled",
 ]);
 const paymentSchema = z.enum(["unpaid", "pending", "paid", "refunded"]);

@@ -11,7 +11,7 @@ import { getAdminStudentFn, updateRequestFn } from "@/lib/backend";
 import { AdminGate } from "@/components/AdminGate";
 import { RequestSummary, useRequest } from "@/components/RequestDetail";
 import { PayBadge, StatusBadge } from "@/components/StatusBadge";
-import { STATUS_LABEL, STATUS_ORDER, type PaymentStatus, type RequestStatus } from "@/lib/status";
+import { ALL_STATUSES, STATUS_LABEL, type PaymentStatus, type RequestStatus } from "@/lib/status";
 import { fmtDate, money, uploadFiles } from "@/lib/requests";
 
 export const Route = createFileRoute("/_authenticated/manage/$id")({
@@ -250,7 +250,7 @@ function Manage() {
                   defaultValue={r.status}
                   className="mt-1.5 h-10 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
                 >
-                  {[...STATUS_ORDER, "cancelled" as const].map((status) => (
+                  {ALL_STATUSES.map((status) => (
                     <option key={status} value={status}>
                       {STATUS_LABEL[status]}
                     </option>

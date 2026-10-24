@@ -143,6 +143,7 @@ export const requests = mysqlTable(
       "awaiting_payment",
       "in_progress",
       "completed",
+      "declined",
       "cancelled",
     ])
       .notNull()
@@ -187,6 +188,7 @@ export const requestUpdates = mysqlTable(
       "awaiting_payment",
       "in_progress",
       "completed",
+      "declined",
       "cancelled",
     ]),
     note: text("note"),

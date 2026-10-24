@@ -32,18 +32,21 @@ function Detail() {
       <Link to="/requests" className="text-sm text-muted-foreground hover:underline">
         ← My requests
       </Link>
-      {r.price != null && r.payment_status !== "paid" && r.status !== "cancelled" && (
-        <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-accent bg-accent/15 p-5">
-          <Wallet className="h-6 w-6 text-primary" />
-          <div className="flex-1">
-            <p className="font-semibold">Your quote is ready: {money(r.price, r.currency)}</p>
-            <p className="text-sm text-muted-foreground">
-              Payment is arranged directly with our team. Please wait for payment instructions
-              before sending any money.
-            </p>
+      {r.price != null &&
+        r.payment_status !== "paid" &&
+        r.status !== "cancelled" &&
+        r.status !== "declined" && (
+          <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-accent bg-accent/15 p-5">
+            <Wallet className="h-6 w-6 text-primary" />
+            <div className="flex-1">
+              <p className="font-semibold">Your quote is ready: {money(r.price, r.currency)}</p>
+              <p className="text-sm text-muted-foreground">
+                Payment is arranged directly with our team. Please wait for payment instructions
+                before sending any money.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
       <RequestSummary data={data} />
     </div>
   );

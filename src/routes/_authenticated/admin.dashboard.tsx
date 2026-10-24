@@ -25,7 +25,7 @@ import { AdminGate } from "@/components/AdminGate";
 import { RequestTable } from "@/components/RequestTable";
 import { getAdminRequestsFn, getAdminStudentCountFn } from "@/lib/backend";
 import { money } from "@/lib/requests";
-import { ACTIVE, STATUS_LABEL, STATUS_ORDER, type RequestStatus } from "@/lib/status";
+import { ACTIVE, ALL_STATUSES, STATUS_LABEL } from "@/lib/status";
 
 export const Route = createFileRoute("/_authenticated/admin/dashboard")({
   head: () => ({
@@ -137,8 +137,7 @@ function AdminDashboard() {
     },
   ];
 
-  const allStatuses: RequestStatus[] = [...STATUS_ORDER, "cancelled"];
-  const statusCounts = allStatuses.map((status) => ({
+  const statusCounts = ALL_STATUSES.map((status) => ({
     label: STATUS_LABEL[status],
     count: requests.filter((request) => request.status === status).length,
   }));

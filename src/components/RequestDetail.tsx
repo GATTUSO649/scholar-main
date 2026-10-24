@@ -41,7 +41,7 @@ export function RequestSummary({
         </div>
       )}
 
-      {r.status !== "cancelled" && (
+      {r.status !== "cancelled" && r.status !== "declined" && (
         <ol className="grid grid-cols-3 gap-2 rounded-2xl border bg-white p-4 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:grid-cols-6">
           {STATUS_ORDER.map((s, i) => (
             <li key={s} className="flex flex-col items-center gap-2 text-center">
@@ -61,6 +61,16 @@ export function RequestSummary({
             </li>
           ))}
         </ol>
+      )}
+      {(r.status === "cancelled" || r.status === "declined") && (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm">
+          <p className="font-semibold">{STATUS_LABEL[r.status]}</p>
+          <p className="mt-1 text-muted-foreground">
+            {r.status === "declined"
+              ? "The team has declined this request. Check the latest update or contact support if you need clarification."
+              : "This request has been cancelled. Check the latest update for details."}
+          </p>
+        </div>
       )}
 
       <div className="grid gap-4 rounded-2xl border bg-white p-5 text-sm shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:grid-cols-3">

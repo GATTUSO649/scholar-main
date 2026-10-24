@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canUseAdminPortal,
   canUseStudentPortal,
   getDatabaseErrorCode,
   isAdminSignupConfigured,
@@ -38,6 +39,14 @@ describe("admin signup configuration", () => {
 describe("student portal login roles", () => {
   it("allows student accounts", () => {
     expect(canUseStudentPortal(["student"])).toBe(true);
+  });
+
+  describe("administrator portal login roles", () => {
+    it("allows only accounts with the administrator role", () => {
+      expect(canUseAdminPortal(["admin"])).toBe(true);
+      expect(canUseAdminPortal(["student"])).toBe(false);
+      expect(canUseAdminPortal([])).toBe(false);
+    });
   });
 
   it("blocks administrator accounts even if they also have a student role", () => {

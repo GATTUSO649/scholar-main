@@ -61,6 +61,7 @@ type RequestState =
   | "awaiting_payment"
   | "in_progress"
   | "completed"
+  | "declined"
   | "cancelled";
 type PaymentState = "unpaid" | "pending" | "paid" | "refunded";
 export type NotificationDto = {
@@ -91,6 +92,10 @@ function encodePassword(password: string, salt: Buffer, hash: Buffer) {
 
 export function canUseStudentPortal(roles: readonly Role[]) {
   return roles.includes("student") && !roles.includes("admin");
+}
+
+export function canUseAdminPortal(roles: readonly Role[]) {
+  return roles.includes("admin");
 }
 
 function mapProfile(row: typeof profiles.$inferSelect): ProfileDto {
@@ -321,9 +326,8 @@ async function authenticateAccount(input: { email: string; password: string }, a
       .select({ role: userRoles.role })
       .from(userRoles)
       .where(eq(userRoles.userId, account.id));
-    const isAdmin = roles.some((role) => role.role === "admin");
-    const isStudent = roles.some((role) => role.role === "student");
-    if (adminOnly ? !isAdmin : !canUseStudentPortal(roles.map((role) => role.role))) {
+    const accountRoles = roles.map((role) => role.role);
+    if (adminOnly ? !canUseAdminPortal(accountRoles) : !canUseStudentPortal(accountRoles)) {
       throw new AuthError("Email or password is incorrect.");
     }
     await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
@@ -938,9 +942,11 @@ export async function updateRequest(input: {
               : input.grade !== current.grade || input.admin_feedback !== current.adminFeedback
                 ? "New feedback is available"
                 : "New request update";
+      const statusLabel =
+        input.status === "submitted" ? "received" : input.status.replaceAll("_", " ");
       const message =
         input.status !== current.status
-          ? `Request ${current.ref} is now ${input.status.replaceAll("_", " ")}.`
+          ? `Request ${current.ref} is now ${statusLabel}.`
           : input.payment_status !== current.paymentStatus
             ? `Payment status for request ${current.ref} is now ${input.payment_status}.`
             : input.price !== current.price
