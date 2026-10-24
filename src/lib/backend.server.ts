@@ -172,7 +172,6 @@ export async function registerAccount(input: {
   const id = randomUUID();
   const salt = randomBytes(16);
   const passwordHash = `${salt.toString("hex")}:${(await derivePassword(input.password, salt)).toString("hex")}`;
-  const sessionToken = randomBytes(32).toString("base64url");
   try {
     const db = getDatabase();
     await db.transaction(async (tx) => {
@@ -187,13 +186,7 @@ export async function registerAccount(input: {
         yearOfStudy: null,
       });
       await tx.insert(userRoles).values({ id: randomUUID(), userId: id, role: "student" });
-      await tx.insert(sessions).values({
-        tokenHash: tokenHash(sessionToken),
-        userId: id,
-        expiresAt: new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000),
-      });
     });
-    setSessionCookie(sessionToken);
   } catch (error) {
     if (isDuplicateKey(error))
       throw new AuthError(

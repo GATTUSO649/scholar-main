@@ -23,7 +23,7 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
       className={
         overlay
           ? "fixed inset-x-0 top-0 z-20 bg-[#17263c]/95 text-ink-foreground shadow-md backdrop-blur"
-          : "relative z-20 bg-hero text-ink-foreground"
+          : "sticky inset-x-0 top-0 z-30 bg-hero text-ink-foreground shadow-md"
       }
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
