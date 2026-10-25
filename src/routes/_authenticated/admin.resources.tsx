@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { AdminGate } from "@/components/AdminGate";
 import { LibraryManager } from "@/components/admin/LibraryManager";
 
@@ -9,9 +9,10 @@ export const Route = createFileRoute("/_authenticated/admin/resources")({
 
 function AllResourcesRoute() {
   const { isAdmin } = Route.useRouteContext();
+  const path = useRouterState({ select: (state) => state.location.pathname });
   return (
     <AdminGate isAdmin={isAdmin}>
-      <LibraryManager category="all" />
+      {path === "/admin/resources" ? <LibraryManager category="all" /> : <Outlet />}
     </AdminGate>
   );
 }

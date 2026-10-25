@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -25,11 +25,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 function AdminRoute() {
   const { isAdmin } = Route.useRouteContext();
-  return (
-    <AdminGate isAdmin={isAdmin}>
-      <Admin />
-    </AdminGate>
-  );
+  const path = useRouterState({ select: (state) => state.location.pathname });
+  return <AdminGate isAdmin={isAdmin}>{path === "/admin" ? <Admin /> : <Outlet />}</AdminGate>;
 }
 
 function PriceVisibility() {
