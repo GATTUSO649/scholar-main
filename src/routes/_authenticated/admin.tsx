@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Eye, EyeOff, Search, Settings2 } from "lucide-react";
+import { ArrowRight, Download, Eye, EyeOff, Search, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { getAdminRequestsFn, getPublicDataFn, setPublicPricesFn } from "@/lib/backend";
@@ -10,6 +10,7 @@ import { AdminGate } from "@/components/AdminGate";
 import { RequestTable } from "@/components/RequestTable";
 import { ACTIVE } from "@/lib/status";
 import { money } from "@/lib/requests";
+import { downloadCsv } from "@/lib/csv";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -90,7 +91,8 @@ function PriceVisibility() {
   );
 }
 
-type QueueFilter = "all" | "new" | "active" | "completed" | "declined" | "cancelled";
+type QueueFilter =
+  "all" | "new" | "active" | "overdue" | "payment" | "completed" | "declined" | "cancelled";
 
 function Admin() {
   const [query, setQuery] = useState("");
@@ -100,6 +102,14 @@ function Admin() {
     queryFn: () => getAdminRequestsFn(),
   });
   const requests = data ?? [];
+  const now = Date.now();
+  const isOverdue = (request: (typeof requests)[number]) =>
+    !!request.deadline &&
+    new Date(request.deadline).getTime() < now &&
+    ACTIVE.includes(request.status);
+  const needsPaymentFollowUp = (request: (typeof requests)[number]) =>
+    request.payment_status === "pending" ||
+    (request.status === "awaiting_payment" && request.payment_status !== "paid");
 
   const countFor = (status: QueueFilter) => {
     if (status === "all") return requests.length;
@@ -107,12 +117,16 @@ function Admin() {
       return requests.filter((request) => request.status === "submitted").length;
     if (status === "active")
       return requests.filter((request) => ACTIVE.includes(request.status)).length;
+    if (status === "overdue") return requests.filter(isOverdue).length;
+    if (status === "payment") return requests.filter(needsPaymentFollowUp).length;
     return requests.filter((request) => request.status === status).length;
   };
   const tabs: { id: QueueFilter; label: string }[] = [
     { id: "all", label: "All requests" },
     { id: "new", label: "New" },
     { id: "active", label: "In progress" },
+    { id: "overdue", label: "Overdue" },
+    { id: "payment", label: "Payment follow-up" },
     { id: "completed", label: "Completed" },
     { id: "declined", label: "Declined" },
     { id: "cancelled", label: "Cancelled" },
@@ -122,6 +136,8 @@ function Admin() {
       filter === "all" ||
       (filter === "new" && request.status === "submitted") ||
       (filter === "active" && ACTIVE.includes(request.status)) ||
+      (filter === "overdue" && isOverdue(request)) ||
+      (filter === "payment" && needsPaymentFollowUp(request)) ||
       request.status === filter;
     const searchable =
       `${request.title} ${request.ref} ${request.profiles?.full_name ?? ""}`.toLowerCase();
@@ -137,12 +153,36 @@ function Admin() {
     Object.entries(revenueByCurrency)
       .map(([currency, amount]) => money(amount, currency))
       .join(" · ") || money(0);
-  const overdue = requests.filter(
-    (request) =>
-      request.deadline &&
-      new Date(request.deadline) < new Date() &&
-      ACTIVE.includes(request.status),
-  ).length;
+  const overdue = requests.filter(isOverdue).length;
+
+  function exportRequests() {
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(
+      `scholardesk-requests-${date}.csv`,
+      [
+        "Reference",
+        "Request",
+        "Student",
+        "Service",
+        "Deadline",
+        "Status",
+        "Payment",
+        "Quote",
+        "Currency",
+      ],
+      rows.map((request) => [
+        request.ref,
+        request.title,
+        request.profiles?.full_name ?? "",
+        request.services?.name ?? "General service",
+        request.deadline ?? "",
+        request.status,
+        request.payment_status,
+        request.price ?? "",
+        request.currency,
+      ]),
+    );
+  }
 
   return (
     <div className="space-y-7">
@@ -203,14 +243,24 @@ function Admin() {
                   : `${rows.length} matching request${rows.length === 1 ? "" : "s"}`}
               </p>
             </div>
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search title, ref, student"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="h-10 rounded-xl border-[#e1e6ee] bg-[#fafbfd] pl-9"
-              />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search title, ref, student"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="h-10 rounded-xl border-[#e1e6ee] bg-[#fafbfd] pl-9"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={exportRequests}
+                disabled={isLoading || isError || rows.length === 0}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[#dce7e3] bg-white px-3 text-sm font-semibold text-[#254e46] transition-colors hover:bg-[#f4f8f6] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" /> Export view
+              </button>
             </div>
           </div>
           <div className="mt-5 flex gap-5 overflow-x-auto">

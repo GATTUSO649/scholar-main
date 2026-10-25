@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Building2, GraduationCap, Search, Users } from "lucide-react";
+import { Building2, Download, GraduationCap, Search, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { getAdminStudentsFn } from "@/lib/backend";
 import { AdminGate } from "@/components/AdminGate";
 import { fmtDate } from "@/lib/requests";
+import { downloadCsv } from "@/lib/csv";
 
 export const Route = createFileRoute("/_authenticated/students")({
   head: () => ({
@@ -54,6 +55,33 @@ function Students() {
   const recentlyJoined = students.filter(
     (student) => Date.now() - new Date(student.created_at).getTime() < 30 * 24 * 60 * 60 * 1000,
   ).length;
+
+  function exportStudents() {
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(
+      `scholardesk-students-${date}.csv`,
+      [
+        "Name",
+        "Email",
+        "Phone",
+        "Institution",
+        "Registration number",
+        "Course",
+        "Year of study",
+        "Joined",
+      ],
+      rows.map((student) => [
+        student.full_name,
+        student.email ?? "",
+        student.phone ?? "",
+        student.institution ?? "",
+        student.reg_number ?? "",
+        student.course ?? "",
+        student.year_of_study ?? "",
+        student.created_at,
+      ]),
+    );
+  }
 
   return (
     <div className="space-y-7">
@@ -106,14 +134,24 @@ function Students() {
                 : `${rows.length} result${rows.length === 1 ? "" : "s"}${query ? ` for “${query}”` : ""}`}
             </p>
           </div>
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Name, email, course…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="h-10 rounded-xl border-[#e1e6ee] bg-[#fafbfd] pl-9"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Name, email, course…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="h-10 rounded-xl border-[#e1e6ee] bg-[#fafbfd] pl-9"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={exportStudents}
+              disabled={isLoading || isError || rows.length === 0}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[#dce7e3] bg-white px-3 text-sm font-semibold text-[#254e46] transition-colors hover:bg-[#f4f8f6] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" /> Export view
+            </button>
           </div>
         </div>
         {isLoading ? (
