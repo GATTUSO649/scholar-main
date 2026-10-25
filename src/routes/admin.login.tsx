@@ -156,11 +156,11 @@ function AdminLoginPage() {
   return (
     <div className="grid min-h-screen bg-[#f5f7fa] lg:grid-cols-[0.92fr_1.08fr]">
       <aside className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[#17263c] p-10 text-white lg:flex xl:p-14">
-        <div className="pointer-events-none absolute -right-24 top-1/4 h-80 w-80 rounded-full border-[38px] border-white/[0.04]" />
+        <div className="pointer-events-none absolute -right-24 top-1/4 h-80 w-80 rounded-full border-38 border-white/4" />
         <div className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-[#d5ac57]/10 blur-3xl" />
         <Logo light />
         <div className="relative max-w-xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             Private operations
           </span>
@@ -177,7 +177,7 @@ function AdminLoginPage() {
         </p>
       </aside>
       <main className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
-        <div className="w-full max-w-[480px]">
+        <div className="w-full max-w-120">
           <div className="mb-8 lg:hidden">
             <Logo />
           </div>

@@ -6,6 +6,7 @@ import {
   deleteLibraryResource,
   getLibraryResourceForDownload,
   requireLibraryAdmin,
+  updateLibraryResource,
 } from "@/lib/backend.server";
 import { requireSameOrigin } from "@/lib/backend";
 
@@ -127,6 +128,40 @@ export const Route = createFileRoute("/api/library")({
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
           await rm(storagePath(resource.storageKey), { force: true });
           return Response.json({ success: true });
+        } catch (error) {
+          return errorResponse(error);
+        }
+      },
+      PATCH: async ({ request }) => {
+        try {
+          requireSameOrigin(request);
+          const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+          const id = typeof body?.["id"] === "string" ? body["id"] : "";
+          const title = typeof body?.["title"] === "string" ? body["title"].trim() : "";
+          const description =
+            typeof body?.["description"] === "string" ? body["description"].trim() : "";
+          const category = typeof body?.["category"] === "string" ? body["category"] : "";
+          if (!/^[0-9a-f-]{36}$/i.test(id)) {
+            return Response.json({ error: "Invalid resource." }, { status: 400 });
+          }
+          if (title.length < 2 || title.length > 200) {
+            return Response.json(
+              { error: "Title must be between 2 and 200 characters." },
+              { status: 400 },
+            );
+          }
+          if (description.length > 2000) {
+            return Response.json(
+              { error: "Description must be 2,000 characters or fewer." },
+              { status: 400 },
+            );
+          }
+          if (!isCategory(category)) {
+            return Response.json({ error: "Choose a valid resource category." }, { status: 400 });
+          }
+          const result = await updateLibraryResource(id, { title, description, category });
+          if (!result) return Response.json({ error: "Resource not found." }, { status: 404 });
+          return Response.json(result);
         } catch (error) {
           return errorResponse(error);
         }

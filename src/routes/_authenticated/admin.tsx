@@ -70,7 +70,7 @@ function PriceVisibility() {
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#f7f9fc] px-4 py-3 sm:min-w-[220px]">
+      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#f7f9fc] px-4 py-3 sm:min-w-55">
         <span className="inline-flex items-center gap-2 text-sm font-medium">
           {show ? (
             <Eye className="h-4 w-4 text-emerald-600" />
@@ -242,7 +242,7 @@ function Admin() {
         {isLoading ? (
           <div className="space-y-3 p-6" aria-label="Loading requests">
             {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="h-[68px] animate-pulse rounded-xl bg-[#f3f5f8]" />
+              <div key={index} className="h-17 animate-pulse rounded-xl bg-[#f3f5f8]" />
             ))}
           </div>
         ) : isError ? (

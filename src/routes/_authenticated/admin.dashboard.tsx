@@ -244,9 +244,9 @@ function AdminDashboard() {
             </span>
           </div>
           {requestsLoading ? (
-            <div className="mt-5 h-[260px] animate-pulse rounded-xl bg-muted" />
+            <div className="mt-5 h-65 animate-pulse rounded-xl bg-muted" />
           ) : (
-            <div className="mt-5 h-[260px] w-full" role="img" aria-label="Monthly request volume">
+            <div className="mt-5 h-65 w-full" role="img" aria-label="Monthly request volume">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={requestTrend}
@@ -348,9 +348,9 @@ function AdminDashboard() {
             </span>
           </div>
           {requestsLoading ? (
-            <div className="mt-5 h-[245px] animate-pulse rounded-xl bg-muted" />
+            <div className="mt-5 h-61.25 animate-pulse rounded-xl bg-muted" />
           ) : (
-            <div className="mt-5 h-[245px] w-full" role="img" aria-label="Requests by status">
+            <div className="mt-5 h-61.25 w-full" role="img" aria-label="Requests by status">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={statusCounts}
@@ -437,7 +437,7 @@ function AdminDashboard() {
         {requestsLoading ? (
           <div className="space-y-3 p-6">
             {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="h-[68px] animate-pulse rounded-xl bg-[#f3f5f8]" />
+              <div key={index} className="h-17 animate-pulse rounded-xl bg-[#f3f5f8]" />
             ))}
           </div>
         ) : requestsError ? (

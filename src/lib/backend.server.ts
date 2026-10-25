@@ -580,6 +580,29 @@ export async function createLibraryResource(input: {
   return { success: true };
 }
 
+export async function updateLibraryResource(
+  id: string,
+  input: {
+    title: string;
+    description: string;
+    category: "novel" | "business_plan" | "article";
+  },
+) {
+  await requireAdmin();
+  const db = getDatabase();
+  const [resource] = await db
+    .select({ id: libraryResources.id })
+    .from(libraryResources)
+    .where(eq(libraryResources.id, id))
+    .limit(1);
+  if (!resource) return null;
+  await db
+    .update(libraryResources)
+    .set({ title: input.title, description: input.description, category: input.category })
+    .where(eq(libraryResources.id, id));
+  return { success: true };
+}
+
 export async function getLibraryResourceForDownload(id: string) {
   const [resource] = await getDatabase()
     .select({
