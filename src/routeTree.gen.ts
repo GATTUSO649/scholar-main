@@ -37,6 +37,9 @@ import { Route as AuthenticatedPortalLibraryRouteImport } from './routes/_authen
 import { Route as AuthenticatedRequestIdRouteImport } from './routes/_authenticated/request.$id'
 import { Route as ApiLibraryCallbackRouteImport } from './routes/api.library.callback'
 import { Route as ApiLibraryPurchaseRouteImport } from './routes/api.library.purchase'
+import { Route as AuthenticatedAdminResourcesArticlesRouteImport } from './routes/_authenticated/admin.resources.articles'
+import { Route as AuthenticatedAdminResourcesBusinessPlansRouteImport } from './routes/_authenticated/admin.resources.business-plans'
+import { Route as AuthenticatedAdminResourcesNovelsRouteImport } from './routes/_authenticated/admin.resources.novels'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -180,6 +183,24 @@ const ApiLibraryPurchaseRoute = ApiLibraryPurchaseRouteImport.update({
   path: '/purchase',
   getParentRoute: () => ApiLibraryRoute,
 } as any)
+const AuthenticatedAdminResourcesArticlesRoute =
+  AuthenticatedAdminResourcesArticlesRouteImport.update({
+    id: '/articles',
+    path: '/articles',
+    getParentRoute: () => AuthenticatedAdminResourcesRoute,
+  } as any)
+const AuthenticatedAdminResourcesBusinessPlansRoute =
+  AuthenticatedAdminResourcesBusinessPlansRouteImport.update({
+    id: '/business-plans',
+    path: '/business-plans',
+    getParentRoute: () => AuthenticatedAdminResourcesRoute,
+  } as any)
+const AuthenticatedAdminResourcesNovelsRoute =
+  AuthenticatedAdminResourcesNovelsRouteImport.update({
+    id: '/novels',
+    path: '/novels',
+    getParentRoute: () => AuthenticatedAdminResourcesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -203,12 +224,15 @@ export interface FileRoutesByFullPath {
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
-  '/admin/resources': typeof AuthenticatedAdminResourcesRoute
+  '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
   '/api/library/callback': typeof ApiLibraryCallbackRoute
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
+  '/admin/resources/articles': typeof AuthenticatedAdminResourcesArticlesRoute
+  '/admin/resources/business-plans': typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  '/admin/resources/novels': typeof AuthenticatedAdminResourcesNovelsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -232,12 +256,15 @@ export interface FileRoutesByTo {
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
-  '/admin/resources': typeof AuthenticatedAdminResourcesRoute
+  '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
   '/api/library/callback': typeof ApiLibraryCallbackRoute
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
+  '/admin/resources/articles': typeof AuthenticatedAdminResourcesArticlesRoute
+  '/admin/resources/business-plans': typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  '/admin/resources/novels': typeof AuthenticatedAdminResourcesNovelsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -263,12 +290,15 @@ export interface FileRoutesById {
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
-  '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRoute
+  '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
   '/_authenticated/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/_authenticated/request/$id': typeof AuthenticatedRequestIdRoute
   '/api/library/callback': typeof ApiLibraryCallbackRoute
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
+  '/_authenticated/admin/resources/articles': typeof AuthenticatedAdminResourcesArticlesRoute
+  '/_authenticated/admin/resources/business-plans': typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  '/_authenticated/admin/resources/novels': typeof AuthenticatedAdminResourcesNovelsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -300,6 +330,9 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/api/library/callback'
     | '/api/library/purchase'
+    | '/admin/resources/articles'
+    | '/admin/resources/business-plans'
+    | '/admin/resources/novels'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -329,6 +362,9 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/api/library/callback'
     | '/api/library/purchase'
+    | '/admin/resources/articles'
+    | '/admin/resources/business-plans'
+    | '/admin/resources/novels'
   id:
     | '__root__'
     | '/'
@@ -359,6 +395,9 @@ export interface FileRouteTypes {
     | '/_authenticated/request/$id'
     | '/api/library/callback'
     | '/api/library/purchase'
+    | '/_authenticated/admin/resources/articles'
+    | '/_authenticated/admin/resources/business-plans'
+    | '/_authenticated/admin/resources/novels'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -576,17 +615,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLibraryPurchaseRouteImport
       parentRoute: typeof ApiLibraryRoute
     }
+    '/_authenticated/admin/resources/articles': {
+      id: '/_authenticated/admin/resources/articles'
+      path: '/articles'
+      fullPath: '/admin/resources/articles'
+      preLoaderRoute: typeof AuthenticatedAdminResourcesArticlesRouteImport
+      parentRoute: typeof AuthenticatedAdminResourcesRoute
+    }
+    '/_authenticated/admin/resources/business-plans': {
+      id: '/_authenticated/admin/resources/business-plans'
+      path: '/business-plans'
+      fullPath: '/admin/resources/business-plans'
+      preLoaderRoute: typeof AuthenticatedAdminResourcesBusinessPlansRouteImport
+      parentRoute: typeof AuthenticatedAdminResourcesRoute
+    }
+    '/_authenticated/admin/resources/novels': {
+      id: '/_authenticated/admin/resources/novels'
+      path: '/novels'
+      fullPath: '/admin/resources/novels'
+      preLoaderRoute: typeof AuthenticatedAdminResourcesNovelsRouteImport
+      parentRoute: typeof AuthenticatedAdminResourcesRoute
+    }
   }
 }
 
+interface AuthenticatedAdminResourcesRouteChildren {
+  AuthenticatedAdminResourcesArticlesRoute: typeof AuthenticatedAdminResourcesArticlesRoute
+  AuthenticatedAdminResourcesBusinessPlansRoute: typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  AuthenticatedAdminResourcesNovelsRoute: typeof AuthenticatedAdminResourcesNovelsRoute
+}
+
+const AuthenticatedAdminResourcesRouteChildren: AuthenticatedAdminResourcesRouteChildren =
+  {
+    AuthenticatedAdminResourcesArticlesRoute:
+      AuthenticatedAdminResourcesArticlesRoute,
+    AuthenticatedAdminResourcesBusinessPlansRoute:
+      AuthenticatedAdminResourcesBusinessPlansRoute,
+    AuthenticatedAdminResourcesNovelsRoute:
+      AuthenticatedAdminResourcesNovelsRoute,
+  }
+
+const AuthenticatedAdminResourcesRouteWithChildren =
+  AuthenticatedAdminResourcesRoute._addFileChildren(
+    AuthenticatedAdminResourcesRouteChildren,
+  )
+
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
-  AuthenticatedAdminResourcesRoute: typeof AuthenticatedAdminResourcesRoute
+  AuthenticatedAdminResourcesRoute: typeof AuthenticatedAdminResourcesRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
-  AuthenticatedAdminResourcesRoute: AuthenticatedAdminResourcesRoute,
+  AuthenticatedAdminResourcesRoute:
+    AuthenticatedAdminResourcesRouteWithChildren,
 }
 
 const AuthenticatedAdminRouteWithChildren =

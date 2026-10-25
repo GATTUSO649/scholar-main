@@ -18,6 +18,8 @@ import {
   LogOut,
   Users,
   BookOpen,
+  FileText,
+  BriefcaseBusiness,
   ClipboardList,
   ExternalLink,
   Menu,
@@ -68,6 +70,9 @@ const adminNav = [
   { to: "/admin", label: "Service requests", icon: ClipboardList },
   { to: "/students", label: "Students", icon: Users },
   { to: "/admin/resources", label: "Library", icon: BookOpen },
+  { to: "/admin/resources/articles", label: "Articles", icon: FileText },
+  { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
+  { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
 ] as const;
 
 function Shell() {
@@ -83,13 +88,19 @@ function Shell() {
     (path.startsWith("/admin") || path.startsWith("/students") || path.startsWith("/manage"));
   const pageTitle = path.startsWith("/admin/dashboard")
     ? "Operations overview"
-    : path.startsWith("/admin/resources")
-      ? "Library management"
-      : path.startsWith("/students")
-        ? "Student directory"
-        : path.startsWith("/manage")
-          ? "Request workspace"
-          : "Service requests";
+    : path === "/admin/resources/articles"
+      ? "Article library"
+      : path === "/admin/resources/novels"
+        ? "Novel library"
+        : path === "/admin/resources/business-plans"
+          ? "Business plan library"
+          : path.startsWith("/admin/resources")
+            ? "Library management"
+            : path.startsWith("/students")
+              ? "Student directory"
+              : path.startsWith("/manage")
+                ? "Request workspace"
+                : "Service requests";
 
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
@@ -150,8 +161,8 @@ function Shell() {
                   : n.to === "/students"
                     ? path.startsWith("/students")
                     : n.to === "/admin/resources"
-                      ? path.startsWith("/admin/resources")
-                      : path.startsWith(n.to)
+                      ? path === "/admin/resources"
+                      : path === n.to
               }
               onClick={() => setOpen(false)}
               admin

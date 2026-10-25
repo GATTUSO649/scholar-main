@@ -1,0 +1,575 @@
+import { Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  Download,
+  FileText,
+  HardDrive,
+  Pencil,
+  RefreshCw,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { getAdminLibraryResourcesFn } from "@/lib/backend";
+
+export type AdminLibraryCategory = "all" | "article" | "novel" | "business_plan";
+type ResourceCategory = Exclude<AdminLibraryCategory, "all">;
+type LibraryResource = {
+  id: string;
+  title: string;
+  description: string;
+  category: ResourceCategory;
+  name: string;
+  size: number;
+  price: number;
+  currency: string;
+  created_at: string;
+};
+
+const sections: { id: AdminLibraryCategory; label: string; to: string }[] = [
+  { id: "all", label: "All resources", to: "/admin/resources" },
+  { id: "article", label: "Articles", to: "/admin/resources/articles" },
+  { id: "novel", label: "Novels", to: "/admin/resources/novels" },
+  { id: "business_plan", label: "Business plans", to: "/admin/resources/business-plans" },
+];
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function categoryLabel(category: ResourceCategory) {
+  return sections.find((item) => item.id === category)?.label.replace(/s$/, "") ?? category;
+}
+
+export function LibraryManager({ category }: { category: AdminLibraryCategory }) {
+  const queryClient = useQueryClient();
+  const {
+    data: resources = [],
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ["admin-library-resources"],
+    queryFn: () => getAdminLibraryResourcesFn(),
+  });
+  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [editingResource, setEditingResource] = useState<LibraryResource | null>(null);
+
+  const categoryCounts: Record<AdminLibraryCategory, number> = {
+    all: resources.length,
+    article: resources.filter((resource) => resource.category === "article").length,
+    novel: resources.filter((resource) => resource.category === "novel").length,
+    business_plan: resources.filter((resource) => resource.category === "business_plan").length,
+  };
+  const needle = search.trim().toLowerCase();
+  const filteredResources = resources.filter((resource) => {
+    const matchesCategory = category === "all" || resource.category === category;
+    const matchesSearch =
+      !needle ||
+      `${resource.title} ${resource.description} ${resource.name} ${resource.category}`
+        .toLowerCase()
+        .includes(needle);
+    return matchesCategory && matchesSearch;
+  });
+  const totalStorage = resources.reduce((total, resource) => total + resource.size, 0);
+  const section = sections.find((item) => item.id === category) ?? sections[0]!;
+
+  async function refreshLibrary() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-library-resources"] }),
+      queryClient.invalidateQueries({ queryKey: ["library-resources"] }),
+    ]);
+  }
+
+  async function upload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const body = new FormData(form);
+    setBusy(true);
+    try {
+      const response = await fetch("/api/library", { method: "POST", body });
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Could not upload the resource.");
+      form.reset();
+      await refreshLibrary();
+      toast.success("Resource published to the student library.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not upload the resource.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveMetadata(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingResource) return;
+    const formData = new FormData(event.currentTarget);
+    setSaving(true);
+    try {
+      const response = await fetch("/api/library", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: editingResource.id,
+          title: String(formData.get("title") ?? ""),
+          description: String(formData.get("description") ?? ""),
+          category: String(formData.get("category") ?? ""),
+          price: Number(formData.get("price") ?? 0),
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Could not update this resource.");
+      setEditingResource(null);
+      await refreshLibrary();
+      toast.success("Resource details updated.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update this resource.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(resource: LibraryResource) {
+    if (!window.confirm(`Remove "${resource.title}" and its stored file?`)) return;
+    setDeletingId(resource.id);
+    try {
+      const response = await fetch(`/api/library?id=${encodeURIComponent(resource.id)}`, {
+        method: "DELETE",
+      });
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Could not remove the resource.");
+      await refreshLibrary();
+      toast.success("Resource and file removed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove the resource.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-col justify-between gap-4 border-b border-[#dfe8e3] pb-6 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#708078]">
+            Student service desk <span className="px-1 text-[#bd8a48]">/</span> Knowledge
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173c33] sm:text-4xl">
+            {section.label}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#677872]">
+            Upload, price, and maintain the resources students can access in this collection.
+          </p>
+        </div>
+        <a
+          href="/library"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d4e1da] bg-white px-3.5 text-sm font-semibold text-[#31574b] transition-colors hover:bg-[#f2f7f3]"
+        >
+          <BookOpen className="h-4 w-4" /> Preview public catalog
+        </a>
+      </header>
+
+      <section
+        className="grid grid-cols-2 border-y border-[#dfe8e3] bg-white sm:grid-cols-4"
+        aria-label="Library summary"
+      >
+        <SummaryMetric label="All resources" value={resources.length} icon={BookOpen} />
+        <SummaryMetric label="Articles" value={categoryCounts.article} icon={FileText} />
+        <SummaryMetric
+          label="Novels and plans"
+          value={categoryCounts.novel + categoryCounts.business_plan}
+          icon={BriefcaseBusiness}
+        />
+        <SummaryMetric label="Stored files" value={formatBytes(totalStorage)} icon={HardDrive} />
+      </section>
+
+      <nav
+        className="flex gap-2 overflow-x-auto border-b border-[#dfe8e3] pb-3"
+        aria-label="Library sections"
+      >
+        {sections.map((item) => (
+          <Link
+            key={item.id}
+            to={item.to}
+            aria-current={item.id === category ? "page" : undefined}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              item.id === category
+                ? "bg-[#185c4b] text-white"
+                : "text-[#63756d] hover:bg-[#eaf2ed] hover:text-[#183c34]"
+            }`}
+          >
+            {item.label}
+            <span className="text-xs opacity-75">{categoryCounts[item.id]}</span>
+          </Link>
+        ))}
+      </nav>
+
+      <section className="border-b border-[#dfe8e3] pb-7">
+        <div className="mb-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#718078]">
+            Content intake
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-[#173c33]">
+            Upload to {section.label.toLowerCase()}
+          </h2>
+          <p className="mt-1 text-sm text-[#718078]">
+            Supported formats: PDF, EPUB, Word, or text up to 25 MB. Set a whole-KES price from 0 to
+            150,000; 0 makes the resource free.
+          </p>
+        </div>
+        <form onSubmit={upload} className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="resource-title">Display title</Label>
+            <Input
+              id="resource-title"
+              name="title"
+              required
+              minLength={2}
+              maxLength={200}
+              className="mt-1.5"
+            />
+          </div>
+          <div>
+            <Label htmlFor="resource-category">Category</Label>
+            {category === "all" ? (
+              <select
+                id="resource-category"
+                name="category"
+                required
+                defaultValue="article"
+                className="mt-1.5 h-10 w-full rounded-md border border-[#d7e2dc] bg-white px-3 text-sm"
+              >
+                <option value="article">Article</option>
+                <option value="novel">Novel</option>
+                <option value="business_plan">Business plan</option>
+              </select>
+            ) : (
+              <>
+                <input type="hidden" name="category" value={category} />
+                <div className="mt-1.5 flex h-10 items-center rounded-md border border-[#d7e2dc] bg-[#f7faf8] px-3 text-sm text-[#31574b]">
+                  {section.label.replace(/s$/, "")}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="sm:max-w-xs">
+            <Label htmlFor="resource-price">Student price (KES)</Label>
+            <Input
+              id="resource-price"
+              name="price"
+              type="number"
+              min={0}
+              max={150000}
+              step={1}
+              defaultValue={0}
+              required
+              className="mt-1.5"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="resource-description">Description</Label>
+            <Textarea
+              id="resource-description"
+              name="description"
+              maxLength={2000}
+              rows={2}
+              className="mt-1.5"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="resource-file">Document</Label>
+            <Input
+              id="resource-file"
+              name="file"
+              type="file"
+              accept=".pdf,.epub,.doc,.docx,.txt"
+              required
+              className="mt-1.5 h-11 border-[#d7e2dc] bg-white file:mr-3 file:rounded file:border-0 file:bg-[#e5f1eb] file:px-3 file:py-1 file:text-xs file:font-semibold file:text-[#155b4c]"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="submit" disabled={busy} className="bg-[#185c4b] hover:bg-[#124b3d]">
+              <Upload className="mr-2 h-4 w-4" />
+              {busy
+                ? "Uploading…"
+                : `Publish ${category === "all" ? "resource" : categoryLabel(category)}`}
+            </Button>
+          </div>
+        </form>
+      </section>
+
+      <section>
+        <div className="flex flex-col justify-between gap-4 border-b border-[#dfe8e3] pb-4 lg:flex-row lg:items-end">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#718078]">
+              Published content
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-[#173c33]">{section.label} inventory</h2>
+            <p className="mt-1 text-sm text-[#718078]" aria-live="polite">
+              {isLoading
+                ? "Loading resources…"
+                : `${filteredResources.length} of ${categoryCounts[category]} resources`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search title, description, or file"
+                aria-label="Search library resources"
+                className="h-10 rounded-lg border-[#d7e2dc] bg-white pl-9"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              aria-label="Refresh resources"
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <p className="border-y border-[#e0e8e3] bg-white px-4 py-8 text-sm text-[#718078]">
+            Loading the collection…
+          </p>
+        ) : isError ? (
+          <div className="border-y border-[#e0e8e3] bg-white px-4 py-8" role="alert">
+            <p className="text-sm font-semibold text-[#a34737]">Could not load resources.</p>
+            <Button
+              className="mt-3 border-[#d4e1da] text-[#31574b]"
+              variant="outline"
+              size="sm"
+              onClick={() => void refetch()}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : filteredResources.length === 0 ? (
+          <div className="border-y border-[#e0e8e3] bg-white px-6 py-12 text-center">
+            <BookOpen className="mx-auto h-8 w-8 text-[#688279]" />
+            <h3 className="mt-3 font-semibold text-[#31574b]">
+              {resources.length
+                ? "No resources match this search"
+                : `No ${section.label.toLowerCase()} yet`}
+            </h3>
+            <p className="mt-1 text-sm text-[#718078]">
+              {resources.length
+                ? "Try another search term."
+                : `Upload a document to publish it in ${section.label.toLowerCase()}.`}
+            </p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-[#e8eeea] border-y border-[#e0e8e3] bg-white">
+            {filteredResources.map((resource) => (
+              <li
+                key={resource.id}
+                className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-[#f7faf7] sm:flex-row sm:items-center sm:justify-between sm:px-5"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[#e5f1eb] text-[#155b4c]">
+                    {resource.category === "novel" ? (
+                      <BookOpen className="h-5 w-5" />
+                    ) : resource.category === "business_plan" ? (
+                      <BriefcaseBusiness className="h-5 w-5" />
+                    ) : (
+                      <FileText className="h-5 w-5" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-[#24473b]">{resource.title}</p>
+                    <p className="mt-1 break-all text-xs text-[#788780]">
+                      {resource.name} · {formatBytes(resource.size)} · Added{" "}
+                      {formatDate(resource.created_at)}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-[#55766a]">
+                      {categoryLabel(resource.category)} <span className="px-1">·</span>
+                      {resource.price > 0 ? `${resource.currency} ${resource.price}` : "Free"}
+                    </p>
+                    {resource.description && (
+                      <p className="mt-2 line-clamp-2 text-sm text-[#718078]">
+                        {resource.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 sm:pl-4">
+                  <Button asChild variant="outline" size="sm">
+                    <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
+                      <Download className="mr-2 h-4 w-4" /> Download
+                    </a>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setEditingResource(resource)}
+                    aria-label={`Edit ${resource.title}`}
+                    title="Edit resource"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => void remove(resource)}
+                    disabled={deletingId === resource.id}
+                    aria-label={`Delete ${resource.title}`}
+                    title="Delete resource"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <Dialog
+        open={!!editingResource}
+        onOpenChange={(open) => {
+          if (!open && !saving) setEditingResource(null);
+        }}
+      >
+        {editingResource && (
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit resource</DialogTitle>
+              <DialogDescription>
+                Update the title, section, student price, or description.
+              </DialogDescription>
+            </DialogHeader>
+            <form id="edit-library-resource" onSubmit={saveMetadata} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-title">Display title</Label>
+                <Input
+                  id="edit-title"
+                  name="title"
+                  required
+                  minLength={2}
+                  maxLength={200}
+                  defaultValue={editingResource.title}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-category">Section</Label>
+                <select
+                  id="edit-category"
+                  name="category"
+                  required
+                  defaultValue={editingResource.category}
+                  className="mt-1.5 h-10 w-full rounded-md border border-[#d7e2dc] bg-white px-3 text-sm"
+                >
+                  <option value="article">Article</option>
+                  <option value="novel">Novel</option>
+                  <option value="business_plan">Business plan</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="edit-price">Student price (KES)</Label>
+                <Input
+                  id="edit-price"
+                  name="price"
+                  type="number"
+                  min={0}
+                  max={150000}
+                  step={1}
+                  required
+                  defaultValue={editingResource.price}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  name="description"
+                  maxLength={2000}
+                  rows={4}
+                  defaultValue={editingResource.description}
+                  className="mt-1.5"
+                />
+              </div>
+            </form>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingResource(null)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" form="edit-library-resource" disabled={saving}>
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+    </div>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string | number;
+  icon: typeof BookOpen;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 border-r border-[#e8eeea] px-3 py-3.5 last:border-r-0 sm:px-5">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#e5f1eb] text-[#155b4c]">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-medium text-[#718078]">{label}</p>
+        <p className="mt-1 truncate text-lg font-semibold tabular-nums text-[#183c34]">{value}</p>
+      </div>
+    </div>
+  );
+}
