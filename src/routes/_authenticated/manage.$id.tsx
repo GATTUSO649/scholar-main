@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Upload, UserRound } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Save, Upload, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,8 +58,8 @@ function Manage() {
         <div className="h-7 w-40 animate-pulse rounded bg-muted" />
         <div className="h-36 animate-pulse rounded-2xl bg-white" />
         <div className="grid gap-5 xl:grid-cols-[1fr_390px]">
-          <div className="h-[480px] animate-pulse rounded-2xl bg-white" />
-          <div className="h-[480px] animate-pulse rounded-2xl bg-white" />
+          <div className="h-120 animate-pulse rounded-lg bg-white" />
+          <div className="h-120 animate-pulse rounded-lg bg-white" />
         </div>
       </div>
     );
@@ -146,27 +146,29 @@ function Manage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <Link
         to="/admin"
-        className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-2 text-sm font-semibold text-[#567066] transition-colors hover:text-[#155b4c]"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to request queue
+        <ArrowLeft className="h-4 w-4" /> Service requests
       </Link>
 
-      <header className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:p-7">
+      <header className="border-b border-[#dfe8e3] pb-5">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-lg bg-[#eef2f7] px-2.5 py-1 text-xs font-bold text-[#324b6a]">
+              <span className="rounded-md bg-[#e5f1eb] px-2.5 py-1 text-xs font-bold text-[#155b4c]">
                 {r.ref}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-[#788780]">
                 {r.services?.name ?? "General service"}
               </span>
             </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{r.title}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[#173c33] sm:text-3xl">
+              {r.title}
+            </h1>
+            <p className="mt-2 text-sm text-[#718078]">
               Submitted {fmtDate(r.created_at)}
               {r.deadline && (
                 <>
@@ -181,27 +183,27 @@ function Manage() {
             <PayBadge status={r.payment_status} />
           </div>
         </div>
-        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t pt-4 text-xs text-muted-foreground">
+        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-[#e7ede9] pt-4 text-xs text-[#718078]">
           <span>
-            Current quote: <strong className="text-foreground">{money(r.price, r.currency)}</strong>
+            Current quote: <strong className="text-[#24473b]">{money(r.price, r.currency)}</strong>
           </span>
           <span>Last updated: {fmtDate(r.updated_at)}</span>
         </div>
       </header>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_370px]">
         <div className="min-w-0">
           <RequestSummary data={data} compact />
         </div>
-        <aside className="space-y-5 xl:sticky xl:top-[92px]">
-          <section className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">
+        <aside className="space-y-6 xl:sticky xl:top-23">
+          <section className="border-y border-[#dfe8e3] bg-white px-4 py-4">
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#eef2f7] text-[#334b6b]">
+              <span className="grid h-9 w-9 place-items-center rounded-md bg-[#e5f1eb] text-[#155b4c]">
                 <UserRound className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="font-semibold">Student profile</h2>
-                <p className="text-xs text-muted-foreground">Request owner</p>
+                <h2 className="font-semibold text-[#173c33]">Student contact</h2>
+                <p className="text-xs text-[#788780]">Request owner</p>
               </div>
             </div>
             {studentLoading ? (
@@ -210,15 +212,29 @@ function Manage() {
                 <div className="h-4 w-full animate-pulse rounded bg-muted" />
               </div>
             ) : studentError ? (
-              <p className="mt-4 text-sm text-destructive">Could not load the student profile.</p>
+              <p className="mt-4 text-sm text-[#a34737]">Could not load the student profile.</p>
             ) : student ? (
-              <div className="mt-4 border-t pt-4">
-                <p className="font-semibold">{student.full_name}</p>
-                <p className="mt-1 break-all text-sm text-muted-foreground">{student.email}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {student.phone || "No phone number"}
-                </p>
-                <div className="mt-3 rounded-xl bg-[#f7f9fc] p-3 text-xs leading-relaxed text-muted-foreground">
+              <div className="mt-4 border-t border-[#e7ede9] pt-4">
+                <p className="font-semibold text-[#24473b]">{student.full_name}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {student.email && (
+                    <a
+                      href={`mailto:${student.email}`}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-[#d4e1da] px-2.5 py-1.5 text-xs font-semibold text-[#31574b] hover:bg-[#f2f7f3]"
+                    >
+                      <Mail className="h-3.5 w-3.5" /> Email student
+                    </a>
+                  )}
+                  {student.phone && (
+                    <a
+                      href={`tel:${student.phone.replace(/[^+\d]/g, "")}`}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-[#d4e1da] px-2.5 py-1.5 text-xs font-semibold text-[#31574b] hover:bg-[#f2f7f3]"
+                    >
+                      <Phone className="h-3.5 w-3.5" /> Call student
+                    </a>
+                  )}
+                </div>
+                <div className="mt-3 bg-[#f5f8f6] p-3 text-xs leading-relaxed text-[#718078]">
                   <p>{student.institution || "Institution not provided"}</p>
                   <p className="mt-1">
                     {[student.course, student.year_of_study && `Year ${student.year_of_study}`]
@@ -228,27 +244,29 @@ function Manage() {
                 </div>
               </div>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">Student profile unavailable.</p>
+              <p className="mt-4 text-sm text-[#718078]">Student profile unavailable.</p>
             )}
           </section>
 
           <form
             onSubmit={save}
             key={r.updated_at}
-            className="overflow-hidden rounded-2xl border bg-white shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]"
+            className="overflow-hidden border-y border-[#dfe8e3] bg-white"
           >
-            <div className="border-b px-5 py-4">
-              <p className="text-xs font-semibold text-muted-foreground">WORKSPACE</p>
-              <h2 className="mt-1 text-lg font-semibold">Update request</h2>
+            <div className="border-b border-[#e7ede9] px-4 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#718078]">
+                Service controls
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-[#173c33]">Update request</h2>
             </div>
-            <div className="space-y-4 p-5">
+            <div className="space-y-4 px-4 py-4">
               <div>
                 <Label htmlFor="status">Request status</Label>
                 <select
                   id="status"
                   name="status"
                   defaultValue={r.status}
-                  className="mt-1.5 h-10 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1.5 h-10 w-full rounded-md border border-[#d7e2dc] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#72a78d]"
                 >
                   {ALL_STATUSES.map((status) => (
                     <option key={status} value={status}>
@@ -267,7 +285,7 @@ function Manage() {
                     step="0.01"
                     min={0}
                     defaultValue={r.price ?? ""}
-                    className="mt-1.5 h-10 rounded-xl"
+                    className="mt-1.5 h-10 rounded-md"
                   />
                 </div>
                 <div>
@@ -276,7 +294,7 @@ function Manage() {
                     id="currency"
                     name="currency"
                     defaultValue={r.currency}
-                    className="mt-1.5 h-10 w-full rounded-xl border border-input bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="mt-1.5 h-10 w-full rounded-md border border-[#d7e2dc] bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-[#72a78d]"
                   >
                     {currencies.map((currency) => (
                       <option key={currency}>{currency}</option>
@@ -294,7 +312,7 @@ function Manage() {
                   id="payment_status"
                   name="payment_status"
                   defaultValue={r.payment_status}
-                  className="mt-1.5 h-10 w-full rounded-xl border border-input bg-white px-3 text-sm capitalize outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1.5 h-10 w-full rounded-md border border-[#d7e2dc] bg-white px-3 text-sm capitalize outline-none focus:ring-2 focus:ring-[#72a78d]"
                 >
                   {PAYS.map((payment) => (
                     <option key={payment} value={payment}>
@@ -316,7 +334,7 @@ function Manage() {
                   maxLength={20}
                   placeholder="e.g. A, 78/100"
                   defaultValue={r.grade ?? ""}
-                  className="mt-1.5 h-10 rounded-xl"
+                  className="mt-1.5 h-10 rounded-md"
                 />
               </div>
               <div>
@@ -326,7 +344,7 @@ function Manage() {
                   name="admin_feedback"
                   rows={3}
                   defaultValue={r.admin_feedback ?? ""}
-                  className="mt-1.5 resize-y rounded-xl"
+                  className="mt-1.5 resize-y rounded-md"
                 />
               </div>
               <div>
@@ -336,7 +354,7 @@ function Manage() {
                   name="note"
                   rows={2}
                   placeholder="Optional message included in the request timeline"
-                  className="mt-1.5 resize-y rounded-xl"
+                  className="mt-1.5 resize-y rounded-md"
                 />
               </div>
               <div>
@@ -346,16 +364,16 @@ function Manage() {
                   name="admin_notes"
                   rows={2}
                   defaultValue={r.admin_notes ?? ""}
-                  className="mt-1.5 resize-y rounded-xl"
+                  className="mt-1.5 resize-y rounded-md"
                 />
               </div>
               <div>
                 <Label htmlFor="delivery-files">Completed work files</Label>
                 <label
                   htmlFor="delivery-files"
-                  className="mt-1.5 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed bg-[#fafbfd] px-3 py-3 text-sm transition-colors hover:bg-muted"
+                  className="mt-1.5 flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-[#cbdcd3] bg-[#f7faf8] px-3 py-3 text-sm transition-colors hover:bg-[#edf5f0]"
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-[#405a7a] shadow-sm">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#287260] shadow-sm">
                     <Upload className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
@@ -384,7 +402,10 @@ function Manage() {
                   </ul>
                 )}
               </div>
-              <Button className="h-11 w-full rounded-xl" disabled={busy}>
+              <Button
+                className="h-11 w-full rounded-md bg-[#185c4b] hover:bg-[#124b3d]"
+                disabled={busy}
+              >
                 <Save className="mr-2 h-4 w-4" />
                 {busy ? "Saving changes…" : "Save request changes"}
               </Button>

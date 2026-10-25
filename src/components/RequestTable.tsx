@@ -18,6 +18,18 @@ export type Row = {
 };
 
 export function RequestTable({ rows, admin = false }: { rows: Row[]; admin?: boolean }) {
+  if (!rows.length && admin)
+    return (
+      <div className="border-y border-[#e0e8e3] bg-white px-6 py-12 text-center">
+        <span className="mx-auto grid h-10 w-10 place-items-center rounded-md bg-[#e5f1eb] text-[#155b4c]">
+          <FolderOpen className="h-5 w-5" />
+        </span>
+        <p className="mt-3 font-semibold text-[#31574b]">No requests in this view</p>
+        <p className="mt-1 text-sm text-[#718078]">
+          New or matching student requests will appear here.
+        </p>
+      </div>
+    );
   if (!rows.length)
     return (
       <div className="rounded-2xl border border-dashed bg-white px-6 py-14 text-center text-muted-foreground">
@@ -30,10 +42,10 @@ export function RequestTable({ rows, admin = false }: { rows: Row[]; admin?: boo
     );
   if (admin)
     return (
-      <div className="overflow-hidden rounded-2xl border bg-white shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">
+      <div className="overflow-hidden border-y border-[#e0e8e3] bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[840px] text-left text-sm">
-            <thead className="border-b bg-[#f8fafc] text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          <table className="w-full min-w-210 text-left text-sm">
+            <thead className="border-b border-[#e4ebe6] bg-[#f7f9f7] text-[10px] font-bold uppercase tracking-[0.12em] text-[#718078]">
               <tr>
                 <th className="px-5 py-4">Request</th>
                 <th className="px-4 py-4">Student</th>
@@ -46,36 +58,36 @@ export function RequestTable({ rows, admin = false }: { rows: Row[]; admin?: boo
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/70">
+            <tbody className="divide-y divide-[#e8eeea]">
               {rows.map((row) => (
-                <tr key={row.id} className="group transition-colors hover:bg-[#fafbfd]">
+                <tr key={row.id} className="group transition-colors hover:bg-[#f7faf7]">
                   <td className="px-5 py-4">
                     <Link
                       to="/manage/$id"
                       params={{ id: row.id }}
-                      className="block max-w-[300px] rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="block max-w-75 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <span className="block truncate font-semibold text-foreground group-hover:text-primary">
+                      <span className="block truncate font-semibold text-[#24473b] group-hover:text-[#17634f]">
                         {row.title}
                       </span>
-                      <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      <span className="mt-1 block truncate text-xs text-[#77847e]">
                         {row.ref} <span className="px-1">·</span>{" "}
                         {row.services?.name ?? "General service"}
                       </span>
                     </Link>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="block max-w-[160px] truncate font-medium">
+                    <span className="block max-w-40 truncate font-medium text-[#52645c]">
                       {row.profiles?.full_name ?? "—"}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-4 text-xs text-muted-foreground">
+                  <td className="whitespace-nowrap px-4 py-4 text-xs text-[#718078]">
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarDays className="h-3.5 w-3.5" />
                       {fmtDate(row.deadline)}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-4 font-semibold">
+                  <td className="whitespace-nowrap px-4 py-4 font-semibold text-[#31574b]">
                     {money(row.price, row.currency)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-4">
@@ -89,7 +101,7 @@ export function RequestTable({ rows, admin = false }: { rows: Row[]; admin?: boo
                       to="/manage/$id"
                       params={{ id: row.id }}
                       aria-label={`Manage ${row.title}`}
-                      className="inline-grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="inline-grid h-8 w-8 place-items-center rounded-md text-[#718078] transition-colors hover:bg-[#e5f1eb] hover:text-[#155b4c]"
                     >
                       <ArrowUpRight className="h-4 w-4" />
                     </Link>

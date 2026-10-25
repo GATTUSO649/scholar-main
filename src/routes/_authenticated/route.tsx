@@ -16,13 +16,15 @@ import {
   User,
   LifeBuoy,
   LogOut,
-  Shield,
   Users,
   BookOpen,
+  ClipboardList,
+  ExternalLink,
   Menu,
   X,
   ChevronRight,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
 import { useProfile } from "@/lib/auth";
@@ -62,10 +64,10 @@ const studentNav = [
 ] as const;
 
 const adminNav = [
-  { to: "/admin/dashboard", label: "Admin dashboard", icon: LayoutDashboard },
-  { to: "/admin", label: "All requests", icon: Shield },
-  { to: "/admin/resources", label: "Library", icon: BookOpen },
+  { to: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
+  { to: "/admin", label: "Service requests", icon: ClipboardList },
   { to: "/students", label: "Students", icon: Users },
+  { to: "/admin/resources", label: "Library", icon: BookOpen },
 ] as const;
 
 function Shell() {
@@ -80,14 +82,14 @@ function Shell() {
     isAdmin &&
     (path.startsWith("/admin") || path.startsWith("/students") || path.startsWith("/manage"));
   const pageTitle = path.startsWith("/admin/dashboard")
-    ? "Dashboard"
+    ? "Operations overview"
     : path.startsWith("/admin/resources")
-      ? "Library"
+      ? "Library management"
       : path.startsWith("/students")
-        ? "Students"
+        ? "Student directory"
         : path.startsWith("/manage")
           ? "Request workspace"
-          : "All requests";
+          : "Service requests";
 
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
@@ -120,7 +122,10 @@ function Shell() {
   }
 
   const NavLinks = ({ admin = false }: { admin?: boolean }) => (
-    <nav className="flex flex-1 flex-col gap-1">
+    <nav
+      aria-label={admin ? "Admin navigation" : "Student navigation"}
+      className="flex flex-1 flex-col gap-1"
+    >
       {!admin &&
         studentNav.map((n) => (
           <NavItem
@@ -132,8 +137,8 @@ function Shell() {
         ))}
       {admin && (
         <>
-          <p className="mb-2 mt-7 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
-            Workspace
+          <p className="mb-2 mt-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7d8b86]">
+            Student support
           </p>
           {adminNav.map((n) => (
             <NavItem
@@ -152,15 +157,24 @@ function Shell() {
               admin
             />
           ))}
+          <a
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setOpen(false)}
+            className="mt-5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#60706a] transition-colors hover:bg-[#f1f6f3] hover:text-[#155b4c]"
+          >
+            <ExternalLink className="h-4 w-4" /> Public website
+          </a>
         </>
       )}
       <button
         onClick={() => void leavePortal("/auth")}
         disabled={leavingPortal}
         className={cn(
-          "mt-auto flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors disabled:cursor-wait disabled:opacity-60",
+          "mt-auto flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors disabled:cursor-wait disabled:opacity-60",
           admin
-            ? "text-white/65 hover:bg-white/10 hover:text-white"
+            ? "text-[#60706a] hover:bg-[#fff1ee] hover:text-[#a64233]"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
         )}
       >
@@ -171,11 +185,14 @@ function Shell() {
 
   if (inAdminArea) {
     const adminLinks = (
-      <div className="flex h-full flex-col">
-        <div className="border-b border-white/10 px-6 py-6">
-          <Logo light onClick={handlePublicNavigation} />
-          <div className="mt-7 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
+      <div className="flex h-full flex-col bg-[#fbfcfa]">
+        <div className="border-b border-[#e4ebe6] px-5 py-5">
+          <Logo onClick={handlePublicNavigation} />
+          <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-[#6e8179]">
+            <Sparkles className="h-3.5 w-3.5 text-[#b57c36]" /> Service workspace
+          </div>
+          <div className="mt-5 flex items-center gap-3 rounded-lg border border-[#e4ebe6] bg-white p-3">
+            <span className="grid h-9 w-9 place-items-center rounded-md bg-[#e5f1eb] text-xs font-bold text-[#155b4c]">
               {profile?.full_name
                 ?.split(/\s+/)
                 .map((part) => part[0])
@@ -184,66 +201,79 @@ function Shell() {
                 .toUpperCase() ?? "AD"}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-white">
+              <span className="block truncate text-sm font-semibold text-[#183c34]">
                 {profile?.full_name || "Administrator"}
               </span>
-              <span className="block truncate text-xs text-white/45">Admin workspace</span>
+              <span className="block truncate text-xs text-[#75847e]">Operations team</span>
             </span>
           </div>
         </div>
-        <div className="flex flex-1 flex-col px-4 py-3">
+        <div className="flex flex-1 flex-col px-3 py-3">
           <NavLinks admin />
-          <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" /> System operational
+          <div className="mt-auto border-t border-[#e4ebe6] px-3 pt-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#426c5e]">
+              <span className="h-2 w-2 rounded-full bg-[#3b9b70]" /> Workspace active
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-white/40">
-              Your private operations console.
+            <p className="mt-2 text-[11px] leading-relaxed text-[#7d8984]">
+              Student records and files remain private.
             </p>
           </div>
         </div>
       </div>
     );
     return (
-      <div className="min-h-screen bg-[#f5f7fa] lg:grid lg:grid-cols-[264px_1fr]">
-        <aside className="sticky top-0 hidden h-screen flex-col bg-[#17263c] text-white lg:flex">
+      <div className="min-h-screen bg-[#f2f5f2] lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden h-screen flex-col border-r border-[#e4ebe6] bg-[#fbfcfa] lg:flex">
           {adminLinks}
         </aside>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-[#17263c] px-4 py-3 text-white lg:hidden">
-          <Logo light onClick={handlePublicNavigation} />
-          <div className="flex items-center gap-1 text-white">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e4ebe6] bg-[#fbfcfa] px-4 py-3 lg:hidden">
+          <div>
+            <Logo onClick={handlePublicNavigation} />
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#71817a]">
+              Service workspace
+            </p>
+          </div>
+          <div className="flex items-center gap-1 text-[#183c34]">
             <NotificationBell />
-            <ProfileShortcut name={profile?.full_name} className="text-white hover:bg-white/10" />
+            <ProfileShortcut
+              name={profile?.full_name}
+              className="text-[#183c34] hover:bg-[#eaf2ed]"
+            />
             <button
               onClick={() => setOpen(!open)}
-              className="rounded-lg p-2 text-white hover:bg-white/10"
+              className="rounded-lg p-2 text-[#183c34] hover:bg-[#eaf2ed]"
               aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </header>
         {open && (
-          <div className="fixed inset-0 top-[57px] z-20 bg-[#17263c] p-4 text-white lg:hidden">
+          <div className="fixed inset-x-0 bottom-0 top-18 z-20 border-t border-[#e4ebe6] bg-[#fbfcfa] p-4 lg:hidden">
             {adminLinks}
           </div>
         )}
         <main className="min-w-0">
-          <div className="sticky top-0 z-10 hidden h-[72px] items-center justify-between border-b border-white/10 bg-[#17263c] px-8 text-white lg:flex">
-            <div className="flex items-center gap-2 text-sm text-white/65">
-              <span>ScholarDesk</span>
-              <ChevronRight className="h-4 w-4" />
-              <span className="font-semibold text-white">{pageTitle}</span>
+          <div className="sticky top-0 z-10 hidden h-19 items-center justify-between border-b border-[#e4ebe6] bg-white/95 px-8 backdrop-blur lg:flex">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7c8983]">
+                ScholarDesk <ChevronRight className="mx-1 inline h-3 w-3" /> Operations
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#183c34]">{pageTitle}</p>
             </div>
             <div className="flex items-center gap-3">
               <NotificationBell />
-              <ProfileShortcut name={profile?.full_name} className="text-white hover:bg-white/10" />
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70">
-                <ShieldCheck className="h-3.5 w-3.5" /> Private workspace
+              <ProfileShortcut
+                name={profile?.full_name}
+                className="text-[#183c34] hover:bg-[#eaf2ed]"
+              />
+              <span className="inline-flex items-center gap-2 border-l border-[#e4ebe6] pl-3 text-xs font-medium text-[#71817a]">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#398b68]" /> Secure admin
               </span>
             </div>
           </div>
-          <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
             <Outlet />
           </div>
         </main>
@@ -282,7 +312,7 @@ function Shell() {
       )}
 
       <main className="min-w-0">
-        <div className="sticky top-0 z-10 hidden h-[72px] items-center justify-between border-b bg-white/95 px-8 backdrop-blur lg:flex">
+        <div className="sticky top-0 z-10 hidden h-18 items-center justify-between border-b bg-white/95 px-8 backdrop-blur lg:flex">
           <div className="text-sm text-muted-foreground">
             Welcome back,{" "}
             <span className="font-semibold text-foreground">{profile?.full_name}</span>
@@ -352,13 +382,13 @@ function NavItem({
       to={to}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
+        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
         active
           ? admin
-            ? "bg-accent font-semibold text-accent-foreground shadow-sm"
+            ? "bg-[#e5f1eb] font-semibold text-[#155b4c]"
             : "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
           : admin
-            ? "text-white/65 hover:bg-white/[0.07] hover:text-white"
+            ? "text-[#5f7069] hover:bg-[#f0f5f2] hover:text-[#183c34]"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
       )}
     >

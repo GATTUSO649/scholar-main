@@ -199,28 +199,33 @@ function AdminResources() {
   }
 
   return (
-    <div className="space-y-7">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div className="space-y-8">
+      <header className="flex flex-col justify-between gap-4 border-b border-[#dfe8e3] pb-6 sm:flex-row sm:items-end">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#687b93]">
-            Public content
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#708078]">
+            Student service desk <span className="px-1 text-[#bd8a48]">/</span> Knowledge
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Library</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Publish and maintain downloadable resources shown on the public library page.
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173c33] sm:text-4xl">
+            Resource library
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#677872]">
+            Publish and maintain materials students can browse and download from the public library.
           </p>
         </div>
         <a
           href="/library"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border bg-white px-3 text-sm font-medium shadow-sm transition-colors hover:bg-muted"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d4e1da] bg-white px-3.5 text-sm font-semibold text-[#31574b] transition-colors hover:bg-[#f2f7f3]"
         >
           <BookOpen className="h-4 w-4" /> Preview public library
         </a>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Library summary">
+      <section
+        className="grid grid-cols-2 border-y border-[#dfe8e3] bg-white sm:grid-cols-4"
+        aria-label="Library summary"
+      >
         <SummaryMetric label="Published resources" value={resources.length} icon={BookOpen} />
         <SummaryMetric label="Articles" value={categoryCounts.article} icon={FileText} />
         <SummaryMetric
@@ -231,15 +236,18 @@ function AdminResources() {
         <SummaryMetric label="Stored files" value={formatBytes(totalStorage)} icon={HardDrive} />
       </section>
 
-      <section className="overflow-hidden rounded-xl border bg-white shadow-soft">
-        <div className="border-b px-5 py-4 sm:px-6">
-          <h2 className="font-semibold">Add a resource</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <section className="border-b border-[#dfe8e3] pb-7">
+        <div className="mb-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#718078]">
+            Content intake
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-[#173c33]">Publish a resource</h2>
+          <p className="mt-1 text-sm text-[#718078]">
             Upload a PDF, EPUB, Word document, or text file up to 25 MB. Publishing makes it
             immediately downloadable by visitors.
           </p>
         </div>
-        <form onSubmit={upload} className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
+        <form onSubmit={upload} className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="resource-title">Display title</Label>
             <Input
@@ -258,7 +266,7 @@ function AdminResources() {
               name="category"
               required
               defaultValue="article"
-              className="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className="mt-1.5 h-10 w-full rounded-md border border-[#d7e2dc] bg-white px-3 text-sm"
             >
               <option value="article">Article</option>
               <option value="novel">Novel</option>
@@ -284,7 +292,7 @@ function AdminResources() {
               type="file"
               accept=".pdf,.epub,.doc,.docx,.txt"
               required
-              className="mt-1.5 file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:font-semibold"
+              className="mt-1.5 h-11 border-[#d7e2dc] bg-white file:mr-3 file:rounded file:border-0 file:bg-[#e5f1eb] file:px-3 file:py-1 file:text-xs file:font-semibold file:text-[#155b4c]"
             />
           </div>
           <div className="sm:col-span-2">
@@ -296,12 +304,15 @@ function AdminResources() {
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-xl border bg-white shadow-soft">
-        <div className="border-b px-5 py-4 sm:px-6">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+      <section>
+        <div className="border-b border-[#dfe8e3] pb-4">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
             <div>
-              <h2 className="font-semibold">Resource collection</h2>
-              <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#718078]">
+                Published content
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-[#173c33]">Resource inventory</h2>
+              <p className="mt-1 text-sm text-[#718078]" aria-live="polite">
                 {isLoading
                   ? "Loading resources…"
                   : `${filteredResources.length} of ${resources.length} resources`}
@@ -316,7 +327,7 @@ function AdminResources() {
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search title, description, or file"
                   aria-label="Search library resources"
-                  className="h-10 pl-9"
+                  className="h-10 rounded-lg border-[#d7e2dc] bg-white pl-9"
                 />
               </div>
               <Button
@@ -345,8 +356,8 @@ function AdminResources() {
                 aria-pressed={category === item.id}
                 className={`inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   category === item.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+                    ? "bg-[#185c4b] text-white"
+                    : "bg-white text-[#667770] hover:bg-[#eaf2ed] hover:text-[#183c34]"
                 }`}
               >
                 {item.label}
@@ -357,21 +368,28 @@ function AdminResources() {
         </div>
 
         {isLoading ? (
-          <p className="p-6 text-sm text-muted-foreground">Loading the collection…</p>
+          <p className="border-y border-[#e0e8e3] bg-white px-4 py-8 text-sm text-[#718078]">
+            Loading the collection…
+          </p>
         ) : isError ? (
-          <div className="p-6">
-            <p className="text-sm text-destructive">Could not load resources.</p>
-            <Button className="mt-3" variant="outline" size="sm" onClick={() => void refetch()}>
+          <div className="border-y border-[#e0e8e3] bg-white px-4 py-8" role="alert">
+            <p className="text-sm font-semibold text-[#a34737]">Could not load resources.</p>
+            <Button
+              className="mt-3 border-[#d4e1da] text-[#31574b]"
+              variant="outline"
+              size="sm"
+              onClick={() => void refetch()}
+            >
               Try again
             </Button>
           </div>
         ) : filteredResources.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <BookOpen className="mx-auto h-8 w-8 text-muted-foreground" />
-            <h3 className="mt-3 font-semibold">
+          <div className="border-y border-[#e0e8e3] bg-white px-6 py-12 text-center">
+            <BookOpen className="mx-auto h-8 w-8 text-[#688279]" />
+            <h3 className="mt-3 font-semibold text-[#31574b]">
               {resources.length ? "No resources match these filters" : "The library is empty"}
             </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-[#718078]">
               {resources.length
                 ? "Try another search or category."
                 : "Published resources will appear here and on the public library page."}
@@ -391,14 +409,14 @@ function AdminResources() {
             )}
           </div>
         ) : (
-          <ul className="divide-y">
+          <ul className="divide-y divide-[#e8eeea] border-y border-[#e0e8e3] bg-white">
             {filteredResources.map((resource) => (
               <li
                 key={resource.id}
-                className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-[#f7faf7] sm:flex-row sm:items-center sm:justify-between sm:px-5"
               >
                 <div className="flex min-w-0 items-start gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#eef2f8] text-[#334b6b]">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[#e5f1eb] text-[#155b4c]">
                     {resource.category === "novel" ? (
                       <BookOpen className="h-5 w-5" />
                     ) : resource.category === "business_plan" ? (
@@ -408,16 +426,16 @@ function AdminResources() {
                     )}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{resource.title}</p>
-                    <p className="mt-1 break-all text-xs text-muted-foreground">
+                    <p className="truncate font-semibold text-[#24473b]">{resource.title}</p>
+                    <p className="mt-1 break-all text-xs text-[#788780]">
                       {resource.name} · {formatBytes(resource.size)} · Added{" "}
                       {formatDate(resource.created_at)}
                     </p>
-                    <p className="mt-1 text-xs font-medium text-[#687b93]">
+                    <p className="mt-1 text-xs font-medium text-[#55766a]">
                       {categoryLabel(resource.category)}
                     </p>
                     {resource.description && (
-                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      <p className="mt-2 line-clamp-2 text-sm text-[#718078]">
                         {resource.description}
                       </p>
                     )}
@@ -541,13 +559,13 @@ function SummaryMetric({
   icon: typeof BookOpen;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border bg-white px-4 py-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[#eef2f8] text-[#334b6b]">
+    <div className="flex min-w-0 items-center gap-3 border-r border-[#e8eeea] px-3 py-3.5 last:border-r-0 sm:px-5">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#e5f1eb] text-[#155b4c]">
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="mt-0.5 truncate text-lg font-semibold">{value}</p>
+        <p className="truncate text-[11px] font-medium text-[#718078]">{label}</p>
+        <p className="mt-1 truncate text-lg font-semibold tabular-nums text-[#183c34]">{value}</p>
       </div>
     </div>
   );

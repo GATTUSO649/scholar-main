@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, Download, Eye, EyeOff, Search, Settings2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { getAdminRequestsFn, getPublicDataFn, setPublicPricesFn } from "@/lib/backend";
@@ -57,22 +58,22 @@ function PriceVisibility() {
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:flex-row sm:items-center sm:justify-between">
+    <section className="flex flex-col justify-between gap-4 border-y border-[#dfe8e3] bg-white px-4 py-3.5 sm:flex-row sm:items-center">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef2f8] text-[#334b6b]">
-          <Settings2 className="h-5 w-5" />
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[#e5f1eb] text-[#155b4c]">
+          <Settings2 className="h-4 w-4" />
         </span>
         <div>
-          <h2 className="font-semibold">Homepage price visibility</h2>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+          <h2 className="text-sm font-semibold text-[#24473b]">Homepage price visibility</h2>
+          <p className="mt-1 max-w-xl text-xs text-[#718078]">
             {isError
               ? "Could not load the current setting. Refresh to try again."
               : "Choose whether visitors see service prices or request a quote."}
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-4 rounded-xl bg-[#f7f9fc] px-4 py-3 sm:min-w-55">
-        <span className="inline-flex items-center gap-2 text-sm font-medium">
+      <div className="flex items-center justify-between gap-4 sm:min-w-55">
+        <span className="inline-flex items-center gap-2 text-xs font-medium text-[#718078]">
           {show ? (
             <Eye className="h-4 w-4 text-emerald-600" />
           ) : (
@@ -97,7 +98,7 @@ type QueueFilter =
 function Admin() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QueueFilter>("all");
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-requests"],
     queryFn: () => getAdminRequestsFn(),
   });
@@ -185,158 +186,166 @@ function Admin() {
   }
 
   return (
-    <div className="space-y-7">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div className="space-y-8">
+      <header className="flex flex-col justify-between gap-4 border-b border-[#dfe8e3] pb-6 sm:flex-row sm:items-end">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#687b93]">
-            Operations
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#708078]">
+            Student service desk <span className="px-1 text-[#bd8a48]">/</span> Intake
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">All requests</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Review incoming work, update progress, and keep every student informed.
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#173c33] sm:text-4xl">
+            Service requests
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#677872]">
+            Triage submissions, manage deadlines, and follow each request through delivery.
           </p>
         </div>
-        <Link
-          to="/admin/dashboard"
-          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border bg-white px-4 text-sm font-semibold shadow-sm transition-colors hover:bg-muted sm:self-auto"
+        <Button
+          asChild
+          variant="outline"
+          className="self-start border-[#d4e1da] text-[#31574b] hover:bg-[#f2f7f3] sm:self-auto"
         >
-          Dashboard <ArrowRight className="h-4 w-4" />
-        </Link>
+          <Link to="/admin/resources">
+            Manage library <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          label="Total requests"
-          value={isLoading ? "—" : requests.length}
-          detail="Across all statuses"
-        />
-        <Metric
-          label="Awaiting review"
-          value={isLoading ? "—" : countFor("new")}
-          detail="New submissions"
-          tone="blue"
-        />
-        <Metric
-          label="Past deadline"
-          value={isLoading ? "—" : overdue}
-          detail="Active requests"
-          tone={overdue ? "rose" : "green"}
-        />
-        <Metric
-          label="Paid totals"
-          value={isLoading ? "—" : revenueSummary}
-          detail="Grouped by currency"
-          tone="gold"
-        />
+      <section
+        aria-label="Queue summary"
+        className="grid grid-cols-2 border-y border-[#dfe8e3] bg-white sm:grid-cols-4"
+      >
+        <QueueStat label="All requests" value={isLoading ? "—" : requests.length} />
+        <QueueStat label="Need review" value={isLoading ? "—" : countFor("new")} />
+        <QueueStat label="Overdue" value={isLoading ? "—" : overdue} alert={overdue > 0} />
+        <QueueStat label="Paid, grouped by currency" value={isLoading ? "—" : revenueSummary} />
       </section>
 
       <PriceVisibility />
 
-      <section className="overflow-hidden rounded-2xl border bg-white shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">
-        <div className="border-b px-5 pt-5 sm:px-6">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-lg font-semibold">Request queue</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {isLoading
-                  ? "Loading requests…"
-                  : `${rows.length} matching request${rows.length === 1 ? "" : "s"}`}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative w-full sm:max-w-xs">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search title, ref, student"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  className="h-10 rounded-xl border-[#e1e6ee] bg-[#fafbfd] pl-9"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={exportRequests}
-                disabled={isLoading || isError || rows.length === 0}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[#dce7e3] bg-white px-3 text-sm font-semibold text-[#254e46] transition-colors hover:bg-[#f4f8f6] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Download className="h-4 w-4" /> Export view
-              </button>
-            </div>
+      <section>
+        <div className="flex flex-col justify-between gap-4 border-b border-[#dfe8e3] pb-4 lg:flex-row lg:items-end">
+          <div>
+            <h2 className="text-lg font-semibold text-[#173c33]">Request workbench</h2>
+            <p className="mt-1 text-sm text-[#718078]" aria-live="polite">
+              {isLoading ? "Loading the service queue…" : `${rows.length} requests in this view`}
+            </p>
           </div>
-          <div className="mt-5 flex gap-5 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilter(tab.id)}
-                className={`flex shrink-0 items-center gap-2 border-b-2 px-0.5 pb-3 text-sm transition-colors ${
-                  filter === tab.id
-                    ? "border-[#17263c] font-semibold text-[#17263c]"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                    filter === tab.id
-                      ? "bg-[#edf1f6] text-[#17263c]"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {isLoading ? "…" : countFor(tab.id)}
-                </span>
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#788780]" />
+              <Input
+                type="search"
+                aria-label="Search request title, reference, or student"
+                placeholder="Search request or student"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="h-10 rounded-lg border-[#d7e2dc] bg-white pl-9"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={exportRequests}
+              disabled={isLoading || isError || rows.length === 0}
+              className="border-[#d4e1da] text-[#31574b] hover:bg-[#f2f7f3]"
+            >
+              <Download className="mr-2 h-4 w-4" /> Export view
+            </Button>
           </div>
         </div>
+        <div
+          className="mt-4 flex gap-2 overflow-x-auto pb-1"
+          role="group"
+          aria-label="Filter service requests"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setFilter(tab.id)}
+              aria-pressed={filter === tab.id}
+              className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                filter === tab.id
+                  ? "bg-[#185c4b] text-white"
+                  : "bg-white text-[#667770] hover:bg-[#eaf2ed] hover:text-[#183c34]"
+              }`}
+            >
+              {tab.label}
+              <span className="text-xs tabular-nums opacity-75">
+                {isLoading ? "…" : countFor(tab.id)}
+              </span>
+            </button>
+          ))}
+        </div>
         {isLoading ? (
-          <div className="space-y-3 p-6" aria-label="Loading requests">
+          <div className="mt-3 space-y-2" aria-label="Loading requests" aria-busy="true">
             {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="h-17 animate-pulse rounded-xl bg-[#f3f5f8]" />
+              <div key={index} className="h-16 animate-pulse rounded-md bg-white" />
             ))}
           </div>
         ) : isError ? (
-          <div className="p-8 text-center">
-            <p className="font-semibold">Could not load requests</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div
+            className="mt-3 border-y border-[#e0e8e3] bg-white px-5 py-8 text-center"
+            role="alert"
+          >
+            <p className="font-semibold text-[#a34737]">Could not load requests</p>
+            <p className="mt-1 text-sm text-[#718078]">
               {error instanceof Error ? error.message : "Please refresh and try again."}
             </p>
+            <Button variant="outline" className="mt-4" onClick={() => void refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="mt-3 border-y border-[#e0e8e3] bg-white px-5 py-10 text-center">
+            <p className="font-semibold text-[#31574b]">
+              {query ? "No matching requests" : "No requests in this view"}
+            </p>
+            <p className="mt-1 text-sm text-[#718078]">
+              {query
+                ? "Try another title, reference, or student name."
+                : "New submissions will appear here."}
+            </p>
+            {(query || filter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setFilter("all");
+                }}
+                className="mt-3 text-sm font-semibold text-[#1b634f] hover:underline"
+              >
+                Clear search and filters
+              </button>
+            )}
           </div>
         ) : (
-          <RequestTable rows={rows} admin />
+          <div className="mt-3">
+            <RequestTable rows={rows} admin />
+          </div>
         )}
       </section>
     </div>
   );
 }
 
-function Metric({
+function QueueStat({
   label,
   value,
-  detail,
-  tone = "navy",
+  alert = false,
 }: {
   label: string;
   value: string | number;
-  detail: string;
-  tone?: "navy" | "blue" | "rose" | "green" | "gold";
+  alert?: boolean;
 }) {
-  const tones = {
-    navy: "bg-[#eff2f7] text-[#263b58]",
-    blue: "bg-sky-50 text-sky-700",
-    rose: "bg-rose-50 text-rose-700",
-    green: "bg-emerald-50 text-emerald-700",
-    gold: "bg-amber-50 text-amber-700",
-  };
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">
-      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-3 truncate text-2xl font-bold tracking-tight">{value}</p>
-      <span
-        className={`mt-3 inline-flex rounded-md px-2 py-1 text-[10px] font-bold ${tones[tone]}`}
+    <div className="border-b border-r border-[#e8eeea] px-4 py-3.5 last:border-r-0 sm:px-5">
+      <p className="text-[11px] font-medium text-[#718078]">{label}</p>
+      <p
+        className={`mt-1.5 truncate text-xl font-semibold tabular-nums ${alert && Number(value) > 0 ? "text-[#a34737]" : "text-[#183c34]"}`}
       >
-        {detail}
-      </span>
+        {value}
+      </p>
     </div>
   );
 }
