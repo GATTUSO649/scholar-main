@@ -25,7 +25,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
-import { useIsAdmin, useProfile } from "@/lib/auth";
+import { useProfile } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { cn } from "@/lib/utils";
@@ -33,13 +33,17 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const user = await getCurrentUserFn();
-    if (!user) throw redirect({ to: "/auth", search: { mode: "login" } });
-    const isAdmin = await getAdminStateFn();
     const isAdminPage =
       location.pathname.startsWith("/admin") ||
       location.pathname.startsWith("/students") ||
       location.pathname.startsWith("/manage");
+    const user = await getCurrentUserFn();
+    if (!user) {
+      if (isAdminPage) throw redirect({ to: "/admin/login" });
+      throw redirect({ to: "/auth", search: { mode: "login" } });
+    }
+    const isAdmin = await getAdminStateFn();
+    if (isAdminPage && !isAdmin) throw redirect({ to: "/admin/login" });
     if (isAdmin && !isAdminPage && location.pathname !== "/profile") {
       throw redirect({ to: "/admin/dashboard" });
     }
@@ -65,16 +69,15 @@ const adminNav = [
 ] as const;
 
 function Shell() {
-  const { user } = Route.useRouteContext();
+  const { user, isAdmin } = Route.useRouteContext();
   const { data: profile } = useProfile(user.id);
-  const { data: isAdmin } = useIsAdmin(user.id);
   const [open, setOpen] = useState(false);
   const [leavingPortal, setLeavingPortal] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const inAdminArea =
-    !!isAdmin &&
+    isAdmin &&
     (path.startsWith("/admin") || path.startsWith("/students") || path.startsWith("/manage"));
   const pageTitle = path.startsWith("/admin/dashboard")
     ? "Dashboard"

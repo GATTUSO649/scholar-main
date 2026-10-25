@@ -38,9 +38,9 @@ export const Route = createFileRoute("/_authenticated/admin/dashboard")({
 });
 
 function AdminDashboardRoute() {
-  const { user } = Route.useRouteContext();
+  const { isAdmin } = Route.useRouteContext();
   return (
-    <AdminGate userId={user.id}>
+    <AdminGate isAdmin={isAdmin}>
       <AdminDashboard />
     </AdminGate>
   );

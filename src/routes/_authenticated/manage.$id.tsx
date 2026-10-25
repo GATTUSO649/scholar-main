@@ -25,9 +25,9 @@ export const Route = createFileRoute("/_authenticated/manage/$id")({
 });
 
 function ManageRoute() {
-  const { user } = Route.useRouteContext();
+  const { isAdmin } = Route.useRouteContext();
   return (
-    <AdminGate userId={user.id}>
+    <AdminGate isAdmin={isAdmin}>
       <Manage />
     </AdminGate>
   );

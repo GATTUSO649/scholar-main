@@ -76,9 +76,9 @@ export const Route = createFileRoute("/_authenticated/admin/resources")({
 });
 
 function AdminResourcesRoute() {
-  const { user } = Route.useRouteContext();
+  const { isAdmin } = Route.useRouteContext();
   return (
-    <AdminGate userId={user.id}>
+    <AdminGate isAdmin={isAdmin}>
       <AdminResources />
     </AdminGate>
   );

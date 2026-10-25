@@ -18,9 +18,9 @@ export const Route = createFileRoute("/_authenticated/students")({
 });
 
 function StudentsRoute() {
-  const { user } = Route.useRouteContext();
+  const { isAdmin } = Route.useRouteContext();
   return (
-    <AdminGate userId={user.id}>
+    <AdminGate isAdmin={isAdmin}>
       <Students />
     </AdminGate>
   );
