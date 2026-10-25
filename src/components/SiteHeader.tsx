@@ -12,6 +12,7 @@ const navigation = [
   { to: "/pricing", label: "Pricing" },
   { to: "/faq", label: "FAQ" },
   { to: "/contact", label: "Contact" },
+  { to: "/admin/login", label: "Admin sign in" },
 ] as const;
 
 export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
