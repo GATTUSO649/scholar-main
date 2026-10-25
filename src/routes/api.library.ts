@@ -42,9 +42,7 @@ function errorResponse(error: unknown) {
             ? 404
             : message.includes("payments are not configured")
               ? 503
-              : message.includes("allowed") ||
-                  message.includes("file") ||
-                  message.includes("upload")
+              : message === "Invalid file key."
                 ? 400
                 : 500;
   if (status === 500) console.error("Library operation failed", error);
