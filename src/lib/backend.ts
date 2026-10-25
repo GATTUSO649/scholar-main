@@ -165,6 +165,11 @@ export const getAdminLibraryResourcesFn = createServerFn({ method: "GET" }).hand
   return getAdminLibraryResources();
 });
 
+export const getStudentLibraryResourcesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getStudentLibraryResources } = await import("./backend.server");
+  return getStudentLibraryResources();
+});
+
 export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getMyRequests } = await import("./backend.server");
   return getMyRequests();

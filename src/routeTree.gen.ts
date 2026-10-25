@@ -35,6 +35,8 @@ import { Route as AuthenticatedAdminResourcesRouteImport } from './routes/_authe
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
 import { Route as AuthenticatedPortalLibraryRouteImport } from './routes/_authenticated/portal.library'
 import { Route as AuthenticatedRequestIdRouteImport } from './routes/_authenticated/request.$id'
+import { Route as ApiLibraryCallbackRouteImport } from './routes/api.library.callback'
+import { Route as ApiLibraryPurchaseRouteImport } from './routes/api.library.purchase'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -168,6 +170,16 @@ const AuthenticatedRequestIdRoute = AuthenticatedRequestIdRouteImport.update({
   path: '/request/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiLibraryCallbackRoute = ApiLibraryCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => ApiLibraryRoute,
+} as any)
+const ApiLibraryPurchaseRoute = ApiLibraryPurchaseRouteImport.update({
+  id: '/purchase',
+  path: '/purchase',
+  getParentRoute: () => ApiLibraryRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -189,12 +201,14 @@ export interface FileRoutesByFullPath {
   '/support': typeof AuthenticatedSupportRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
-  '/api/library': typeof ApiLibraryRoute
+  '/api/library': typeof ApiLibraryRouteWithChildren
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
+  '/api/library/callback': typeof ApiLibraryCallbackRoute
+  '/api/library/purchase': typeof ApiLibraryPurchaseRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -216,12 +230,14 @@ export interface FileRoutesByTo {
   '/support': typeof AuthenticatedSupportRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
-  '/api/library': typeof ApiLibraryRoute
+  '/api/library': typeof ApiLibraryRouteWithChildren
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
+  '/api/library/callback': typeof ApiLibraryCallbackRoute
+  '/api/library/purchase': typeof ApiLibraryPurchaseRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -245,12 +261,14 @@ export interface FileRoutesById {
   '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
-  '/api/library': typeof ApiLibraryRoute
+  '/api/library': typeof ApiLibraryRouteWithChildren
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRoute
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
   '/_authenticated/portal/library': typeof AuthenticatedPortalLibraryRoute
   '/_authenticated/request/$id': typeof AuthenticatedRequestIdRoute
+  '/api/library/callback': typeof ApiLibraryCallbackRoute
+  '/api/library/purchase': typeof ApiLibraryPurchaseRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -280,6 +298,8 @@ export interface FileRouteTypes {
     | '/manage/$id'
     | '/portal/library'
     | '/request/$id'
+    | '/api/library/callback'
+    | '/api/library/purchase'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -307,6 +327,8 @@ export interface FileRouteTypes {
     | '/manage/$id'
     | '/portal/library'
     | '/request/$id'
+    | '/api/library/callback'
+    | '/api/library/purchase'
   id:
     | '__root__'
     | '/'
@@ -335,6 +357,8 @@ export interface FileRouteTypes {
     | '/_authenticated/manage/$id'
     | '/_authenticated/portal/library'
     | '/_authenticated/request/$id'
+    | '/api/library/callback'
+    | '/api/library/purchase'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -351,7 +375,7 @@ export interface RootRouteChildren {
   ServicesRoute: typeof ServicesRoute
   AdminLoginRoute: typeof AdminLoginRoute
   ApiFilesRoute: typeof ApiFilesRoute
-  ApiLibraryRoute: typeof ApiLibraryRoute
+  ApiLibraryRoute: typeof ApiLibraryRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -538,6 +562,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRequestIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/library/callback': {
+      id: '/api/library/callback'
+      path: '/callback'
+      fullPath: '/api/library/callback'
+      preLoaderRoute: typeof ApiLibraryCallbackRouteImport
+      parentRoute: typeof ApiLibraryRoute
+    }
+    '/api/library/purchase': {
+      id: '/api/library/purchase'
+      path: '/purchase'
+      fullPath: '/api/library/purchase'
+      preLoaderRoute: typeof ApiLibraryPurchaseRouteImport
+      parentRoute: typeof ApiLibraryRoute
+    }
   }
 }
 
@@ -583,6 +621,20 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ApiLibraryRouteChildren {
+  ApiLibraryCallbackRoute: typeof ApiLibraryCallbackRoute
+  ApiLibraryPurchaseRoute: typeof ApiLibraryPurchaseRoute
+}
+
+const ApiLibraryRouteChildren: ApiLibraryRouteChildren = {
+  ApiLibraryCallbackRoute: ApiLibraryCallbackRoute,
+  ApiLibraryPurchaseRoute: ApiLibraryPurchaseRoute,
+}
+
+const ApiLibraryRouteWithChildren = ApiLibraryRoute._addFileChildren(
+  ApiLibraryRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -597,7 +649,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServicesRoute: ServicesRoute,
   AdminLoginRoute: AdminLoginRoute,
   ApiFilesRoute: ApiFilesRoute,
-  ApiLibraryRoute: ApiLibraryRoute,
+  ApiLibraryRoute: ApiLibraryRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

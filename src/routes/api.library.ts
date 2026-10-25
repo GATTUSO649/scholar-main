@@ -32,15 +32,21 @@ function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Library operation failed.";
   const status = message.includes("signed in")
     ? 401
-    : message.includes("origin is not allowed")
+    : message.includes("Purchase this resource") || message.includes("Student library access")
       ? 403
-      : message.includes("Administrator access")
+      : message.includes("origin is not allowed")
         ? 403
-        : message.includes("not found")
-          ? 404
-          : message.includes("allowed") || message.includes("file") || message.includes("upload")
-            ? 400
-            : 500;
+        : message.includes("Administrator access")
+          ? 403
+          : message.includes("not found")
+            ? 404
+            : message.includes("payments are not configured")
+              ? 503
+              : message.includes("allowed") ||
+                  message.includes("file") ||
+                  message.includes("upload")
+                ? 400
+                : 500;
   if (status === 500) console.error("Library operation failed", error);
   return Response.json(
     { error: status === 500 ? "Library operation failed." : message },
@@ -68,6 +74,7 @@ export const Route = createFileRoute("/api/library")({
           const title = String(form.get("title") ?? "").trim();
           const description = String(form.get("description") ?? "").trim();
           const category = String(form.get("category") ?? "");
+          const price = Number(form.get("price") ?? 0);
           const file = form.get("file");
           if (title.length < 2 || title.length > 200) {
             return Response.json(
@@ -83,6 +90,12 @@ export const Route = createFileRoute("/api/library")({
           }
           if (!isCategory(category)) {
             return Response.json({ error: "Choose a valid resource category." }, { status: 400 });
+          }
+          if (!Number.isInteger(price) || price < 0 || price > 150000) {
+            return Response.json(
+              { error: "Price must be a whole KES amount between 0 and 150,000." },
+              { status: 400 },
+            );
           }
           if (!(file instanceof File) || file.size === 0 || file.size > MAX_FILE_BYTES) {
             return Response.json({ error: "Choose a file up to 25 MB." }, { status: 413 });
@@ -107,6 +120,7 @@ export const Route = createFileRoute("/api/library")({
             title,
             description,
             category,
+            price,
             storageKey,
             name: safeName,
             size: file.size,
@@ -141,6 +155,7 @@ export const Route = createFileRoute("/api/library")({
           const description =
             typeof body?.["description"] === "string" ? body["description"].trim() : "";
           const category = typeof body?.["category"] === "string" ? body["category"] : "";
+          const price = typeof body?.["price"] === "number" ? body["price"] : Number.NaN;
           if (!/^[0-9a-f-]{36}$/i.test(id)) {
             return Response.json({ error: "Invalid resource." }, { status: 400 });
           }
@@ -159,7 +174,13 @@ export const Route = createFileRoute("/api/library")({
           if (!isCategory(category)) {
             return Response.json({ error: "Choose a valid resource category." }, { status: 400 });
           }
-          const result = await updateLibraryResource(id, { title, description, category });
+          if (!Number.isInteger(price) || price < 0 || price > 150000) {
+            return Response.json(
+              { error: "Price must be a whole KES amount between 0 and 150,000." },
+              { status: 400 },
+            );
+          }
+          const result = await updateLibraryResource(id, { title, description, category, price });
           if (!result) return Response.json({ error: "Resource not found." }, { status: 404 });
           return Response.json(result);
         } catch (error) {

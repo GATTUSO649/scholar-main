@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Download, FileText, Search, BriefcaseBusiness } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -70,7 +70,7 @@ function LibraryPage() {
     <PublicPage>
       <section className="bg-secondary px-5 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl">
-          <div className="overflow-hidden rounded-[2rem] bg-hero px-6 py-10 text-ink-foreground shadow-soft sm:px-10 sm:py-14">
+          <div className="overflow-hidden rounded-4xl bg-hero px-6 py-10 text-ink-foreground shadow-soft sm:px-10 sm:py-14">
             <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
@@ -221,12 +221,26 @@ function LibraryPage() {
                     <span aria-hidden="true">·</span>
                     <span>Added {formatDate(resource.created_at)}</span>
                   </div>
-                  <Button asChild className="mt-5 w-full">
-                    <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Download resource
-                    </a>
-                  </Button>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-foreground">
+                      {resource.price > 0
+                        ? `${resource.currency} ${resource.price.toLocaleString()}`
+                        : "Free"}
+                    </span>
+                    {resource.price > 0 ? (
+                      <Button asChild className="shrink-0">
+                        <Link to="/auth" search={{ mode: "login" }}>
+                          Sign in to purchase
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button asChild className="shrink-0">
+                        <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
+                          <Download className="mr-2 h-4 w-4" /> Download
+                        </a>
+                      </Button>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
@@ -247,7 +261,7 @@ function LibraryStat({
   value: number;
 }) {
   return (
-    <div className="flex min-w-28 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3">
+    <div className="flex min-w-28 items-center gap-3 rounded-xl border border-white/10 bg-white/6 px-4 py-3">
       <Icon className="h-4 w-4 text-accent" />
       <div>
         <p className="text-lg font-bold leading-none">{value}</p>

@@ -9,6 +9,7 @@ import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   loginAttempts,
+  libraryPurchases,
   libraryResources,
   notifications,
   passwordResetTokens,
@@ -24,6 +25,7 @@ import {
 } from "../../drizzle/schema";
 import { getCookie, setCookie, deleteCookie, getRequestUrl } from "@tanstack/react-start/server";
 import { getDatabase } from "./database.server";
+import { initiateMpesaStkPush, queryMpesaStkPush } from "./mpesa.server";
 
 function derivePassword(password: string, salt: Buffer) {
   return new Promise<Buffer>((resolve, reject) => {
@@ -163,6 +165,18 @@ async function requireAdmin() {
     .where(and(eq(userRoles.userId, user.id), eq(userRoles.role, "admin")))
     .limit(1);
   if (!role) throw new Error("Administrator access is required.");
+  return user;
+}
+
+async function requireLibraryStudent() {
+  const user = await requireUser();
+  const roles = await getDatabase()
+    .select({ role: userRoles.role })
+    .from(userRoles)
+    .where(eq(userRoles.userId, user.id));
+  if (!canUseStudentPortal(roles.map(({ role }) => role))) {
+    throw new Error("Student library access is required.");
+  }
   return user;
 }
 
@@ -537,6 +551,8 @@ function mapLibraryResource(row: typeof libraryResources.$inferSelect) {
     category: row.category,
     name: row.name,
     size: row.size,
+    price: row.price,
+    currency: row.currency,
     created_at: row.createdAt.toISOString(),
   };
 }
@@ -554,6 +570,32 @@ export async function getAdminLibraryResources() {
   return getLibraryResources();
 }
 
+export async function getStudentLibraryResources() {
+  const student = await requireLibraryStudent();
+  const db = getDatabase();
+  const [resources, purchases] = await Promise.all([
+    db.select().from(libraryResources).orderBy(desc(libraryResources.createdAt)),
+    db
+      .select({ resourceId: libraryPurchases.resourceId, status: libraryPurchases.status })
+      .from(libraryPurchases)
+      .where(eq(libraryPurchases.studentId, student.id))
+      .orderBy(desc(libraryPurchases.createdAt)),
+  ]);
+  const purchaseState = new Map<string, "paid" | "pending" | "failed">();
+  for (const purchase of purchases) {
+    if (purchase.status === "paid") {
+      purchaseState.set(purchase.resourceId, "paid");
+    } else if (!purchaseState.has(purchase.resourceId)) {
+      purchaseState.set(purchase.resourceId, purchase.status);
+    }
+  }
+  return resources.map((resource) => {
+    const purchaseStatus: "free" | "available" | "pending" | "paid" | "failed" =
+      resource.price <= 0 ? "free" : (purchaseState.get(resource.id) ?? "available");
+    return { ...mapLibraryResource(resource), purchase_status: purchaseStatus };
+  });
+}
+
 export async function requireLibraryAdmin() {
   await requireAdmin();
 }
@@ -562,6 +604,7 @@ export async function createLibraryResource(input: {
   title: string;
   description: string;
   category: "novel" | "business_plan" | "article";
+  price: number;
   storageKey: string;
   name: string;
   size: number;
@@ -572,6 +615,8 @@ export async function createLibraryResource(input: {
     title: input.title,
     description: input.description,
     category: input.category,
+    price: input.price,
+    currency: "KES",
     storageKey: input.storageKey,
     name: input.name,
     size: input.size,
@@ -586,6 +631,7 @@ export async function updateLibraryResource(
     title: string;
     description: string;
     category: "novel" | "business_plan" | "article";
+    price: number;
   },
 ) {
   await requireAdmin();
@@ -598,22 +644,248 @@ export async function updateLibraryResource(
   if (!resource) return null;
   await db
     .update(libraryResources)
-    .set({ title: input.title, description: input.description, category: input.category })
+    .set({
+      title: input.title,
+      description: input.description,
+      category: input.category,
+      price: input.price,
+      currency: "KES",
+    })
     .where(eq(libraryResources.id, id));
   return { success: true };
 }
 
 export async function getLibraryResourceForDownload(id: string) {
+  const db = getDatabase();
   const [resource] = await getDatabase()
     .select({
       id: libraryResources.id,
       storageKey: libraryResources.storageKey,
       name: libraryResources.name,
+      price: libraryResources.price,
     })
     .from(libraryResources)
     .where(eq(libraryResources.id, id))
     .limit(1);
-  return resource ?? null;
+  if (!resource) return null;
+  if (resource.price > 0) {
+    const user = await requireUser();
+    const roles = await db
+      .select({ role: userRoles.role })
+      .from(userRoles)
+      .where(eq(userRoles.userId, user.id));
+    if (
+      !canUseStudentPortal(roles.map(({ role }) => role)) &&
+      !canUseAdminPortal(roles.map(({ role }) => role))
+    ) {
+      throw new Error("Purchase this resource before downloading it.");
+    }
+    if (canUseStudentPortal(roles.map(({ role }) => role))) {
+      const [purchase] = await db
+        .select({ id: libraryPurchases.id })
+        .from(libraryPurchases)
+        .where(
+          and(
+            eq(libraryPurchases.resourceId, resource.id),
+            eq(libraryPurchases.studentId, user.id),
+            eq(libraryPurchases.status, "paid"),
+          ),
+        )
+        .limit(1);
+      if (!purchase) throw new Error("Purchase this resource before downloading it.");
+    }
+  }
+  return resource;
+}
+
+export async function startLibraryPurchase(input: { resourceId: string; phoneNumber: string }) {
+  const student = await requireLibraryStudent();
+  const db = getDatabase();
+  const [resource] = await db
+    .select({
+      id: libraryResources.id,
+      title: libraryResources.title,
+      price: libraryResources.price,
+      currency: libraryResources.currency,
+    })
+    .from(libraryResources)
+    .where(eq(libraryResources.id, input.resourceId))
+    .limit(1);
+  if (!resource) throw new Error("Resource not found.");
+  if (resource.price <= 0) throw new Error("This resource is free to download.");
+  if (resource.currency !== "KES" || !Number.isInteger(resource.price)) {
+    throw new Error("This resource price is not configured for M-Pesa.");
+  }
+  if (!/^254[17]\d{8}$/.test(input.phoneNumber)) {
+    throw new Error("Enter a Safaricom phone number in 2547XXXXXXXX format.");
+  }
+
+  const [paid] = await db
+    .select({ id: libraryPurchases.id })
+    .from(libraryPurchases)
+    .where(
+      and(
+        eq(libraryPurchases.resourceId, resource.id),
+        eq(libraryPurchases.studentId, student.id),
+        eq(libraryPurchases.status, "paid"),
+      ),
+    )
+    .limit(1);
+  if (paid) return { purchaseId: paid.id, status: "paid" as const };
+
+  const [pending] = await db
+    .select({ id: libraryPurchases.id, checkoutRequestId: libraryPurchases.checkoutRequestId })
+    .from(libraryPurchases)
+    .where(
+      and(
+        eq(libraryPurchases.resourceId, resource.id),
+        eq(libraryPurchases.studentId, student.id),
+        eq(libraryPurchases.status, "pending"),
+      ),
+    )
+    .orderBy(desc(libraryPurchases.createdAt))
+    .limit(1);
+  if (pending?.checkoutRequestId) {
+    return { purchaseId: pending.id, status: "pending" as const };
+  }
+
+  const purchaseId = randomUUID();
+  await db.insert(libraryPurchases).values({
+    id: purchaseId,
+    resourceId: resource.id,
+    studentId: student.id,
+    amount: resource.price,
+    currency: resource.currency,
+    status: "pending",
+    phoneNumber: input.phoneNumber,
+  });
+  try {
+    const checkout = await initiateMpesaStkPush({
+      phoneNumber: input.phoneNumber,
+      amount: resource.price,
+      accountReference: `L${purchaseId.replaceAll("-", "").slice(0, 11)}`,
+      transactionDesc: "LIBRARY",
+    });
+    if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {
+      throw new Error("M-Pesa did not return a checkout reference.");
+    }
+    await db
+      .update(libraryPurchases)
+      .set({
+        checkoutRequestId: checkout.CheckoutRequestID,
+        merchantRequestId: checkout.MerchantRequestID,
+      })
+      .where(eq(libraryPurchases.id, purchaseId));
+    return {
+      purchaseId,
+      status: "pending" as const,
+      message: checkout.CustomerMessage || `Check ${input.phoneNumber} to complete payment.`,
+    };
+  } catch (error) {
+    await db
+      .update(libraryPurchases)
+      .set({ status: "failed" })
+      .where(eq(libraryPurchases.id, purchaseId));
+    throw error;
+  }
+}
+
+async function syncLibraryPurchaseFromProvider(purchaseId: string) {
+  const db = getDatabase();
+  const [purchase] = await db
+    .select({
+      id: libraryPurchases.id,
+      studentId: libraryPurchases.studentId,
+      amount: libraryPurchases.amount,
+      status: libraryPurchases.status,
+      checkoutRequestId: libraryPurchases.checkoutRequestId,
+      title: libraryResources.title,
+    })
+    .from(libraryPurchases)
+    .innerJoin(libraryResources, eq(libraryPurchases.resourceId, libraryResources.id))
+    .where(eq(libraryPurchases.id, purchaseId))
+    .limit(1);
+  if (!purchase) return { status: "not_found" as const };
+  if (purchase.status !== "pending" || !purchase.checkoutRequestId) {
+    return { status: purchase.status };
+  }
+
+  const verification = await queryMpesaStkPush(purchase.checkoutRequestId);
+  if (String(verification.ResponseCode) !== "0" || verification.ResultCode == null) {
+    return { status: "pending" as const };
+  }
+  const paid = String(verification.ResultCode) === "0";
+
+  await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ status: libraryPurchases.status })
+      .from(libraryPurchases)
+      .where(eq(libraryPurchases.id, purchase.id))
+      .limit(1);
+    if (!current || current.status !== "pending") return;
+    await tx
+      .update(libraryPurchases)
+      .set({ status: paid ? "paid" : "failed", ...(paid ? { paidAt: new Date() } : {}) })
+      .where(eq(libraryPurchases.id, purchase.id));
+    if (paid) {
+      await tx.insert(notifications).values({
+        id: randomUUID(),
+        userId: purchase.studentId,
+        requestId: null,
+        type: "library_purchase",
+        title: "Library purchase complete",
+        message: `Your payment for ${purchase.title} was confirmed. The resource is ready to download.`,
+        href: "/portal/library",
+      });
+    }
+  });
+  return { status: paid ? ("paid" as const) : ("failed" as const) };
+}
+
+export async function refreshStudentLibraryPurchaseStatus(purchaseId: string) {
+  const student = await requireLibraryStudent();
+  const [purchase] = await getDatabase()
+    .select({ id: libraryPurchases.id })
+    .from(libraryPurchases)
+    .where(and(eq(libraryPurchases.id, purchaseId), eq(libraryPurchases.studentId, student.id)))
+    .limit(1);
+  if (!purchase) return { status: "not_found" as const };
+  return syncLibraryPurchaseFromProvider(purchase.id);
+}
+
+export async function handleLibraryPurchaseCallback(input: {
+  checkoutRequestId: string;
+  resultCode: number;
+  amount?: number;
+  receiptNumber?: string;
+}) {
+  const db = getDatabase();
+  const [purchase] = await db
+    .select({
+      id: libraryPurchases.id,
+      studentId: libraryPurchases.studentId,
+      resourceId: libraryPurchases.resourceId,
+      amount: libraryPurchases.amount,
+      status: libraryPurchases.status,
+      title: libraryResources.title,
+    })
+    .from(libraryPurchases)
+    .innerJoin(libraryResources, eq(libraryPurchases.resourceId, libraryResources.id))
+    .where(eq(libraryPurchases.checkoutRequestId, input.checkoutRequestId))
+    .limit(1);
+  if (!purchase) return { status: "unknown" as const };
+  if (purchase.status === "paid") return { status: "paid" as const };
+  if (input.resultCode === 0 && input.amount != null && input.amount !== purchase.amount) {
+    return { status: "pending" as const };
+  }
+  const result = await syncLibraryPurchaseFromProvider(purchase.id);
+  if (result.status === "paid" && input.receiptNumber?.trim()) {
+    await db
+      .update(libraryPurchases)
+      .set({ receiptNumber: input.receiptNumber.trim().slice(0, 32) })
+      .where(eq(libraryPurchases.id, purchase.id));
+  }
+  return result;
 }
 
 export async function deleteLibraryResource(id: string) {

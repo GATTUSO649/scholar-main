@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMpesaConfig, initiateMpesaStkPush } from "@/lib/mpesa.server";
+import { getMpesaConfig, initiateMpesaStkPush, queryMpesaStkPush } from "@/lib/mpesa.server";
 
 const mpesaEnv = [
   "MPESA_ENVIRONMENT",
@@ -16,7 +16,7 @@ function stubCompleteConfig() {
   vi.stubEnv("MPESA_CONSUMER_SECRET", "consumer-secret");
   vi.stubEnv("MPESA_SHORTCODE", "174379");
   vi.stubEnv("MPESA_PASSKEY", "passkey");
-  vi.stubEnv("MPESA_CALLBACK_URL", "https://example.com/api/payments/mpesa/callback");
+  vi.stubEnv("MPESA_CALLBACK_URL", "https://example.com/api/library/callback");
 }
 
 describe("M-Pesa configuration", () => {
@@ -40,7 +40,7 @@ describe("M-Pesa configuration", () => {
     expect(getMpesaConfig()).toMatchObject({
       environment: "sandbox",
       shortcode: "174379",
-      callbackUrl: "https://example.com/api/payments/mpesa/callback",
+      callbackUrl: "https://example.com/api/library/callback",
     });
   });
 
@@ -56,6 +56,40 @@ describe("M-Pesa configuration", () => {
       }),
     ).rejects.toThrow(/Safaricom phone number/);
     expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("rejects malformed STK query references before making a request", async () => {
+    stubCompleteConfig();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    await expect(queryMpesaStkPush("invalid reference")).rejects.toThrow(
+      /Invalid M-Pesa checkout reference/,
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("queries Safaricom for an STK checkout result", async () => {
+    stubCompleteConfig();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "test-token" }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ResponseCode: "0", ResultCode: 0, CheckoutRequestID: "ws_CO_test" }),
+          { status: 200 },
+        ),
+      );
+
+    await expect(queryMpesaStkPush("ws_CO_test")).resolves.toMatchObject({
+      ResponseCode: "0",
+      ResultCode: 0,
+      CheckoutRequestID: "ws_CO_test",
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toContain("/mpesa/stkpushquery/v1/query");
     fetchSpy.mockRestore();
   });
 });

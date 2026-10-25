@@ -1,12 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { BookOpen, BriefcaseBusiness, Download, FileText, Search } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  CheckCircle2,
+  Download,
+  FileText,
+  Search,
+  Smartphone,
+} from "lucide-react";
 import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { getLibraryResourcesFn } from "@/lib/backend";
+import { Label } from "@/components/ui/label";
+import { getStudentLibraryResourcesFn } from "@/lib/backend";
 
 type LibraryCategory = "all" | "novel" | "business_plan" | "article";
+type StudentResource = {
+  id: string;
+  title: string;
+  description: string;
+  category: Exclude<LibraryCategory, "all">;
+  name: string;
+  size: number;
+  price: number;
+  currency: string;
+  created_at: string;
+  purchase_status: "free" | "available" | "pending" | "paid" | "failed";
+};
 
 const categories: { id: LibraryCategory; label: string }[] = [
   { id: "all", label: "All resources" },
@@ -31,8 +62,13 @@ export const Route = createFileRoute("/_authenticated/portal/library")({
 });
 
 function StudentLibraryPage() {
+  const queryClient = useQueryClient();
   const [category, setCategory] = useState<LibraryCategory>("all");
   const [search, setSearch] = useState("");
+  const [purchaseResource, setPurchaseResource] = useState<StudentResource | null>(null);
+  const [purchasePhone, setPurchasePhone] = useState("");
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [checkingPurchaseId, setCheckingPurchaseId] = useState<string | null>(null);
   const {
     data: resources = [],
     isLoading,
@@ -41,7 +77,7 @@ function StudentLibraryPage() {
     isFetching,
   } = useQuery({
     queryKey: ["library-resources"],
-    queryFn: () => getLibraryResourcesFn(),
+    queryFn: () => getStudentLibraryResourcesFn(),
   });
 
   const filtered = useMemo(() => {
@@ -56,6 +92,88 @@ function StudentLibraryPage() {
       return categoryMatches && searchMatches;
     });
   }, [category, resources, search]);
+
+  async function checkPurchase(purchaseId: string) {
+    setCheckingPurchaseId(purchaseId);
+    try {
+      const response = await fetch("/api/library/purchase", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ purchaseId }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        status?: "pending" | "paid" | "failed" | "not_found";
+        error?: string;
+      } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Could not check payment status.");
+      await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
+      if (result?.status === "paid") toast.success("Payment confirmed. Your document is ready.");
+      else if (result?.status === "failed")
+        toast.error("Payment was not completed. You can try again.");
+      else toast("Payment is still processing. Refresh this page in a moment.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not check payment status.");
+    } finally {
+      setCheckingPurchaseId(null);
+    }
+  }
+
+  async function startPurchase(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!purchaseResource) return;
+    setPurchaseBusy(true);
+    try {
+      const phoneNumber = purchasePhone.replace(/[\s+()-]/g, "");
+      const normalizedPhone = phoneNumber.startsWith("0")
+        ? `254${phoneNumber.slice(1)}`
+        : phoneNumber;
+      const response = await fetch("/api/library/purchase", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resourceId: purchaseResource.id, phoneNumber: normalizedPhone }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        purchaseId?: string;
+        status?: string;
+        message?: string;
+        error?: string;
+      } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Could not start payment.");
+      setPurchaseResource(null);
+      setPurchasePhone("");
+      await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
+      if (result?.status === "paid") {
+        toast.success("You already own this document.");
+        return;
+      }
+      if (result?.purchaseId) {
+        toast.success(result.message ?? "Payment prompt sent. Enter your M-Pesa PIN to continue.");
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          const check = await fetch("/api/library/purchase", {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ purchaseId: result.purchaseId }),
+          });
+          const state = (await check.json().catch(() => null)) as { status?: string } | null;
+          await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
+          if (state?.status === "paid") {
+            toast.success("Payment confirmed. Your document is ready to download.");
+            return;
+          }
+          if (state?.status === "failed" || state?.status === "not_found") {
+            toast.error("Payment was not completed. You can try again.");
+            return;
+          }
+        }
+        toast("Payment is still processing. Use Check payment on the document when ready.");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not start payment.");
+    } finally {
+      setPurchaseBusy(false);
+    }
+  }
 
   return (
     <section className="space-y-7">
@@ -180,17 +298,106 @@ function StudentLibraryPage() {
                 <span>{resource.name.split(".").pop()?.toUpperCase() ?? "FILE"}</span>
                 <span aria-hidden="true">·</span>
                 <span>{formatBytes(resource.size)}</span>
+                <span aria-hidden="true">·</span>
+                <span className="font-semibold text-foreground">
+                  {resource.price > 0
+                    ? `${resource.currency} ${resource.price.toLocaleString()}`
+                    : "Free"}
+                </span>
               </div>
-              <Button asChild className="mt-5 w-full">
-                <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download resource
-                </a>
-              </Button>
+              {resource.purchase_status === "free" || resource.purchase_status === "paid" ? (
+                <Button asChild className="mt-5 w-full">
+                  <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
+                    {resource.purchase_status === "paid" ? (
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    {resource.purchase_status === "paid"
+                      ? "Owned · Download"
+                      : "Download free resource"}
+                  </a>
+                </Button>
+              ) : resource.purchase_status === "pending" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-5 w-full"
+                  onClick={() => {
+                    const pending = resources.find((candidate) => candidate.id === resource.id);
+                    if (pending) void checkPurchase(pending.id);
+                  }}
+                  disabled={checkingPurchaseId === resource.id}
+                >
+                  <Smartphone className="mr-2 h-4 w-4" />
+                  {checkingPurchaseId === resource.id ? "Checking payment…" : "Check payment"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="mt-5 w-full"
+                  onClick={() => setPurchaseResource(resource)}
+                >
+                  <Smartphone className="mr-2 h-4 w-4" />
+                  {resource.purchase_status === "failed" ? "Try payment again" : "Buy document"}
+                </Button>
+              )}
             </article>
           ))}
         </div>
       )}
+      <Dialog
+        open={!!purchaseResource}
+        onOpenChange={(open) => {
+          if (!open && !purchaseBusy) setPurchaseResource(null);
+        }}
+      >
+        {purchaseResource && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Buy this resource</DialogTitle>
+              <DialogDescription>
+                An M-Pesa prompt will be sent to your phone. The download unlocks after payment is
+                confirmed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="border-y py-3">
+              <p className="font-semibold">{purchaseResource.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {purchaseResource.currency} {purchaseResource.price.toLocaleString()}
+              </p>
+            </div>
+            <form id="library-purchase" onSubmit={startPurchase} className="space-y-2">
+              <Label htmlFor="purchase-phone">Safaricom phone number</Label>
+              <Input
+                id="purchase-phone"
+                type="tel"
+                autoComplete="tel"
+                placeholder="07XX XXX XXX or 2547XX XXX XXX"
+                value={purchasePhone}
+                onChange={(event) => setPurchasePhone(event.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Charges are made in whole KES using M-Pesa STK Push.
+              </p>
+            </form>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPurchaseResource(null)}
+                disabled={purchaseBusy}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" form="library-purchase" disabled={purchaseBusy}>
+                {purchaseBusy ? "Sending prompt…" : "Pay with M-Pesa"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </section>
   );
 }

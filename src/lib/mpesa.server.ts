@@ -14,6 +14,13 @@ type StkPushInput = {
   transactionDesc: string;
 };
 
+export type StkPushQueryResult = {
+  ResponseCode?: string;
+  ResultCode?: number | string;
+  ResultDesc?: string;
+  CheckoutRequestID?: string;
+};
+
 export function getMpesaConfig(): MpesaConfig | null {
   const consumerKey = process.env["MPESA_CONSUMER_KEY"]?.trim() ?? "";
   const consumerSecret = process.env["MPESA_CONSUMER_SECRET"]?.trim() ?? "";
@@ -119,4 +126,48 @@ export async function initiateMpesaStkPush(input: StkPushInput) {
     ResponseDescription: string;
     CustomerMessage: string;
   }>;
+}
+
+export async function queryMpesaStkPush(checkoutRequestId: string) {
+  const config = getMpesaConfig();
+  if (!config) throw new Error("M-Pesa payments are not configured.");
+  if (!/^[\w-]{1,100}$/.test(checkoutRequestId)) {
+    throw new Error("Invalid M-Pesa checkout reference.");
+  }
+
+  const baseUrl =
+    config.environment === "production"
+      ? "https://api.safaricom.co.ke"
+      : "https://sandbox.safaricom.co.ke";
+  const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString(
+    "base64",
+  );
+  const tokenResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+    headers: { authorization: `Basic ${credentials}` },
+  });
+  if (!tokenResponse.ok) {
+    throw new Error(`M-Pesa authentication failed (${tokenResponse.status}).`);
+  }
+  const tokenData = (await tokenResponse.json()) as { access_token?: string };
+  if (!tokenData.access_token) throw new Error("M-Pesa did not return an access token.");
+
+  const requestTimestamp = timestamp();
+  const password = Buffer.from(`${config.shortcode}${config.passkey}${requestTimestamp}`).toString(
+    "base64",
+  );
+  const response = await fetch(`${baseUrl}/mpesa/stkpushquery/v1/query`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${tokenData.access_token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      BusinessShortCode: config.shortcode,
+      Password: password,
+      Timestamp: requestTimestamp,
+      CheckoutRequestID: checkoutRequestId,
+    }),
+  });
+  if (!response.ok) throw new Error(`M-Pesa payment verification failed (${response.status}).`);
+  return (await response.json()) as StkPushQueryResult;
 }

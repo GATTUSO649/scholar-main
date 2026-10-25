@@ -57,6 +57,13 @@
       "when": 1792874682300,
       "tag": "0007_request_declined_status",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1792950000000,
+      "tag": "0008_library_pricing_and_purchases",
+      "breakpoints": true
     }
   ]
 }

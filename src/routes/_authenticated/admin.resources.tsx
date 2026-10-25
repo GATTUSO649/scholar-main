@@ -38,6 +38,8 @@ type LibraryResource = {
   category: LibraryCategory;
   name: string;
   size: number;
+  price: number;
+  currency: string;
   created_at: string;
 };
 
@@ -161,6 +163,7 @@ function AdminResources() {
           title: String(formData.get("title") ?? ""),
           description: String(formData.get("description") ?? ""),
           category: String(formData.get("category") ?? ""),
+          price: Number(formData.get("price") ?? 0),
         }),
       });
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -243,8 +246,8 @@ function AdminResources() {
           </p>
           <h2 className="mt-1 text-lg font-semibold text-[#173c33]">Publish a resource</h2>
           <p className="mt-1 text-sm text-[#718078]">
-            Upload a PDF, EPUB, Word document, or text file up to 25 MB. Publishing makes it
-            immediately downloadable by visitors.
+            Upload a PDF, EPUB, Word document, or text file up to 25 MB. Set a whole-KES price from
+            0 to 150,000; 0 makes the resource free.
           </p>
         </div>
         <form onSubmit={upload} className="grid gap-4 sm:grid-cols-2">
@@ -272,6 +275,20 @@ function AdminResources() {
               <option value="novel">Novel</option>
               <option value="business_plan">Business plan</option>
             </select>
+          </div>
+          <div className="sm:col-span-2 sm:max-w-xs">
+            <Label htmlFor="resource-price">Student price (KES)</Label>
+            <Input
+              id="resource-price"
+              name="price"
+              type="number"
+              min={0}
+              max={150000}
+              step={1}
+              defaultValue={0}
+              required
+              className="mt-1.5"
+            />
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="resource-description">Description</Label>
@@ -432,7 +449,8 @@ function AdminResources() {
                       {formatDate(resource.created_at)}
                     </p>
                     <p className="mt-1 text-xs font-medium text-[#55766a]">
-                      {categoryLabel(resource.category)}
+                      {categoryLabel(resource.category)} <span className="px-1">·</span>
+                      {resource.price > 0 ? `${resource.currency} ${resource.price}` : "Free"}
                     </p>
                     {resource.description && (
                       <p className="mt-2 line-clamp-2 text-sm text-[#718078]">
@@ -516,6 +534,20 @@ function AdminResources() {
                   <option value="novel">Novel</option>
                   <option value="business_plan">Business plan</option>
                 </select>
+              </div>
+              <div>
+                <Label htmlFor="edit-price">Student price (KES)</Label>
+                <Input
+                  id="edit-price"
+                  name="price"
+                  type="number"
+                  min={0}
+                  max={150000}
+                  step={1}
+                  required
+                  defaultValue={editingResource.price}
+                  className="mt-1.5"
+                />
               </div>
               <div>
                 <Label htmlFor="edit-description">Description</Label>

@@ -237,6 +237,8 @@ export const libraryResources = mysqlTable(
     storageKey: varchar("storage_key", { length: 36 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     size: int("size").notNull(),
+    price: decimal("price", { precision: 10, scale: 2, mode: "number" }).notNull().default(0),
+    currency: varchar("currency", { length: 3 }).notNull().default("KES"),
     uploadedBy: varchar("uploaded_by", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -247,6 +249,35 @@ export const libraryResources = mysqlTable(
   (table) => [
     uniqueIndex("library_resources_storage_key_unique").on(table.storageKey),
     index("library_resources_category_created_idx").on(table.category, table.createdAt),
+  ],
+);
+
+export const libraryPurchases = mysqlTable(
+  "library_purchases",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    resourceId: varchar("resource_id", { length: 36 })
+      .notNull()
+      .references(() => libraryResources.id, { onDelete: "cascade" }),
+    studentId: varchar("student_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    amount: decimal("amount", { precision: 10, scale: 2, mode: "number" }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull().default("KES"),
+    status: mysqlEnum("status", ["pending", "paid", "failed"]).notNull().default("pending"),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    merchantRequestId: varchar("merchant_request_id", { length: 100 }),
+    checkoutRequestId: varchar("checkout_request_id", { length: 100 }),
+    receiptNumber: varchar("receipt_number", { length: 32 }),
+    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+    paidAt: datetime("paid_at", { mode: "date", fsp: 3 }),
+  },
+  (table) => [
+    uniqueIndex("library_purchases_checkout_unique").on(table.checkoutRequestId),
+    index("library_purchases_student_status_idx").on(table.studentId, table.status),
+    index("library_purchases_resource_created_idx").on(table.resourceId, table.createdAt),
   ],
 );
 
