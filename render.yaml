@@ -22,6 +22,18 @@ services:
         value: production
       - key: APP_URL
         sync: false
+      - key: MPESA_ENVIRONMENT
+        value: sandbox
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_CALLBACK_URL
+        sync: false
       - key: ADMIN_SIGNUP_SECRET
         sync: false
       - key: FILE_STORAGE_DIR

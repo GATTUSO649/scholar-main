@@ -35,6 +35,12 @@ describe("M-Pesa configuration", () => {
     expect(() => getMpesaConfig()).toThrow(/configuration is incomplete/);
   });
 
+  it("requires an HTTPS callback URL", () => {
+    stubCompleteConfig();
+    vi.stubEnv("MPESA_CALLBACK_URL", "http://example.com/api/library/callback");
+    expect(() => getMpesaConfig()).toThrow(/absolute HTTPS URL/);
+  });
+
   it("accepts complete sandbox configuration", () => {
     stubCompleteConfig();
     expect(getMpesaConfig()).toMatchObject({
@@ -56,6 +62,54 @@ describe("M-Pesa configuration", () => {
       }),
     ).rejects.toThrow(/Safaricom phone number/);
     expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("sends an STK push to Daraja sandbox with the configured callback", async () => {
+    stubCompleteConfig();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "test-token" }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            MerchantRequestID: "merchant-request",
+            CheckoutRequestID: "ws_CO_test",
+            ResponseCode: "0",
+            ResponseDescription: "Success",
+            CustomerMessage: "Prompt sent",
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await expect(
+      initiateMpesaStkPush({
+        phoneNumber: "254712345678",
+        amount: 500,
+        accountReference: "LIB-123",
+        transactionDesc: "LIBRARY",
+      }),
+    ).resolves.toMatchObject({ CheckoutRequestID: "ws_CO_test" });
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("https://sandbox.safaricom.co.ke");
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toContain(
+      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+    );
+    const requestBody = JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body)) as {
+      BusinessShortCode: string;
+      CallBackURL: string;
+      Amount: number;
+      PhoneNumber: string;
+    };
+    expect(requestBody).toMatchObject({
+      BusinessShortCode: "174379",
+      CallBackURL: "https://example.com/api/library/callback",
+      Amount: 500,
+      PhoneNumber: "254712345678",
+    });
     fetchSpy.mockRestore();
   });
 

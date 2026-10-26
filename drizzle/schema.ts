@@ -18,6 +18,7 @@ export const users = mysqlTable(
     id: varchar("id", { length: 36 }).primaryKey(),
     email: varchar("email", { length: 255 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+    emailVerifiedAt: datetime("email_verified_at", { mode: "date", fsp: 3 }),
     createdAt: datetime("created_at", { mode: "date", fsp: 3 })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP(3)`),
@@ -88,6 +89,21 @@ export const passwordResetTokens = mysqlTable(
       .default(sql`CURRENT_TIMESTAMP(3)`),
   },
   (table) => [index("password_reset_expiry_idx").on(table.expiresAt)],
+);
+
+export const emailVerificationTokens = mysqlTable(
+  "email_verification_tokens",
+  {
+    tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: datetime("expires_at", { mode: "date", fsp: 3 }).notNull(),
+    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [index("email_verification_expiry_idx").on(table.expiresAt)],
 );
 
 export const loginAttempts = mysqlTable("login_attempts", {

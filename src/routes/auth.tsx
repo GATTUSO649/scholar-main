@@ -14,6 +14,7 @@ import {
   getCurrentUserFn,
   loginFn,
   registerFn,
+  requestEmailVerificationFn,
   requestPasswordResetFn,
 } from "@/lib/backend";
 import { dashboardRouteFor } from "@/lib/auth";
@@ -158,11 +159,21 @@ function AuthPage() {
         "An account with this email already exists. Try logging in or resetting your password.",
         "Could not create your account. Please try again.",
         "Email or password is incorrect.",
+        "Email verification is required before you can sign in.",
         "Too many sign-in attempts. Please wait 15 minutes and try again.",
         "Sign-in is temporarily unavailable. Please try again.",
-        "Password reset email is not configured. Set SMTP_HOST and SMTP_FROM in the server environment.",
-        "APP_URL must be configured in production before password reset emails can be sent.",
+        "Password reset email is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM in the server environment.",
       ]);
+      if (message === "Email verification is required before you can sign in.") {
+        const emailValue = String(fd.get("email") ?? "").trim();
+        if (emailValue) {
+          await requestEmailVerificationFn({ data: { email: emailValue } });
+          setFormError("Email verification is required. We sent a fresh verification link to your inbox.");
+        } else {
+          setFormError(message);
+        }
+        return;
+      }
       setFormError(
         safeMessages.has(message)
           ? message

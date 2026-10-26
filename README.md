@@ -59,7 +59,18 @@ npm start
 
 Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run db:migrate` once against that database before serving traffic. Set `APP_URL` to the public HTTPS URL. Set `ADMIN_SIGNUP_SECRET` to a private random value of at least 32 characters to enable administrator signups. Each signup requires this key; remove it from the server environment to disable further signups. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up with the database. Use TLS for MySQL and HTTPS for the site.
 
-To sell library resources, configure the server-only `MPESA_ENVIRONMENT`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`, and `MPESA_CALLBACK_URL`. Set the callback URL to the deployed public HTTPS endpoint `/api/library/callback`. Deploy migration `0008_library_pricing_and_purchases.sql` before enabling priced resources. Existing resources default to free; admins can set a whole-KES price up to KES 150,000. Students can download paid files only after the purchase is confirmed by a server-side M-Pesa status query. Without MPESA configuration, free items continue to work and paid checkout reports that payments are unavailable.
+To test library payments with Safaricom Daraja, create a sandbox app with the Lipa Na M-Pesa Online product enabled. In Render, set these server-side variables on the web service:
+
+| Variable | Sandbox value |
+| --- | --- |
+| `MPESA_ENVIRONMENT` | `sandbox` |
+| `MPESA_CONSUMER_KEY` | Consumer Key from your Daraja sandbox app |
+| `MPESA_CONSUMER_SECRET` | Consumer Secret from your Daraja sandbox app |
+| `MPESA_SHORTCODE` | Sandbox shortcode provided for STK Push (commonly `174379`) |
+| `MPESA_PASSKEY` | Sandbox Lipa Na M-Pesa passkey provided by Daraja |
+| `MPESA_CALLBACK_URL` | `https://scholar-main.onrender.com/api/library/callback` |
+
+Keep the Consumer Secret and Passkey private; configure them only as Render environment variables, never in browser code or committed files. The callback must be a publicly reachable HTTPS URL. The Render Blueprint declares the non-secret sandbox environment and prompts for the remaining values. For an existing dashboard-created Render service, add the same variables in its Environment settings. The service sends an STK Push, accepts Daraja callbacks, and checks payment status server-side before granting downloads. Deploy migration `0008_library_pricing_and_purchases.sql` before enabling priced resources. Existing resources default to free; admins can set a whole-KES price up to KES 150,000. Without complete M-Pesa configuration, free items continue to work and paid checkout reports that payments are unavailable.
 
 Run `npm run db:check` to execute `SELECT 1` against the configured database. The command prints the selected database and a sanitized error code only; it never prints credentials.
 

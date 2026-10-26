@@ -8,6 +8,7 @@ import {
 import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
+  emailVerificationTokens,
   loginAttempts,
   libraryPurchases,
   libraryResources,
@@ -25,6 +26,14 @@ import {
 } from "../../drizzle/schema";
 import { getCookie, setCookie, deleteCookie, getRequestUrl } from "@tanstack/react-start/server";
 import { getDatabase } from "./database.server";
+import {
+  buildPasswordChangedEmail,
+  buildPasswordResetEmail,
+  buildVerificationEmail,
+  getEmailConfig,
+  isEmailVerificationRequired,
+  sendTransactionalEmail,
+} from "./email.server";
 import { initiateMpesaStkPush, queryMpesaStkPush } from "./mpesa.server";
 
 function derivePassword(password: string, salt: Buffer) {
@@ -38,6 +47,7 @@ function derivePassword(password: string, salt: Buffer) {
 const SESSION_COOKIE = "scholar_desk_session";
 const SESSION_DAYS = 14;
 const RESET_MINUTES = 30;
+const EMAIL_VERIFICATION_MINUTES = 30;
 const LOGIN_WINDOW_MINUTES = 15;
 const MAX_LOGIN_ATTEMPTS = 8;
 
@@ -180,6 +190,81 @@ async function requireLibraryStudent() {
   return user;
 }
 
+async function createVerificationTokenForUser(userId: string) {
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_MINUTES * 60 * 1000);
+  const db = getDatabase();
+  await db.transaction(async (tx) => {
+    await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
+    await tx.insert(emailVerificationTokens).values({
+      tokenHash: tokenHash(token),
+      userId,
+      expiresAt,
+    });
+  });
+  return token;
+}
+
+async function sendVerificationEmail(userId: string, email: string, fullName?: string | null) {
+  const config = getEmailConfig();
+  if (!config.enabled || !config.appUrl) return;
+  const token = await createVerificationTokenForUser(userId);
+  const mail = buildVerificationEmail({ appUrl: config.appUrl, code: token, name: fullName ?? undefined });
+  const result = await sendTransactionalEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+  if (!result.ok) {
+    console.warn("Verification email could not be sent.", {
+      email,
+      reason: result.reason ?? "unknown",
+    });
+  }
+}
+
+export async function requestEmailVerification(emailInput: string) {
+  const email = emailInput.trim().toLowerCase();
+  if (!email) return { sent: false };
+  const [account] = await getDatabase()
+    .select({ id: users.id, email: users.email, fullName: profiles.fullName, emailVerifiedAt: users.emailVerifiedAt })
+    .from(users)
+    .leftJoin(profiles, eq(profiles.id, users.id))
+    .where(eq(users.email, email))
+    .limit(1);
+  if (!account || account.emailVerifiedAt) return { sent: false };
+  await sendVerificationEmail(account.id, account.email, account.fullName);
+  return { sent: true };
+}
+
+export async function verifyEmailToken(token: string) {
+  const trimmed = token.trim();
+  if (!trimmed) throw new AuthError("The verification link is invalid or expired.");
+  const db = getDatabase();
+  const [record] = await db
+    .select({
+      userId: emailVerificationTokens.userId,
+      expiresAt: emailVerificationTokens.expiresAt,
+      email: users.email,
+      fullName: profiles.fullName,
+    })
+    .from(emailVerificationTokens)
+    .innerJoin(users, eq(users.id, emailVerificationTokens.userId))
+    .leftJoin(profiles, eq(profiles.id, users.id))
+    .where(
+      and(
+        eq(emailVerificationTokens.tokenHash, tokenHash(trimmed)),
+        gt(emailVerificationTokens.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  if (!record) throw new AuthError("The verification link is invalid or expired.");
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ emailVerifiedAt: new Date() })
+      .where(eq(users.id, record.userId));
+    await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, record.userId));
+  });
+  return { success: true, email: record.email, fullName: record.fullName ?? undefined };
+}
+
 export async function registerAccount(input: {
   email: string;
   password: string;
@@ -194,7 +279,7 @@ export async function registerAccount(input: {
   try {
     const db = getDatabase();
     await db.transaction(async (tx) => {
-      await tx.insert(users).values({ id, email, passwordHash });
+      await tx.insert(users).values({ id, email, passwordHash, emailVerifiedAt: null });
       await tx.insert(profiles).values({
         id,
         email,
@@ -206,6 +291,9 @@ export async function registerAccount(input: {
       });
       await tx.insert(userRoles).values({ id: randomUUID(), userId: id, role: "student" });
     });
+    if (isEmailVerificationRequired()) {
+      await sendVerificationEmail(id, email, input.full_name.trim());
+    }
   } catch (error) {
     if (isDuplicateKey(error))
       throw new AuthError(
@@ -336,6 +424,9 @@ async function authenticateAccount(input: { email: string; password: string }, a
     const [account] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     const valid = account ? await passwordMatches(input.password, account.passwordHash) : false;
     if (!account || !valid) throw new AuthError("Email or password is incorrect.");
+    if (isEmailVerificationRequired() && !account.emailVerifiedAt) {
+      throw new AuthError("Email verification is required before you can sign in.");
+    }
     const roles = await db
       .select({ role: userRoles.role })
       .from(userRoles)
@@ -372,56 +463,61 @@ export async function logoutAccount() {
 }
 
 export async function requestPasswordReset(emailInput: string) {
-  const host = process.env["SMTP_HOST"];
-  const from = process.env["SMTP_FROM"];
-  const smtpPassword = process.env["SMTP_PASSWORD"] || process.env["SMTP_PASS"];
-  const appUrl = process.env["APP_URL"] ?? getRequestUrl().origin;
-  if (!host || !from) {
-    throw new Error(
-      "Password reset email is not configured. Set SMTP_HOST and SMTP_FROM in the server environment.",
-    );
-  }
-  if (process.env["NODE_ENV"] === "production" && !process.env["APP_URL"]) {
-    throw new Error(
-      "APP_URL must be configured in production before password reset emails can be sent.",
-    );
-  }
   const email = emailInput.trim().toLowerCase();
+  const config = getEmailConfig();
+  if (!config.enabled || !config.appUrl) {
+    throw new Error(
+      "Password reset email is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM in the server environment.",
+    );
+  }
+
   const [account] = await getDatabase()
-    .select({ id: users.id })
+    .select({ id: users.id, email: users.email, fullName: profiles.fullName })
     .from(users)
+    .leftJoin(profiles, eq(profiles.id, users.id))
     .where(eq(users.email, email))
     .limit(1);
-  if (!account) return;
+  if (!account) return { sent: false };
 
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
-  await getDatabase()
-    .insert(passwordResetTokens)
-    .values({ tokenHash: tokenHash(token), userId: account.id, expiresAt });
-  const transport = nodemailer.createTransport({
-    host,
-    port: Number(process.env["SMTP_PORT"] ?? 587),
-    secure: process.env["SMTP_SECURE"] === "true",
-    auth:
-      process.env["SMTP_USER"] && smtpPassword
-        ? { user: process.env["SMTP_USER"], pass: smtpPassword }
-        : undefined,
+  await getDatabase().transaction(async (tx) => {
+    await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, account.id));
+    await tx.insert(passwordResetTokens).values({ tokenHash: tokenHash(token), userId: account.id, expiresAt });
   });
-  await transport.sendMail({
-    from,
-    to: email,
-    subject: "Reset your ScholarDesk password",
-    text: `Use this link to reset your password. It expires in ${RESET_MINUTES} minutes:\n\n${appUrl}/reset-password?token=${encodeURIComponent(token)}`,
+  const mail = buildPasswordResetEmail({
+    appUrl: config.appUrl,
+    token,
+    name: account.fullName ?? undefined,
   });
+  const result = await sendTransactionalEmail({
+    to: account.email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  });
+  if (!result.ok) {
+    console.warn("Password reset email could not be sent.", {
+      email: account.email,
+      reason: result.reason ?? "unknown",
+    });
+  }
+  return { sent: result.ok };
 }
 
 export async function resetPassword(token: string, password: string) {
   const db = getDatabase();
   const hashedToken = tokenHash(token);
   const [reset] = await db
-    .select()
+    .select({
+      userId: passwordResetTokens.userId,
+      expiresAt: passwordResetTokens.expiresAt,
+      email: users.email,
+      fullName: profiles.fullName,
+    })
     .from(passwordResetTokens)
+    .innerJoin(users, eq(users.id, passwordResetTokens.userId))
+    .leftJoin(profiles, eq(profiles.id, users.id))
     .where(
       and(
         eq(passwordResetTokens.tokenHash, hashedToken),
@@ -437,7 +533,18 @@ export async function resetPassword(token: string, password: string) {
     await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, reset.userId));
     await tx.delete(sessions).where(eq(sessions.userId, reset.userId));
   });
+  const config = getEmailConfig();
+  if (config.enabled) {
+    const mail = buildPasswordChangedEmail({ appUrl: config.appUrl, name: reset.fullName ?? undefined });
+    await sendTransactionalEmail({
+      to: reset.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+    });
+  }
   clearSessionCookie();
+  return { success: true };
 }
 
 export async function changeAccountPassword(input: {

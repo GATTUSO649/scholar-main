@@ -98,7 +98,23 @@ export const requestPasswordResetFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     assertSameOrigin();
     const { requestPasswordReset } = await import("./backend.server");
-    await requestPasswordReset(data.email);
+    return requestPasswordReset(data.email);
+  });
+
+export const requestEmailVerificationFn = createServerFn({ method: "POST" })
+  .validator(z.object({ email: emailSchema }))
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { requestEmailVerification } = await import("./backend.server");
+    return requestEmailVerification(data.email);
+  });
+
+export const verifyEmailFn = createServerFn({ method: "POST" })
+  .validator(z.object({ code: z.string().min(32).max(256) }))
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { verifyEmailToken } = await import("./backend.server");
+    return verifyEmailToken(data.code);
   });
 
 export const resetPasswordFn = createServerFn({ method: "POST" })
@@ -106,7 +122,7 @@ export const resetPasswordFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     assertSameOrigin();
     const { resetPassword } = await import("./backend.server");
-    await resetPassword(data.token, data.password);
+    return resetPassword(data.token, data.password);
   });
 
 export const changePasswordFn = createServerFn({ method: "POST" })

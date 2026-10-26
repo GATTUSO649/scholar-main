@@ -41,9 +41,11 @@ export function getMpesaConfig(): MpesaConfig | null {
   }
 
   try {
-    new URL(callbackUrl);
+    if (new URL(callbackUrl).protocol !== "https:") {
+      throw new Error("Callback URL must use HTTPS.");
+    }
   } catch {
-    throw new Error("MPESA_CALLBACK_URL must be an absolute URL.");
+    throw new Error("MPESA_CALLBACK_URL must be an absolute HTTPS URL.");
   }
 
   return { environment, consumerKey, consumerSecret, shortcode, passkey, callbackUrl };
