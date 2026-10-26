@@ -294,11 +294,32 @@ export async function sendTransactionalEmail({
       text,
       html,
     });
+    const accepted = !!info.accepted?.length;
+    if (accepted) {
+      console.info("Email accepted by SMTP relay.", {
+        toDomain: cleanTo.split("@")[1] ?? "unknown",
+        subject,
+        host: config.host,
+        port: config.port,
+        messageId: info.messageId ?? null,
+      });
+    } else {
+      console.error("SMTP relay did not accept recipient.", {
+        toDomain: cleanTo.split("@")[1] ?? "unknown",
+        subject,
+        host: config.host,
+        port: config.port,
+        rejectedCount: info.rejected?.length ?? 0,
+      });
+    }
     return {
-      ok: true,
-      accepted: !!info.accepted?.length,
+      ok: accepted,
+      accepted,
       provider: "smtp",
       messageId: info.messageId ?? null,
+      ...(!accepted
+        ? { reason: "recipient_rejected", error: "SMTP relay did not accept recipient." }
+        : {}),
     };
   } catch (error) {
     console.error("Email delivery failed.", {

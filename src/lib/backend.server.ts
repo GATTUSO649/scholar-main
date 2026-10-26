@@ -501,8 +501,9 @@ export async function requestPasswordReset(emailInput: string) {
   });
   if (!result.ok) {
     console.warn("Password reset email could not be sent.", {
-      email: account.email,
+      toDomain: account.email.split("@")[1] ?? "unknown",
       reason: result.reason ?? "unknown",
+      messageId: result.messageId ?? null,
     });
   }
   return { sent: result.ok };
