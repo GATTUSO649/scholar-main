@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -54,21 +54,48 @@ function Reset() {
   }
   return (
     <div className="flex min-h-screen items-center justify-center px-5">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4">
+      <section className="w-full max-w-sm space-y-4">
         <Logo />
         <h1 className="pt-4 text-2xl font-semibold">Set a new password</h1>
-        <div>
-          <Label htmlFor="password">New password</Label>
-          <Input id="password" name="password" type="password" className="mt-1.5" />
-        </div>
-        <div>
-          <Label htmlFor="confirm">Confirm password</Label>
-          <Input id="confirm" name="confirm" type="password" className="mt-1.5" />
-        </div>
-        <Button className="w-full" disabled={busy}>
-          {busy ? "Saving…" : "Update password"}
-        </Button>
-      </form>
+        {!token ? (
+          <div role="alert" className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+            <p>This reset link is missing or incomplete.</p>
+            <Link to="/auth" search={{ mode: "forgot" }} className="font-medium text-primary hover:underline">
+              Request another reset link
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <Label htmlFor="password">New password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirm">Confirm password</Label>
+              <Input
+                id="confirm"
+                name="confirm"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                className="mt-1.5"
+              />
+            </div>
+            <Button className="w-full" disabled={busy}>
+              {busy ? "Saving…" : "Update password"}
+            </Button>
+          </form>
+        )}
+      </section>
     </div>
   );
 }

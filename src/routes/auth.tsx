@@ -47,6 +47,10 @@ const password = z
   .regex(/[0-9]/, "Include a number")
   .regex(/[^A-Za-z0-9]/, "Include a symbol");
 
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Enter a valid email").max(255),
+});
+
 const registerSchema = z
   .object({
     full_name: z.string().trim().min(2, "Enter your full name").max(100),
@@ -138,9 +142,14 @@ function AuthPage() {
   }
 
   async function onForgot(fd: FormData) {
-    const email = String(fd.get("email"));
-    await requestPasswordResetFn({ data: { email } });
-    setSent(`If an account exists for ${email}, a reset link is on its way.`);
+    const parsed = forgotPasswordSchema.safeParse(Object.fromEntries(fd));
+    if (!parsed.success) {
+      setErrors({ email: parsed.error.issues[0]?.message ?? "Enter a valid email" });
+      return;
+    }
+    setErrors({});
+    await requestPasswordResetFn({ data: { email: parsed.data.email } });
+    setSent(`If an account exists for ${parsed.data.email}, password reset instructions will arrive shortly.`);
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -268,8 +277,16 @@ function AuthPage() {
               </Alert>
             )}
             {sent ? (
-              <div className="mt-8 rounded-xl border border-success/30 bg-success/10 p-5 text-sm">
-                {sent}
+              <div role="status" className="mt-8 rounded-xl border border-success/30 bg-success/10 p-5 text-sm">
+                <p>{sent}</p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Button type="button" variant="outline" onClick={() => setMode("login")}>
+                    Back to sign in
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setSent(null)}>
+                    Try another email
+                  </Button>
+                </div>
               </div>
             ) : (
               <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
@@ -322,6 +339,9 @@ function AuthPage() {
                         defaultValue={emailForLogin}
                         className="mt-1.5 h-11 rounded-xl"
                       />
+                      {mode === "forgot" && errors.email && (
+                        <p className="mt-1 text-xs text-destructive">{errors.email}</p>
+                      )}
                     </div>
                     {mode === "login" && (
                       <div>
@@ -356,6 +376,15 @@ function AuthPage() {
                         ? "Send reset link"
                         : "Log in"}
                 </Button>
+                {mode === "forgot" && (
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="w-full py-2 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Back to sign in
+                  </button>
+                )}
               </form>
             )}
 
