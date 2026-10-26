@@ -64,6 +64,13 @@
       "when": 1792950000000,
       "tag": "0008_library_pricing_and_purchases",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1793036400000,
+      "tag": "0009_email_verification",
+      "breakpoints": true
     }
   ]
 }
