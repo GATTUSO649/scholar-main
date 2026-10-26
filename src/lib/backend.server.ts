@@ -440,7 +440,10 @@ async function authenticateAccount(input: { email: string; password: string }, a
     return { id: account.id, email: account.email };
   } catch (error) {
     if (error instanceof AuthError) throw error;
-    console.error("Sign-in failed.", getDatabaseErrorCode(error) ?? "unknown database error");
+    console.error("Sign-in failed.", {
+      code: getDatabaseErrorCode(error) ?? "unknown error",
+      message: error instanceof Error ? error.message : "Unknown sign-in error",
+    });
     throw new AuthError("Sign-in is temporarily unavailable. Please try again.");
   }
 }
