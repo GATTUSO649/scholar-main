@@ -35,6 +35,17 @@ describe("email configuration and verification settings", () => {
     expect(config.appUrl).toBe("https://portal.example.com");
   });
 
+  it("defaults to Brevo's alternate SMTP port when no port is configured", () => {
+    const config = getEmailConfig({
+      SMTP_HOST: "smtp-relay.brevo.com",
+      SMTP_USER: "mailer",
+      SMTP_PASS: "secret",
+      EMAIL_FROM: "noreply@example.com",
+    });
+
+    expect(config.port).toBe(2525);
+  });
+
   it("builds an HTTPS app URL for production and preserves localhost in development", () => {
     expect(buildAppUrl({ NODE_ENV: "production", APP_URL: "https://portal.example.com" })).toBe(
       "https://portal.example.com",

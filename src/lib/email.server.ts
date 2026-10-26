@@ -35,17 +35,21 @@ export function buildAppUrl(environment: Record<string, string | undefined> = pr
 export function getEmailConfig(
   environment: Record<string, string | undefined> = process.env,
 ): EmailConfig {
-  const host = normalizeEnvValue(environment["SMTP_HOST"]) ?? normalizeEnvValue(environment["EMAIL_HOST"]);
-  const port = Number(normalizeEnvValue(environment["SMTP_PORT"]) ?? "587");
+  const host =
+    normalizeEnvValue(environment["SMTP_HOST"]) ?? normalizeEnvValue(environment["EMAIL_HOST"]);
+  const port = Number(normalizeEnvValue(environment["SMTP_PORT"]) ?? "2525");
   const secure = normalizeEnvValue(environment["SMTP_SECURE"]) === "true";
-  const user = normalizeEnvValue(environment["SMTP_USER"]) ?? normalizeEnvValue(environment["EMAIL_USER"]);
+  const user =
+    normalizeEnvValue(environment["SMTP_USER"]) ?? normalizeEnvValue(environment["EMAIL_USER"]);
   const pass =
     normalizeEnvValue(environment["SMTP_PASS"]) ??
     normalizeEnvValue(environment["SMTP_PASSWORD"]) ??
     normalizeEnvValue(environment["EMAIL_PASS"]);
   const explicitFrom =
     normalizeEnvValue(environment["EMAIL_FROM"]) ?? normalizeEnvValue(environment["SMTP_FROM"]);
-  const fromName = normalizeEnvValue(environment["EMAIL_FROM_NAME"]) ?? normalizeEnvValue(environment["SMTP_FROM_NAME"]);
+  const fromName =
+    normalizeEnvValue(environment["EMAIL_FROM_NAME"]) ??
+    normalizeEnvValue(environment["SMTP_FROM_NAME"]);
   const from = explicitFrom
     ? fromName && !explicitFrom.includes("<")
       ? `${fromName} <${explicitFrom}>`
@@ -89,7 +93,7 @@ function escapeHtml(value: string) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
 
@@ -157,7 +161,15 @@ export function renderEmailLayout({
   </html>`;
 }
 
-export function buildVerificationEmail({ appUrl, code, name }: { appUrl: string; code: string; name?: string }) {
+export function buildVerificationEmail({
+  appUrl,
+  code,
+  name,
+}: {
+  appUrl: string;
+  code: string;
+  name?: string;
+}) {
   const displayName = name || "there";
   const actionUrl = `${appUrl.replace(/\/+$/, "")}/verify-email?code=${encodeURIComponent(code)}`;
   const body = `
@@ -181,7 +193,15 @@ export function buildVerificationEmail({ appUrl, code, name }: { appUrl: string;
   };
 }
 
-export function buildPasswordResetEmail({ appUrl, token, name }: { appUrl: string; token: string; name?: string }) {
+export function buildPasswordResetEmail({
+  appUrl,
+  token,
+  name,
+}: {
+  appUrl: string;
+  token: string;
+  name?: string;
+}) {
   const displayName = name || "there";
   const actionUrl = `${appUrl.replace(/\/+$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
   const body = `
@@ -284,6 +304,8 @@ export async function sendTransactionalEmail({
     console.error("Email delivery failed.", {
       toDomain: cleanTo.split("@")[1] ?? "unknown",
       subject,
+      host: config.host,
+      port: config.port,
       error: error instanceof Error ? error.message : String(error),
     });
     return {
