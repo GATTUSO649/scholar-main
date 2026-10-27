@@ -30,6 +30,7 @@ import {
   buildPasswordChangedEmail,
   buildPasswordResetEmail,
   buildVerificationEmail,
+  genericEmailRequestResponse,
   getEmailConfig,
   isEmailVerificationRequired,
   sendTransactionalEmail,
@@ -48,6 +49,8 @@ const SESSION_COOKIE = "scholar_desk_session";
 const SESSION_DAYS = 14;
 const RESET_MINUTES = 30;
 const EMAIL_VERIFICATION_MINUTES = 30;
+const EMAIL_REQUEST_WINDOW_MINUTES = 15;
+const MAX_EMAIL_REQUESTS = 3;
 const LOGIN_WINDOW_MINUTES = 15;
 const MAX_LOGIN_ATTEMPTS = 8;
 
@@ -190,6 +193,28 @@ async function requireLibraryStudent() {
   return user;
 }
 
+async function isEmailRequestRateLimited(action: "reset" | "verification", email: string) {
+  const key = `${action}:${tokenHash(email)}`;
+  const now = new Date();
+  const windowInterval = sql.raw(`${EMAIL_REQUEST_WINDOW_MINUTES} MINUTE`);
+  const db = getDatabase();
+  await db
+    .insert(loginAttempts)
+    .values({ email: key, attempts: 1, windowStartedAt: now })
+    .onDuplicateKeyUpdate({
+      set: {
+        attempts: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${windowInterval}), 1, ${loginAttempts.attempts} + 1)`,
+        windowStartedAt: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${windowInterval}), NOW(3), ${loginAttempts.windowStartedAt})`,
+      },
+    });
+  const [attempt] = await db
+    .select({ attempts: loginAttempts.attempts })
+    .from(loginAttempts)
+    .where(eq(loginAttempts.email, key))
+    .limit(1);
+  return (attempt?.attempts ?? 0) > MAX_EMAIL_REQUESTS;
+}
+
 async function createVerificationTokenForUser(userId: string) {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_MINUTES * 60 * 1000);
@@ -207,30 +232,47 @@ async function createVerificationTokenForUser(userId: string) {
 
 async function sendVerificationEmail(userId: string, email: string, fullName?: string | null) {
   const config = getEmailConfig();
-  if (!config.enabled || !config.appUrl) return;
+  if (!config.enabled || !config.appUrl) return false;
   const token = await createVerificationTokenForUser(userId);
-  const mail = buildVerificationEmail({ appUrl: config.appUrl, code: token, name: fullName ?? undefined });
-  const result = await sendTransactionalEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+  const mail = buildVerificationEmail({
+    appUrl: config.appUrl,
+    code: token,
+    name: fullName ?? undefined,
+  });
+  const result = await sendTransactionalEmail({
+    to: email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  });
   if (!result.ok) {
     console.warn("Verification email could not be sent.", {
-      email,
+      toDomain: email.split("@")[1] ?? "unknown",
       reason: result.reason ?? "unknown",
     });
   }
+  return result.ok;
 }
 
 export async function requestEmailVerification(emailInput: string) {
   const email = emailInput.trim().toLowerCase();
-  if (!email) return { sent: false };
+  if (!email || (await isEmailRequestRateLimited("verification", email))) {
+    return genericEmailRequestResponse();
+  }
   const [account] = await getDatabase()
-    .select({ id: users.id, email: users.email, fullName: profiles.fullName, emailVerifiedAt: users.emailVerifiedAt })
+    .select({
+      id: users.id,
+      email: users.email,
+      fullName: profiles.fullName,
+      emailVerifiedAt: users.emailVerifiedAt,
+    })
     .from(users)
     .leftJoin(profiles, eq(profiles.id, users.id))
     .where(eq(users.email, email))
     .limit(1);
-  if (!account || account.emailVerifiedAt) return { sent: false };
+  if (!account || account.emailVerifiedAt) return genericEmailRequestResponse();
   await sendVerificationEmail(account.id, account.email, account.fullName);
-  return { sent: true };
+  return genericEmailRequestResponse();
 }
 
 export async function verifyEmailToken(token: string) {
@@ -256,11 +298,10 @@ export async function verifyEmailToken(token: string) {
     .limit(1);
   if (!record) throw new AuthError("The verification link is invalid or expired.");
   await db.transaction(async (tx) => {
+    await tx.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, record.userId));
     await tx
-      .update(users)
-      .set({ emailVerifiedAt: new Date() })
-      .where(eq(users.id, record.userId));
-    await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, record.userId));
+      .delete(emailVerificationTokens)
+      .where(eq(emailVerificationTokens.userId, record.userId));
   });
   return { success: true, email: record.email, fullName: record.fullName ?? undefined };
 }
@@ -297,13 +338,15 @@ export async function registerAccount(input: {
   } catch (error) {
     if (isDuplicateKey(error))
       throw new AuthError(
-        "An account with this email already exists. Try logging in or resetting your password.",
+        "Could not create your account. If you already have an account, sign in or reset your password.",
       );
     console.error(
       "Account registration failed.",
       getDatabaseErrorCode(error) ?? "unknown database error",
     );
-    throw new AuthError("Could not create your account. Please try again.");
+    throw new AuthError(
+      "Could not create your account. If you already have an account, sign in or reset your password.",
+    );
   }
   return { id, email };
 }
@@ -367,13 +410,15 @@ export async function registerAdmin(input: {
     if (error instanceof AuthError) throw error;
     if (isDuplicateKey(error))
       throw new AuthError(
-        "An account with this email already exists. Sign in or use a different email address.",
+        "Could not create the administrator account. If this email is already registered, sign in.",
       );
     console.error(
       "Administrator registration failed.",
       getDatabaseErrorCode(error) ?? "unknown database error",
     );
-    throw new AuthError("Could not create the administrator account. Please try again.");
+    throw new AuthError(
+      "Could not create the administrator account. If this email is already registered, sign in.",
+    );
   }
   return { id, email };
 }
@@ -442,7 +487,6 @@ async function authenticateAccount(input: { email: string; password: string }, a
     if (error instanceof AuthError) throw error;
     console.error("Sign-in failed.", {
       code: getDatabaseErrorCode(error) ?? "unknown error",
-      message: error instanceof Error ? error.message : "Unknown sign-in error",
     });
     throw new AuthError("Sign-in is temporarily unavailable. Please try again.");
   }
@@ -469,9 +513,14 @@ export async function requestPasswordReset(emailInput: string) {
   const email = emailInput.trim().toLowerCase();
   const config = getEmailConfig();
   if (!config.enabled || !config.appUrl) {
-    throw new Error(
-      "Password reset email is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM in the server environment.",
-    );
+    console.error("Password reset email is unavailable.", {
+      reason: config.reason ?? "missing_app_url",
+    });
+    return genericEmailRequestResponse();
+  }
+
+  if (await isEmailRequestRateLimited("reset", email)) {
+    return genericEmailRequestResponse();
   }
 
   const [account] = await getDatabase()
@@ -480,13 +529,15 @@ export async function requestPasswordReset(emailInput: string) {
     .leftJoin(profiles, eq(profiles.id, users.id))
     .where(eq(users.email, email))
     .limit(1);
-  if (!account) return { sent: false };
+  if (!account) return genericEmailRequestResponse();
 
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
   await getDatabase().transaction(async (tx) => {
     await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, account.id));
-    await tx.insert(passwordResetTokens).values({ tokenHash: tokenHash(token), userId: account.id, expiresAt });
+    await tx
+      .insert(passwordResetTokens)
+      .values({ tokenHash: tokenHash(token), userId: account.id, expiresAt });
   });
   const mail = buildPasswordResetEmail({
     appUrl: config.appUrl,
@@ -506,7 +557,7 @@ export async function requestPasswordReset(emailInput: string) {
       messageId: result.messageId ?? null,
     });
   }
-  return { sent: result.ok };
+  return genericEmailRequestResponse();
 }
 
 export async function resetPassword(token: string, password: string) {
@@ -539,7 +590,10 @@ export async function resetPassword(token: string, password: string) {
   });
   const config = getEmailConfig();
   if (config.enabled) {
-    const mail = buildPasswordChangedEmail({ appUrl: config.appUrl, name: reset.fullName ?? undefined });
+    const mail = buildPasswordChangedEmail({
+      appUrl: config.appUrl,
+      name: reset.fullName ?? undefined,
+    });
     await sendTransactionalEmail({
       to: reset.email,
       subject: mail.subject,

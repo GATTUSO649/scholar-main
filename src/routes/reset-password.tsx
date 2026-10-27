@@ -58,9 +58,16 @@ function Reset() {
         <Logo />
         <h1 className="pt-4 text-2xl font-semibold">Set a new password</h1>
         {!token ? (
-          <div role="alert" className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <div
+            role="alert"
+            className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm"
+          >
             <p>This reset link is missing or incomplete.</p>
-            <Link to="/auth" search={{ mode: "forgot" }} className="font-medium text-primary hover:underline">
+            <Link
+              to="/auth"
+              search={{ mode: "forgot" }}
+              className="font-medium text-primary hover:underline"
+            >
               Request another reset link
             </Link>
           </div>

@@ -8,10 +8,8 @@ function record(error: unknown) {
   lastCapturedError = { error, at: Date.now() };
 }
 
-// h3's HTTPError serializes to {"status":500,"unhandled":true,"message":"HTTPError"} —
-// no stack, no cause — so a plain console.error(error) reaches the log pipeline with
-// the failure detail stripped. Expand Error-like args into a string that keeps the
-// message, stack, and the full cause chain.
+// h3's HTTPError serializes to a generic 500 response. Preserve detailed causes in
+// development while keeping messages and stacks out of production logs.
 const CAUSE_DEPTH_LIMIT = 5;
 const DESCRIPTION_LENGTH_LIMIT = 8_000;
 
@@ -20,12 +18,23 @@ export function describeError(error: unknown): string {
   let current: unknown = error;
   for (let depth = 0; depth < CAUSE_DEPTH_LIMIT && current != null; depth++) {
     if (!(current instanceof Error)) {
-      parts.push(typeof current === "string" ? current : safeStringify(current));
+      parts.push(
+        process.env["NODE_ENV"] === "production"
+          ? "Non-error cause omitted"
+          : typeof current === "string"
+            ? current
+            : safeStringify(current),
+      );
       break;
     }
     const label = depth === 0 ? "" : "caused by: ";
     const status = describeStatus(current);
-    parts.push(`${label}${current.stack ?? `${current.name}: ${current.message}`}${status}`);
+    if (process.env["NODE_ENV"] === "production") {
+      const code = (current as Error & { code?: unknown }).code;
+      parts.push(`${label}${current.name}${status}${typeof code === "string" ? ` (${code})` : ""}`);
+    } else {
+      parts.push(`${label}${current.stack ?? `${current.name}: ${current.message}`}${status}`);
+    }
     current = current.cause;
   }
   return parts.join("\n").slice(0, DESCRIPTION_LENGTH_LIMIT);

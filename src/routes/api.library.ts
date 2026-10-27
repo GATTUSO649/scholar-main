@@ -9,6 +9,11 @@ import {
   updateLibraryResource,
 } from "@/lib/backend.server";
 import { requireSameOrigin } from "@/lib/backend";
+import {
+  InvalidUploadBodyError,
+  parseMultipartFormData,
+  UploadBodyTooLargeError,
+} from "@/lib/form-data.server";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set([".pdf", ".epub", ".doc", ".docx", ".txt"]);
@@ -30,21 +35,26 @@ function storagePath(key: string) {
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Library operation failed.";
-  const status = message.includes("signed in")
-    ? 401
-    : message.includes("Purchase this resource") || message.includes("Student library access")
-      ? 403
-      : message.includes("origin is not allowed")
-        ? 403
-        : message.includes("Administrator access")
-          ? 403
-          : message.includes("not found")
-            ? 404
-            : message.includes("payments are not configured")
-              ? 503
-              : message === "Invalid file key."
-                ? 400
-                : 500;
+  const status =
+    error instanceof UploadBodyTooLargeError
+      ? 413
+      : error instanceof InvalidUploadBodyError
+        ? 400
+        : message.includes("signed in")
+          ? 401
+          : message.includes("Purchase this resource") || message.includes("Student library access")
+            ? 403
+            : message.includes("origin is not allowed")
+              ? 403
+              : message.includes("Administrator access")
+                ? 403
+                : message.includes("not found")
+                  ? 404
+                  : message.includes("payments are not configured")
+                    ? 503
+                    : message === "Invalid file key."
+                      ? 400
+                      : 500;
   if (status === 500) console.error("Library operation failed", error);
   return Response.json(
     { error: status === 500 ? "Library operation failed." : message },
@@ -60,15 +70,7 @@ export const Route = createFileRoute("/api/library")({
         try {
           requireSameOrigin(request);
           await requireLibraryAdmin();
-          const contentLength = Number(request.headers.get("content-length") ?? 0);
-          if (contentLength > MAX_FILE_BYTES + 64 * 1024) {
-            return Response.json(
-              { error: "The upload must be 25 MB or smaller." },
-              { status: 413 },
-            );
-          }
-
-          const form = await request.formData();
+          const form = await parseMultipartFormData(request, MAX_FILE_BYTES + 64 * 1024);
           const title = String(form.get("title") ?? "").trim();
           const description = String(form.get("description") ?? "").trim();
           const category = String(form.get("category") ?? "");

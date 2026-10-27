@@ -137,8 +137,7 @@ function AdminLoginPage() {
       const safeMessages = new Set([
         "The admin signup key is incorrect.",
         "Administrator signup is not configured.",
-        "An account with this email already exists. Sign in or use a different email address.",
-        "Could not create the administrator account. Please try again.",
+        "Could not create the administrator account. If this email is already registered, sign in.",
         "Email or password is incorrect.",
         "Too many sign-in attempts. Please wait 15 minutes and try again.",
         "Sign-in is temporarily unavailable. Please try again.",

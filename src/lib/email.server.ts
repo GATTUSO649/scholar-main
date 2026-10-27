@@ -21,6 +21,10 @@ export type DeliveryResult = {
   error?: string;
 };
 
+export function genericEmailRequestResponse() {
+  return { requested: true as const };
+}
+
 function normalizeEnvValue(value: string | undefined) {
   return value?.trim() || undefined;
 }

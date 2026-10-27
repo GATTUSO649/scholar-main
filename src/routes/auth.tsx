@@ -149,7 +149,9 @@ function AuthPage() {
     }
     setErrors({});
     await requestPasswordResetFn({ data: { email: parsed.data.email } });
-    setSent(`If an account exists for ${parsed.data.email}, password reset instructions will arrive shortly.`);
+    setSent(
+      `If an account exists for ${parsed.data.email}, password reset instructions will arrive shortly.`,
+    );
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -165,19 +167,19 @@ function AuthPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const safeMessages = new Set([
-        "An account with this email already exists. Try logging in or resetting your password.",
-        "Could not create your account. Please try again.",
+        "Could not create your account. If you already have an account, sign in or reset your password.",
         "Email or password is incorrect.",
         "Email verification is required before you can sign in.",
         "Too many sign-in attempts. Please wait 15 minutes and try again.",
         "Sign-in is temporarily unavailable. Please try again.",
-        "Password reset email is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM in the server environment.",
       ]);
       if (message === "Email verification is required before you can sign in.") {
         const emailValue = String(fd.get("email") ?? "").trim();
         if (emailValue) {
           await requestEmailVerificationFn({ data: { email: emailValue } });
-          setFormError("Email verification is required. We sent a fresh verification link to your inbox.");
+          setFormError(
+            "Email verification is required. We sent a fresh verification link to your inbox.",
+          );
         } else {
           setFormError(message);
         }
@@ -277,7 +279,10 @@ function AuthPage() {
               </Alert>
             )}
             {sent ? (
-              <div role="status" className="mt-8 rounded-xl border border-success/30 bg-success/10 p-5 text-sm">
+              <div
+                role="status"
+                className="mt-8 rounded-xl border border-success/30 bg-success/10 p-5 text-sm"
+              >
                 <p>{sent}</p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <Button type="button" variant="outline" onClick={() => setMode("login")}>

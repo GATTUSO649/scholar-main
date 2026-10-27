@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { handleLibraryPurchaseCallback } from "@/lib/backend.server";
+import {
+  InvalidRequestBodyError,
+  parseJsonRequestBody,
+  RequestBodyTooLargeError,
+} from "@/lib/form-data.server";
 
 type CallbackItem = { Name?: string; Value?: unknown };
 
@@ -12,7 +17,7 @@ export const Route = createFileRoute("/api/library/callback")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const body: unknown = await request.json();
+          const body = await parseJsonRequestBody(request, 64 * 1024);
           const callback =
             isRecord(body) && isRecord(body["Body"]) ? body["Body"]["stkCallback"] : null;
           if (!isRecord(callback) || typeof callback["CheckoutRequestID"] !== "string") {
@@ -42,6 +47,18 @@ export const Route = createFileRoute("/api/library/callback")({
           });
           return Response.json({ ResultCode: 0, ResultDesc: "Callback accepted." });
         } catch (error) {
+          if (error instanceof RequestBodyTooLargeError) {
+            return Response.json(
+              { ResultCode: 1, ResultDesc: "Callback body too large." },
+              { status: 413 },
+            );
+          }
+          if (error instanceof InvalidRequestBodyError) {
+            return Response.json(
+              { ResultCode: 1, ResultDesc: "Invalid callback body." },
+              { status: 400 },
+            );
+          }
           console.error("Library payment callback processing failed.", error);
           return Response.json(
             { ResultCode: 1, ResultDesc: "Callback processing failed." },

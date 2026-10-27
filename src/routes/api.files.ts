@@ -11,6 +11,11 @@ import {
   notifyAdminsOfStudentUpload,
 } from "@/lib/backend.server";
 import { requireSameOrigin } from "@/lib/backend";
+import {
+  InvalidUploadBodyError,
+  parseMultipartFormData,
+  UploadBodyTooLargeError,
+} from "@/lib/form-data.server";
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 50 * 1024 * 1024;
@@ -26,15 +31,22 @@ function storagePath(key: string) {
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "File operation failed.";
-  const status = message.includes("signed in")
-    ? 401
-    : message.includes("Administrator access") || message.includes("cannot upload")
-      ? 403
-      : message.includes("not found")
-        ? 404
-        : message.includes("allowed") || message.includes("file") || message.includes("upload")
-          ? 400
-          : 500;
+  const status =
+    error instanceof UploadBodyTooLargeError
+      ? 413
+      : error instanceof InvalidUploadBodyError
+        ? 400
+        : message.includes("signed in")
+          ? 401
+          : message.includes("Administrator access") || message.includes("cannot upload")
+            ? 403
+            : message.includes("not found")
+              ? 404
+              : message.includes("allowed") ||
+                  message.includes("file") ||
+                  message.includes("upload")
+                ? 400
+                : 500;
   if (status === 500) {
     console.error(
       "File operation failed.",
@@ -50,13 +62,7 @@ export const Route = createFileRoute("/api/files")({
       POST: async ({ request }) => {
         try {
           requireSameOrigin(request);
-          const length = Number(request.headers.get("content-length") ?? 0);
-          if (length > MAX_REQUEST_BYTES)
-            return Response.json(
-              { error: "Files exceed the 50 MB upload limit." },
-              { status: 413 },
-            );
-          const form = await request.formData();
+          const form = await parseMultipartFormData(request, MAX_REQUEST_BYTES);
           const requestId = String(form.get("request_id") ?? "");
           const kind = String(form.get("kind") ?? "");
           if (
@@ -129,7 +135,7 @@ export const Route = createFileRoute("/api/files")({
           const asciiName = file.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           return new Response(content, {
             headers: {
-              "content-type": file.mimeType,
+              "content-type": "application/octet-stream",
               "content-length": String(content.byteLength),
               "content-disposition": `attachment; filename="${asciiName}"`,
               "cache-control": "private, no-store",

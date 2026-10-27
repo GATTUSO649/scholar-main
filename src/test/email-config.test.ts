@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildAppUrl, getEmailConfig, isEmailVerificationRequired } from "@/lib/email.server";
+import {
+  buildAppUrl,
+  genericEmailRequestResponse,
+  getEmailConfig,
+  isEmailVerificationRequired,
+} from "@/lib/email.server";
 
 describe("email configuration and verification settings", () => {
   it("returns a disabled config when SMTP credentials are missing", () => {
@@ -44,6 +49,10 @@ describe("email configuration and verification settings", () => {
     });
 
     expect(config.port).toBe(2525);
+  });
+
+  it("uses the same public response for email recovery requests", () => {
+    expect(genericEmailRequestResponse()).toEqual({ requested: true });
   });
 
   it("builds an HTTPS app URL for production and preserves localhost in development", () => {
