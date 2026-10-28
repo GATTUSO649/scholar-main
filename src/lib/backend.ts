@@ -273,6 +273,38 @@ export const setPublicPricesFn = createServerFn({ method: "POST" })
     return setPublicPrices(data.showPrices);
   });
 
+export const getAdminServicesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getAdminServices } = await import("./backend.server");
+  return getAdminServices();
+});
+
+const adminServiceSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().min(1).max(3000),
+  base_price: z.number().finite().min(0).max(99_999_999.99),
+  currency: z.enum(["KES", "USD", "GBP", "EUR"]),
+  unit: z.string().trim().min(1).max(40),
+  sort: z.number().int().min(0).max(9999),
+  active: z.boolean(),
+});
+
+export const saveAdminServiceFn = createServerFn({ method: "POST" })
+  .validator(adminServiceSchema)
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { saveAdminService } = await import("./backend.server");
+    return saveAdminService(data);
+  });
+
+export const setAdminServiceActiveFn = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().uuid(), active: z.boolean() }))
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { setAdminServiceActive } = await import("./backend.server");
+    return setAdminServiceActive(data);
+  });
+
 export const updateRequestFn = createServerFn({ method: "POST" })
   .validator(
     z.object({

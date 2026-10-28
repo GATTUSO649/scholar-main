@@ -1348,6 +1348,59 @@ export async function getAdminStudents() {
   return rows.map(mapProfile);
 }
 
+export async function getAdminServices() {
+  await requireAdmin();
+  return getDatabase().select().from(services).orderBy(services.sort, services.name);
+}
+
+export async function saveAdminService(input: {
+  id?: string;
+  name: string;
+  description: string;
+  base_price: number;
+  currency: "KES" | "USD" | "GBP" | "EUR";
+  unit: string;
+  sort: number;
+  active: boolean;
+}) {
+  await requireAdmin();
+  const db = getDatabase();
+  const values = {
+    name: input.name.trim(),
+    description: input.description.trim(),
+    basePrice: input.base_price,
+    currency: input.currency,
+    unit: input.unit.trim(),
+    sort: input.sort,
+    active: input.active,
+  };
+
+  if (input.id) {
+    const [existing] = await db
+      .select({ id: services.id })
+      .from(services)
+      .where(eq(services.id, input.id))
+      .limit(1);
+    if (!existing) throw new Error("Service not found.");
+    await db.update(services).set(values).where(eq(services.id, input.id));
+    return { id: input.id };
+  }
+
+  const id = randomUUID();
+  await db.insert(services).values({ id, ...values });
+  return { id };
+}
+
+export async function setAdminServiceActive(input: { id: string; active: boolean }) {
+  await requireAdmin();
+  const result = await getDatabase()
+    .update(services)
+    .set({ active: input.active })
+    .where(eq(services.id, input.id));
+  if (result[0].affectedRows === 0) throw new Error("Service not found.");
+  return { success: true };
+}
+
 export async function setPublicPrices(showPrices: boolean) {
   await requireAdmin();
   await getDatabase()

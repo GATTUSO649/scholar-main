@@ -27,7 +27,12 @@ function errorResponse(error: unknown) {
                     message.includes("free")
                   ? 400
                   : 500;
-  if (status === 500) console.error("Library checkout failed.", error);
+  if (status === 500) {
+    console.error("Library checkout failed.", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : "Unknown checkout failure.",
+    });
+  }
   return Response.json(
     { error: status === 500 ? "Could not start library checkout." : message },
     { status },
