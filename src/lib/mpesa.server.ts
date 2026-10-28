@@ -29,8 +29,7 @@ export function getMpesaConfig(): MpesaConfig | null {
   const passkey = process.env["MPESA_PASSKEY"]?.trim() ?? "";
   const callbackUrl = process.env["MPESA_CALLBACK_URL"]?.trim() ?? "";
   const environment = process.env["MPESA_ENVIRONMENT"]?.trim() || "sandbox";
-  const transactionType =
-    process.env["MPESA_TRANSACTION_TYPE"]?.trim() || "CustomerPayBillOnline";
+  const transactionType = process.env["MPESA_TRANSACTION_TYPE"]?.trim() || "CustomerPayBillOnline";
   const values = [consumerKey, consumerSecret, shortcode, passkey, callbackUrl];
 
   if (values.every((value) => !value)) return null;
@@ -42,10 +41,7 @@ export function getMpesaConfig(): MpesaConfig | null {
   if (environment !== "sandbox" && environment !== "production") {
     throw new Error("MPESA_ENVIRONMENT must be sandbox or production.");
   }
-  if (
-    transactionType !== "CustomerPayBillOnline" &&
-    transactionType !== "CustomerBuyGoodsOnline"
-  ) {
+  if (transactionType !== "CustomerPayBillOnline" && transactionType !== "CustomerBuyGoodsOnline") {
     throw new Error(
       "MPESA_TRANSACTION_TYPE must be CustomerPayBillOnline or CustomerBuyGoodsOnline.",
     );
