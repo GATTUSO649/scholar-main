@@ -297,9 +297,39 @@ export const libraryPurchases = mysqlTable(
   ],
 );
 
+export const faqEntries = mysqlTable(
+  "faq_entries",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    question: varchar("question", { length: 300 }).notNull(),
+    answer: text("answer").notNull(),
+    active: boolean("active").notNull().default(true),
+    sort: int("sort").notNull().default(0),
+    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [index("faq_entries_active_sort_idx").on(table.active, table.sort)],
+);
+
 export const siteSettings = mysqlTable("site_settings", {
   id: int("id").primaryKey().default(1),
   showPrices: boolean("show_prices").notNull().default(true),
+  contactEmail: varchar("contact_email", { length: 255 })
+    .notNull()
+    .default("support@scholardesk.app"),
+  contactPhone: varchar("contact_phone", { length: 40 }).notNull().default("+254 700 000 000"),
+  contactWhatsapp: varchar("contact_whatsapp", { length: 40 }).notNull().default(""),
+  supportHours: varchar("support_hours", { length: 120 })
+    .notNull()
+    .default("Mon-Sat, 8:00-20:00 EAT"),
+  footerMessage: varchar("footer_message", { length: 255 })
+    .notNull()
+    .default("Thoughtful academic support, from first draft to final submission."),
+  faqTitle: varchar("faq_title", { length: 160 }).notNull().default("Frequently asked questions"),
+  faqIntro: varchar("faq_intro", { length: 500 })
+    .notNull()
+    .default("Answers to common questions about ScholarDesk services, payments and privacy."),
   updatedAt: datetime("updated_at", { mode: "date", fsp: 3 })
     .notNull()
     .default(sql`CURRENT_TIMESTAMP(3)`),

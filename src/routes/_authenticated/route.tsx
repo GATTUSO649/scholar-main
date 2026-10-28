@@ -27,11 +27,14 @@ import {
   ChevronRight,
   ShieldCheck,
   Sparkles,
+  Banknote,
+  FilePenLine,
 } from "lucide-react";
 import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
 import { useProfile } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
+import { PortalFooter } from "@/components/PublicPage";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -73,6 +76,8 @@ const adminNav = [
   { to: "/admin/resources/articles", label: "Articles", icon: FileText },
   { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
   { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
+  { to: "/admin/content", label: "Website content", icon: FilePenLine },
+  { to: "/pricing", label: "Public pricing", icon: Banknote },
 ] as const;
 
 function Shell() {
@@ -96,11 +101,13 @@ function Shell() {
           ? "Business plan library"
           : path.startsWith("/admin/resources")
             ? "Library management"
-            : path.startsWith("/students")
-              ? "Student directory"
-              : path.startsWith("/manage")
-                ? "Request workspace"
-                : "Service requests";
+            : path === "/admin/content"
+              ? "Website content"
+              : path.startsWith("/students")
+                ? "Student directory"
+                : path.startsWith("/manage")
+                  ? "Request workspace"
+                  : "Service requests";
 
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
@@ -286,6 +293,7 @@ function Shell() {
           </div>
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
             <Outlet />
+            <PortalFooter />
           </div>
         </main>
       </div>
@@ -336,6 +344,7 @@ function Shell() {
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
           <p className="mb-1 text-sm text-muted-foreground">{profile?.email}</p>
           <Outlet />
+          <PortalFooter />
         </div>
       </main>
     </div>

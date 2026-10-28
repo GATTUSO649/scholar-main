@@ -171,6 +171,62 @@ export const getPublicDataFn = createServerFn({ method: "GET" }).handler(async (
   return getPublicData();
 });
 
+export const getPublicSiteContentFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getPublicSiteContent } = await import("./backend.server");
+  return getPublicSiteContent();
+});
+
+export const getAdminSiteContentFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getAdminSiteContent } = await import("./backend.server");
+  return getAdminSiteContent();
+});
+
+const publicSiteContentSchema = z.object({
+  contactEmail: z
+    .string()
+    .trim()
+    .max(255)
+    .refine((value) => value === "" || z.string().email().safeParse(value).success),
+  contactPhone: z.string().trim().max(40),
+  contactWhatsapp: z.string().trim().max(40),
+  supportHours: z.string().trim().min(2).max(120),
+  footerMessage: z.string().trim().min(2).max(255),
+  faqTitle: z.string().trim().min(2).max(160),
+  faqIntro: z.string().trim().min(2).max(500),
+});
+
+export const savePublicSiteContentFn = createServerFn({ method: "POST" })
+  .validator(publicSiteContentSchema)
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { savePublicSiteContent } = await import("./backend.server");
+    return savePublicSiteContent(data);
+  });
+
+const faqEntrySchema = z.object({
+  id: z.string().uuid().optional(),
+  question: z.string().trim().min(3).max(300),
+  answer: z.string().trim().min(1).max(5000),
+  active: z.boolean(),
+  sort: z.number().int().min(0).max(9999),
+});
+
+export const saveFaqEntryFn = createServerFn({ method: "POST" })
+  .validator(faqEntrySchema)
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { saveFaqEntry } = await import("./backend.server");
+    return saveFaqEntry(data);
+  });
+
+export const setFaqEntryActiveFn = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().uuid(), active: z.boolean() }))
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { setFaqEntryActive } = await import("./backend.server");
+    return setFaqEntryActive(data);
+  });
+
 export const getLibraryResourcesFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getLibraryResources } = await import("./backend.server");
   return getLibraryResources();

@@ -9,6 +9,7 @@ import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   emailVerificationTokens,
+  faqEntries,
   loginAttempts,
   libraryPurchases,
   libraryResources,
@@ -706,6 +707,117 @@ export async function getPublicData() {
       created_at: row.createdAt.toISOString(),
     })),
   };
+}
+
+const defaultSiteContent = {
+  contactEmail: "support@scholardesk.app",
+  contactPhone: "+254 700 000 000",
+  contactWhatsapp: "",
+  supportHours: "Mon-Sat, 8:00-20:00 EAT",
+  footerMessage: "Thoughtful academic support, from first draft to final submission.",
+  faqTitle: "Frequently asked questions",
+  faqIntro: "Answers to common questions about ScholarDesk services, payments and privacy.",
+};
+
+export async function getPublicSiteContent() {
+  const db = getDatabase();
+  const [settings] = await db.select().from(siteSettings).where(eq(siteSettings.id, 1)).limit(1);
+  const faqs = await db
+    .select({ id: faqEntries.id, question: faqEntries.question, answer: faqEntries.answer })
+    .from(faqEntries)
+    .where(eq(faqEntries.active, true))
+    .orderBy(faqEntries.sort, faqEntries.question);
+
+  return {
+    ...defaultSiteContent,
+    contactEmail: settings?.contactEmail ?? defaultSiteContent.contactEmail,
+    contactPhone: settings?.contactPhone ?? defaultSiteContent.contactPhone,
+    contactWhatsapp: settings?.contactWhatsapp ?? defaultSiteContent.contactWhatsapp,
+    supportHours: settings?.supportHours ?? defaultSiteContent.supportHours,
+    footerMessage: settings?.footerMessage ?? defaultSiteContent.footerMessage,
+    faqTitle: settings?.faqTitle ?? defaultSiteContent.faqTitle,
+    faqIntro: settings?.faqIntro ?? defaultSiteContent.faqIntro,
+    faqs,
+  };
+}
+
+export async function getAdminSiteContent() {
+  await requireAdmin();
+  const db = getDatabase();
+  const [settings] = await db.select().from(siteSettings).where(eq(siteSettings.id, 1)).limit(1);
+  const faqs = await db.select().from(faqEntries).orderBy(faqEntries.sort, faqEntries.question);
+
+  return {
+    ...defaultSiteContent,
+    contactEmail: settings?.contactEmail ?? defaultSiteContent.contactEmail,
+    contactPhone: settings?.contactPhone ?? defaultSiteContent.contactPhone,
+    contactWhatsapp: settings?.contactWhatsapp ?? defaultSiteContent.contactWhatsapp,
+    supportHours: settings?.supportHours ?? defaultSiteContent.supportHours,
+    footerMessage: settings?.footerMessage ?? defaultSiteContent.footerMessage,
+    faqTitle: settings?.faqTitle ?? defaultSiteContent.faqTitle,
+    faqIntro: settings?.faqIntro ?? defaultSiteContent.faqIntro,
+    faqs,
+  };
+}
+
+export async function savePublicSiteContent(input: {
+  contactEmail: string;
+  contactPhone: string;
+  contactWhatsapp: string;
+  supportHours: string;
+  footerMessage: string;
+  faqTitle: string;
+  faqIntro: string;
+}) {
+  await requireAdmin();
+  const now = new Date();
+  await getDatabase()
+    .insert(siteSettings)
+    .values({ id: 1, ...input, updatedAt: now })
+    .onDuplicateKeyUpdate({ set: { ...input, updatedAt: now } });
+  return { success: true };
+}
+
+export async function saveFaqEntry(input: {
+  id?: string;
+  question: string;
+  answer: string;
+  active: boolean;
+  sort: number;
+}) {
+  await requireAdmin();
+  const values = {
+    question: input.question.trim(),
+    answer: input.answer.trim(),
+    active: input.active,
+    sort: input.sort,
+  };
+  if (input.id) {
+    const [existing] = await getDatabase()
+      .select({ id: faqEntries.id })
+      .from(faqEntries)
+      .where(eq(faqEntries.id, input.id))
+      .limit(1);
+    if (!existing) throw new Error("FAQ entry not found.");
+    await getDatabase().update(faqEntries).set(values).where(eq(faqEntries.id, input.id));
+    return { id: input.id };
+  }
+
+  const id = randomUUID();
+  await getDatabase()
+    .insert(faqEntries)
+    .values({ id, ...values });
+  return { id };
+}
+
+export async function setFaqEntryActive(input: { id: string; active: boolean }) {
+  await requireAdmin();
+  const result = await getDatabase()
+    .update(faqEntries)
+    .set({ active: input.active })
+    .where(eq(faqEntries.id, input.id));
+  if (result[0].affectedRows === 0) throw new Error("FAQ entry not found.");
+  return { success: true };
 }
 
 function mapLibraryResource(row: typeof libraryResources.$inferSelect) {

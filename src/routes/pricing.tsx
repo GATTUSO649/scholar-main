@@ -49,6 +49,16 @@ function PricingPage() {
           Final quotes depend on the deadline and complexity. You review and approve the price
           before paying.
         </p>
+        {isAdmin && (
+          <div className="mt-5 text-center">
+            <a
+              href="#pricing-management"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+            >
+              <Pencil className="h-4 w-4" /> Manage public prices
+            </a>
+          </div>
+        )}
         <div className="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading prices…</p>
@@ -208,7 +218,10 @@ function PricingAdminPanel() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-5 py-12 sm:py-16">
+    <section
+      id="pricing-management"
+      className="mx-auto w-full max-w-6xl scroll-mt-8 px-5 py-12 sm:py-16"
+    >
       <header className="flex flex-col justify-between gap-4 border-b pb-5 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-accent">Admin</p>

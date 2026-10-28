@@ -71,6 +71,20 @@
       "when": 1793036400000,
       "tag": "0009_email_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1793200299812,
+      "tag": "0010_site_content_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1793200765813,
+      "tag": "0011_faq_page_copy",
+      "breakpoints": true
     }
   ]
 }

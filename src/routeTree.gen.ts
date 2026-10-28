@@ -31,6 +31,7 @@ import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticate
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as ApiLibraryRouteImport } from './routes/api.library'
+import { Route as AuthenticatedAdminContentRouteImport } from './routes/_authenticated/admin.content'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
 import { Route as AuthenticatedAdminResourcesRouteImport } from './routes/_authenticated/admin.resources'
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
@@ -151,6 +152,12 @@ const ApiLibraryRoute = ApiLibraryRouteImport.update({
   path: '/api/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminContentRoute =
+  AuthenticatedAdminContentRouteImport.update({
+    id: '/content',
+    path: '/content',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminDashboardRoute =
   AuthenticatedAdminDashboardRouteImport.update({
     id: '/dashboard',
@@ -230,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
+  '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
@@ -263,6 +271,7 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
+  '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
@@ -298,6 +307,7 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
+  '/_authenticated/admin/content': typeof AuthenticatedAdminContentRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/api/files'
     | '/api/library'
+    | '/admin/content'
     | '/admin/dashboard'
     | '/admin/resources'
     | '/manage/$id'
@@ -366,6 +377,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/api/files'
     | '/api/library'
+    | '/admin/content'
     | '/admin/dashboard'
     | '/admin/resources'
     | '/manage/$id'
@@ -400,6 +412,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/api/files'
     | '/api/library'
+    | '/_authenticated/admin/content'
     | '/_authenticated/admin/dashboard'
     | '/_authenticated/admin/resources'
     | '/_authenticated/manage/$id'
@@ -586,6 +599,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/content': {
+      id: '/_authenticated/admin/content'
+      path: '/content'
+      fullPath: '/admin/content'
+      preLoaderRoute: typeof AuthenticatedAdminContentRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/dashboard': {
       id: '/_authenticated/admin/dashboard'
       path: '/dashboard'
@@ -681,11 +701,13 @@ const AuthenticatedAdminResourcesRouteWithChildren =
   )
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminContentRoute: typeof AuthenticatedAdminContentRoute
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
   AuthenticatedAdminResourcesRoute: typeof AuthenticatedAdminResourcesRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminContentRoute: AuthenticatedAdminContentRoute,
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
   AuthenticatedAdminResourcesRoute:
     AuthenticatedAdminResourcesRouteWithChildren,

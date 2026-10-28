@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   Accordion,
   AccordionContent,
@@ -6,6 +7,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { PublicPage, PublicPageHeading } from "@/components/PublicPage";
+import { getPublicSiteContentFn } from "@/lib/backend";
 
 export const Route = createFileRoute("/faq")({
   head: () => ({
@@ -20,43 +22,45 @@ export const Route = createFileRoute("/faq")({
   component: FAQPage,
 });
 
-const questions = [
-  [
-    "What kind of support do you offer?",
-    "Assignment typing, proofreading, plagiarism checks, project tasks, research guidance and draft reviews. You choose only what you need.",
-  ],
-  [
-    "How is the price calculated?",
-    "Each service has a base rate. Urgent deadlines and complexity may adjust the final quote, which you approve before paying.",
-  ],
-  [
-    "Which payment methods are accepted?",
-    "M-Pesa for students in Kenya, plus Visa, Mastercard and other international methods in KES, USD, GBP and EUR.",
-  ],
-  [
-    "Are my files private?",
-    "Files are stored privately and only you and our support team can access them.",
-  ],
-  [
-    "Can I track my request?",
-    "Every request has a live status timeline in your dashboard, from submission to completion.",
-  ],
-];
-
 function FAQPage() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["public-site-content"],
+    queryFn: () => getPublicSiteContentFn(),
+  });
+
   return (
     <PublicPage>
       <section className="bg-secondary px-5 py-20 sm:py-24">
-        <PublicPageHeading eyebrow="FAQ" title="Frequently asked questions" />
+        <PublicPageHeading eyebrow="FAQ" title={data?.faqTitle ?? "Frequently asked questions"} />
+        <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
+          {data?.faqIntro ??
+            "Answers to common questions about ScholarDesk services, payments and privacy."}
+        </p>
         <div className="mx-auto mt-10 max-w-3xl rounded-2xl border bg-card px-6">
-          <Accordion type="single" collapsible>
-            {questions.map(([question, answer]) => (
-              <AccordionItem key={question} value={question!}>
-                <AccordionTrigger className="text-left text-base">{question}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">{answer}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          {isLoading ? (
+            <p className="py-6 text-sm text-muted-foreground">Loading answers…</p>
+          ) : isError ? (
+            <p className="py-6 text-sm text-destructive">
+              Could not load answers. Refresh to retry.
+            </p>
+          ) : data?.faqs.length ? (
+            <Accordion type="single" collapsible>
+              {data.faqs.map((entry) => (
+                <AccordionItem key={entry.id} value={entry.id}>
+                  <AccordionTrigger className="text-left text-base">
+                    {entry.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="whitespace-pre-line text-muted-foreground">
+                    {entry.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+            <p className="py-6 text-sm text-muted-foreground">
+              No answers have been published yet. Contact support if you need help.
+            </p>
+          )}
         </div>
       </section>
     </PublicPage>
