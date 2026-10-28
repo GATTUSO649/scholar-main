@@ -3,6 +3,7 @@ import { getMpesaConfig, initiateMpesaStkPush, queryMpesaStkPush } from "@/lib/m
 
 const mpesaEnv = [
   "MPESA_ENVIRONMENT",
+  "MPESA_TRANSACTION_TYPE",
   "MPESA_CONSUMER_KEY",
   "MPESA_CONSUMER_SECRET",
   "MPESA_SHORTCODE",
@@ -12,6 +13,7 @@ const mpesaEnv = [
 
 function stubCompleteConfig() {
   vi.stubEnv("MPESA_ENVIRONMENT", "sandbox");
+  vi.stubEnv("MPESA_TRANSACTION_TYPE", "CustomerPayBillOnline");
   vi.stubEnv("MPESA_CONSUMER_KEY", "consumer-key");
   vi.stubEnv("MPESA_CONSUMER_SECRET", "consumer-secret");
   vi.stubEnv("MPESA_SHORTCODE", "174379");
@@ -50,6 +52,12 @@ describe("M-Pesa configuration", () => {
     });
   });
 
+  it("rejects unsupported transaction types", () => {
+    stubCompleteConfig();
+    vi.stubEnv("MPESA_TRANSACTION_TYPE", "UnsupportedTransaction");
+    expect(() => getMpesaConfig()).toThrow(/MPESA_TRANSACTION_TYPE/);
+  });
+
   it("rejects invalid checkout details before making a request", async () => {
     stubCompleteConfig();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -61,6 +69,21 @@ describe("M-Pesa configuration", () => {
         transactionDesc: "ScholarDesk",
       }),
     ).rejects.toThrow(/Safaricom phone number/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("rejects amounts above the supported sandbox checkout limit", async () => {
+    stubCompleteConfig();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    await expect(
+      initiateMpesaStkPush({
+        phoneNumber: "254712345678",
+        amount: 150_001,
+        accountReference: "LIB-123",
+        transactionDesc: "LIBRARY",
+      }),
+    ).rejects.toThrow(/between 1 and 150,000/);
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -103,12 +126,14 @@ describe("M-Pesa configuration", () => {
       CallBackURL: string;
       Amount: number;
       PhoneNumber: string;
+      TransactionType: string;
     };
     expect(requestBody).toMatchObject({
       BusinessShortCode: "174379",
       CallBackURL: "https://example.com/api/library/callback",
       Amount: 500,
       PhoneNumber: "254712345678",
+      TransactionType: "CustomerPayBillOnline",
     });
     fetchSpy.mockRestore();
   });

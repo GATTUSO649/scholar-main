@@ -1,5 +1,6 @@
 type MpesaConfig = {
   environment: "sandbox" | "production";
+  transactionType: "CustomerPayBillOnline" | "CustomerBuyGoodsOnline";
   consumerKey: string;
   consumerSecret: string;
   shortcode: string;
@@ -28,6 +29,8 @@ export function getMpesaConfig(): MpesaConfig | null {
   const passkey = process.env["MPESA_PASSKEY"]?.trim() ?? "";
   const callbackUrl = process.env["MPESA_CALLBACK_URL"]?.trim() ?? "";
   const environment = process.env["MPESA_ENVIRONMENT"]?.trim() || "sandbox";
+  const transactionType =
+    process.env["MPESA_TRANSACTION_TYPE"]?.trim() || "CustomerPayBillOnline";
   const values = [consumerKey, consumerSecret, shortcode, passkey, callbackUrl];
 
   if (values.every((value) => !value)) return null;
@@ -39,6 +42,14 @@ export function getMpesaConfig(): MpesaConfig | null {
   if (environment !== "sandbox" && environment !== "production") {
     throw new Error("MPESA_ENVIRONMENT must be sandbox or production.");
   }
+  if (
+    transactionType !== "CustomerPayBillOnline" &&
+    transactionType !== "CustomerBuyGoodsOnline"
+  ) {
+    throw new Error(
+      "MPESA_TRANSACTION_TYPE must be CustomerPayBillOnline or CustomerBuyGoodsOnline.",
+    );
+  }
 
   try {
     if (new URL(callbackUrl).protocol !== "https:") {
@@ -48,7 +59,15 @@ export function getMpesaConfig(): MpesaConfig | null {
     throw new Error("MPESA_CALLBACK_URL must be an absolute HTTPS URL.");
   }
 
-  return { environment, consumerKey, consumerSecret, shortcode, passkey, callbackUrl };
+  return {
+    environment,
+    transactionType,
+    consumerKey,
+    consumerSecret,
+    shortcode,
+    passkey,
+    callbackUrl,
+  };
 }
 
 function timestamp() {
@@ -69,8 +88,8 @@ function timestamp() {
 export async function initiateMpesaStkPush(input: StkPushInput) {
   const config = getMpesaConfig();
   if (!config) throw new Error("M-Pesa payments are not configured.");
-  if (!Number.isInteger(input.amount) || input.amount < 1) {
-    throw new Error("M-Pesa amount must be a positive whole number of KES.");
+  if (!Number.isInteger(input.amount) || input.amount < 1 || input.amount > 150_000) {
+    throw new Error("M-Pesa amount must be a whole number of KES between 1 and 150,000.");
   }
   if (!/^254[17]\d{8}$/.test(input.phoneNumber)) {
     throw new Error("Enter a Safaricom phone number in 2547XXXXXXXX format.");
@@ -110,7 +129,7 @@ export async function initiateMpesaStkPush(input: StkPushInput) {
       BusinessShortCode: config.shortcode,
       Password: password,
       Timestamp: requestTimestamp,
-      TransactionType: "CustomerPayBillOnline",
+      TransactionType: config.transactionType,
       Amount: input.amount,
       PartyA: input.phoneNumber,
       PartyB: config.shortcode,

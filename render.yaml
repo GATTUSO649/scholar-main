@@ -26,6 +26,8 @@ services:
         sync: false
       - key: MPESA_ENVIRONMENT
         value: sandbox
+      - key: MPESA_TRANSACTION_TYPE
+        value: CustomerPayBillOnline
       - key: MPESA_CONSUMER_KEY
         sync: false
       - key: MPESA_CONSUMER_SECRET

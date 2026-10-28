@@ -2,6 +2,9 @@
   "name": "tanstack_start_ts",
   "private": true,
   "sideEffects": false,
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js dev",
@@ -19,7 +22,8 @@
     "db:promote-admin": "node --env-file=.env scripts/promote-admin.mjs"
   },
   "overrides": {
-    "rolldown": "1.2.1"
+    "rolldown": "1.2.1",
+    "esbuild": "0.28.2"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

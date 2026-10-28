@@ -878,52 +878,67 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
     .limit(1);
   if (!resource) throw new Error("Resource not found.");
   if (resource.price <= 0) throw new Error("This resource is free to download.");
-  if (resource.currency !== "KES" || !Number.isInteger(resource.price)) {
+  if (
+    resource.currency !== "KES" ||
+    !Number.isInteger(resource.price) ||
+    resource.price > 150_000
+  ) {
     throw new Error("This resource price is not configured for M-Pesa.");
   }
   if (!/^254[17]\d{8}$/.test(input.phoneNumber)) {
     throw new Error("Enter a Safaricom phone number in 2547XXXXXXXX format.");
   }
 
-  const [paid] = await db
-    .select({ id: libraryPurchases.id })
-    .from(libraryPurchases)
-    .where(
-      and(
-        eq(libraryPurchases.resourceId, resource.id),
-        eq(libraryPurchases.studentId, student.id),
-        eq(libraryPurchases.status, "paid"),
-      ),
-    )
-    .limit(1);
-  if (paid) return { purchaseId: paid.id, status: "paid" as const };
+  const purchase = await db.transaction(async (tx) => {
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, student.id))
+      .limit(1)
+      .for("update");
 
-  const [pending] = await db
-    .select({ id: libraryPurchases.id, checkoutRequestId: libraryPurchases.checkoutRequestId })
-    .from(libraryPurchases)
-    .where(
-      and(
-        eq(libraryPurchases.resourceId, resource.id),
-        eq(libraryPurchases.studentId, student.id),
-        eq(libraryPurchases.status, "pending"),
-      ),
-    )
-    .orderBy(desc(libraryPurchases.createdAt))
-    .limit(1);
-  if (pending?.checkoutRequestId) {
-    return { purchaseId: pending.id, status: "pending" as const };
-  }
+    const [paid] = await tx
+      .select({ id: libraryPurchases.id })
+      .from(libraryPurchases)
+      .where(
+        and(
+          eq(libraryPurchases.resourceId, resource.id),
+          eq(libraryPurchases.studentId, student.id),
+          eq(libraryPurchases.status, "paid"),
+        ),
+      )
+      .limit(1);
+    if (paid) return { purchaseId: paid.id, status: "paid" as const };
 
-  const purchaseId = randomUUID();
-  await db.insert(libraryPurchases).values({
-    id: purchaseId,
-    resourceId: resource.id,
-    studentId: student.id,
-    amount: resource.price,
-    currency: resource.currency,
-    status: "pending",
-    phoneNumber: input.phoneNumber,
+    const [pending] = await tx
+      .select({ id: libraryPurchases.id })
+      .from(libraryPurchases)
+      .where(
+        and(
+          eq(libraryPurchases.resourceId, resource.id),
+          eq(libraryPurchases.studentId, student.id),
+          eq(libraryPurchases.status, "pending"),
+        ),
+      )
+      .orderBy(desc(libraryPurchases.createdAt))
+      .limit(1);
+    if (pending) return { purchaseId: pending.id, status: "pending" as const };
+
+    const purchaseId = randomUUID();
+    await tx.insert(libraryPurchases).values({
+      id: purchaseId,
+      resourceId: resource.id,
+      studentId: student.id,
+      amount: resource.price,
+      currency: resource.currency,
+      status: "pending",
+      phoneNumber: input.phoneNumber,
+    });
+    return { purchaseId, status: "new" as const };
   });
+
+  if (purchase.status !== "new") return purchase;
+  const { purchaseId } = purchase;
   try {
     const checkout = await initiateMpesaStkPush({
       phoneNumber: input.phoneNumber,
@@ -981,13 +996,15 @@ async function syncLibraryPurchaseFromProvider(purchaseId: string) {
   }
   const paid = String(verification.ResultCode) === "0";
 
-  await db.transaction(async (tx) => {
+  const status = await db.transaction(async (tx) => {
     const [current] = await tx
       .select({ status: libraryPurchases.status })
       .from(libraryPurchases)
       .where(eq(libraryPurchases.id, purchase.id))
-      .limit(1);
-    if (!current || current.status !== "pending") return;
+      .limit(1)
+      .for("update");
+    if (!current) return "not_found" as const;
+    if (current.status !== "pending") return current.status;
     await tx
       .update(libraryPurchases)
       .set({ status: paid ? "paid" : "failed", ...(paid ? { paidAt: new Date() } : {}) })
@@ -1003,8 +1020,9 @@ async function syncLibraryPurchaseFromProvider(purchaseId: string) {
         href: "/portal/library",
       });
     }
+    return paid ? ("paid" as const) : ("failed" as const);
   });
-  return { status: paid ? ("paid" as const) : ("failed" as const) };
+  return { status };
 }
 
 export async function refreshStudentLibraryPurchaseStatus(purchaseId: string) {
@@ -1048,7 +1066,13 @@ export async function handleLibraryPurchaseCallback(input: {
     await db
       .update(libraryPurchases)
       .set({ receiptNumber: input.receiptNumber.trim().slice(0, 32) })
-      .where(eq(libraryPurchases.id, purchase.id));
+      .where(
+        and(
+          eq(libraryPurchases.id, purchase.id),
+          eq(libraryPurchases.status, "paid"),
+          isNull(libraryPurchases.receiptNumber),
+        ),
+      );
   }
   return result;
 }
