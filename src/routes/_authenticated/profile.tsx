@@ -189,8 +189,12 @@ function InstitutionCombobox({ value }: { value: string }) {
 }
 
 function Profile() {
-  const { user } = Route.useRouteContext();
-  const { data: p, isLoading } = useProfile(user.id);
+  const { user, isAdmin } = Route.useRouteContext();
+  return <ProfileSettings userId={user.id} isAdmin={isAdmin} />;
+}
+
+export function ProfileSettings({ userId, isAdmin }: { userId: string; isAdmin: boolean }) {
+  const { data: p, isLoading } = useProfile(userId);
   const qc = useQueryClient();
   const [profileBusy, setProfileBusy] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
@@ -202,7 +206,7 @@ function Profile() {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
     const yearOfStudy = STUDY_YEARS.find((year) => year === fd["year_of_study"]);
-    if (!yearOfStudy) {
+    if (!isAdmin && !yearOfStudy) {
       toast.error("Select your year of study.");
       return;
     }
@@ -210,8 +214,10 @@ function Profile() {
       full_name: fd["full_name"]?.trim().slice(0, 100) ?? "",
       phone: fd["phone"]?.trim().slice(0, 40) ?? "",
       country: fd["country"]?.trim().slice(0, 60) ?? "",
-      institution: fd["institution"]?.trim().slice(0, 120) ?? "",
-      year_of_study: yearOfStudy,
+      institution: isAdmin
+        ? (p.institution ?? "")
+        : (fd["institution"]?.trim().slice(0, 120) ?? ""),
+      year_of_study: yearOfStudy ?? p.year_of_study ?? "Other",
     };
     if (!patch["full_name"]) {
       toast.error("Name is required");
@@ -261,9 +267,13 @@ function Profile() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-3xl font-semibold">Account & profile</h1>
+        <h1 className="text-3xl font-semibold">
+          {isAdmin ? "Admin account" : "Account & profile"}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Manage your contact and study details, and keep your account secure.
+          {isAdmin
+            ? "Manage your administrator contact details and account security."
+            : "Manage your contact and study details, and keep your account secure."}
         </p>
       </header>
 
@@ -293,25 +303,29 @@ function Profile() {
               <Input id={k} name={k} defaultValue={p[k] ?? ""} className="mt-1.5" />
             </div>
           ))}
-          <div>
-            <Label htmlFor="institution">Institution</Label>
-            <InstitutionCombobox value={p.institution ?? ""} />
-          </div>
-          <div>
-            <Label htmlFor="year_of_study">Year of study</Label>
-            <Select name="year_of_study" defaultValue={currentStudyYear}>
-              <SelectTrigger id="year_of_study" className="mt-1.5 w-full">
-                <SelectValue placeholder="Select year of study" />
-              </SelectTrigger>
-              <SelectContent>
-                {STUDY_YEARS.map((year) => (
-                  <SelectItem key={year} value={year}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!isAdmin && (
+            <>
+              <div>
+                <Label htmlFor="institution">Institution</Label>
+                <InstitutionCombobox value={p.institution ?? ""} />
+              </div>
+              <div>
+                <Label htmlFor="year_of_study">Year of study</Label>
+                <Select name="year_of_study" defaultValue={currentStudyYear}>
+                  <SelectTrigger id="year_of_study" className="mt-1.5 w-full">
+                    <SelectValue placeholder="Select year of study" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STUDY_YEARS.map((year) => (
+                      <SelectItem key={year} value={year}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
           <div className="sm:col-span-2">
             <Button disabled={profileBusy}>{profileBusy ? "Saving…" : "Save profile"}</Button>
           </div>

@@ -5,6 +5,21 @@ export function dashboardRouteFor(isAdmin: boolean) {
   return isAdmin ? "/admin/dashboard" : "/dashboard";
 }
 
+export function adminWorkspaceRedirectFor(
+  isAdmin: boolean,
+  pathname: string,
+): "/admin/login" | "/admin/profile" | "/admin/dashboard" | null {
+  const isAdminPage =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/students") ||
+    pathname.startsWith("/manage");
+
+  if (!isAdmin && isAdminPage) return "/admin/login";
+  if (isAdmin && pathname === "/profile") return "/admin/profile";
+  if (isAdmin && !isAdminPage) return "/admin/dashboard";
+  return null;
+}
+
 export function useUser() {
   const { data: user, isLoading: loading } = useQuery({
     queryKey: ["current-user"],

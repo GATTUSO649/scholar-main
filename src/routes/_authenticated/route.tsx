@@ -31,7 +31,7 @@ import {
   FilePenLine,
 } from "lucide-react";
 import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
-import { useProfile } from "@/lib/auth";
+import { adminWorkspaceRedirectFor, useProfile } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { PortalFooter } from "@/components/PublicPage";
@@ -40,20 +40,14 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const isAdminPage =
-      location.pathname.startsWith("/admin") ||
-      location.pathname.startsWith("/students") ||
-      location.pathname.startsWith("/manage");
     const user = await getCurrentUserFn();
     if (!user) {
-      if (isAdminPage) throw redirect({ to: "/admin/login" });
+      if (location.pathname.startsWith("/admin")) throw redirect({ to: "/admin/login" });
       throw redirect({ to: "/auth", search: { mode: "login" } });
     }
     const isAdmin = await getAdminStateFn();
-    if (isAdminPage && !isAdmin) throw redirect({ to: "/admin/login" });
-    if (isAdmin && !isAdminPage && location.pathname !== "/profile") {
-      throw redirect({ to: "/admin/dashboard" });
-    }
+    const redirectTo = adminWorkspaceRedirectFor(isAdmin, location.pathname);
+    if (redirectTo) throw redirect({ to: redirectTo });
     return { user, isAdmin };
   },
   component: Shell,
@@ -76,8 +70,9 @@ const adminNav = [
   { to: "/admin/resources/articles", label: "Articles", icon: FileText },
   { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
   { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
+  { to: "/admin/pricing", label: "Public pricing", icon: Banknote },
   { to: "/admin/content", label: "Website content", icon: FilePenLine },
-  { to: "/pricing", label: "Public pricing", icon: Banknote },
+  { to: "/admin/profile", label: "Admin profile", icon: User },
 ] as const;
 
 function Shell() {
@@ -103,11 +98,15 @@ function Shell() {
             ? "Library management"
             : path === "/admin/content"
               ? "Website content"
-              : path.startsWith("/students")
-                ? "Student directory"
-                : path.startsWith("/manage")
-                  ? "Request workspace"
-                  : "Service requests";
+              : path === "/admin/pricing"
+                ? "Service pricing"
+                : path === "/admin/profile"
+                  ? "Admin profile"
+                  : path.startsWith("/students")
+                    ? "Student directory"
+                    : path.startsWith("/manage")
+                      ? "Request workspace"
+                      : "Service requests";
 
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
@@ -255,6 +254,7 @@ function Shell() {
             <NotificationBell />
             <ProfileShortcut
               name={profile?.full_name}
+              to="/admin/profile"
               className="text-[#183c34] hover:bg-[#eaf2ed]"
             />
             <button
@@ -284,6 +284,7 @@ function Shell() {
               <NotificationBell />
               <ProfileShortcut
                 name={profile?.full_name}
+                to="/admin/profile"
                 className="text-[#183c34] hover:bg-[#eaf2ed]"
               />
               <span className="inline-flex items-center gap-2 border-l border-[#e4ebe6] pl-3 text-xs font-medium text-[#71817a]">
@@ -313,6 +314,7 @@ function Shell() {
           <NotificationBell />
           <ProfileShortcut
             name={profile?.full_name}
+            to="/profile"
             className="text-sidebar-foreground hover:bg-sidebar-accent"
           />
           <button
@@ -338,7 +340,11 @@ function Shell() {
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
-            <ProfileShortcut name={profile?.full_name} className="text-foreground hover:bg-muted" />
+            <ProfileShortcut
+              name={profile?.full_name}
+              to="/profile"
+              className="text-foreground hover:bg-muted"
+            />
           </div>
         </div>
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
@@ -353,9 +359,11 @@ function Shell() {
 
 function ProfileShortcut({
   name,
+  to,
   className,
 }: {
   name?: string | null | undefined;
+  to: "/admin/profile" | "/profile";
   className: string;
 }) {
   const initials =
@@ -369,7 +377,7 @@ function ProfileShortcut({
 
   return (
     <Link
-      to="/profile"
+      to={to}
       aria-label="Open profile"
       title="Profile"
       className={cn(

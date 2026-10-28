@@ -33,6 +33,8 @@ import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as ApiLibraryRouteImport } from './routes/api.library'
 import { Route as AuthenticatedAdminContentRouteImport } from './routes/_authenticated/admin.content'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
+import { Route as AuthenticatedAdminPricingRouteImport } from './routes/_authenticated/admin.pricing'
+import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authenticated/admin.profile'
 import { Route as AuthenticatedAdminResourcesRouteImport } from './routes/_authenticated/admin.resources'
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
 import { Route as AuthenticatedPortalLibraryRouteImport } from './routes/_authenticated/portal.library'
@@ -164,6 +166,18 @@ const AuthenticatedAdminDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminPricingRoute =
+  AuthenticatedAdminPricingRouteImport.update({
+    id: '/pricing',
+    path: '/pricing',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminProfileRoute =
+  AuthenticatedAdminProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminResourcesRoute =
   AuthenticatedAdminResourcesRouteImport.update({
     id: '/resources',
@@ -239,6 +253,8 @@ export interface FileRoutesByFullPath {
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/pricing': typeof AuthenticatedAdminPricingRoute
+  '/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
@@ -273,6 +289,8 @@ export interface FileRoutesByTo {
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/pricing': typeof AuthenticatedAdminPricingRoute
+  '/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
@@ -309,6 +327,8 @@ export interface FileRoutesById {
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/_authenticated/admin/content': typeof AuthenticatedAdminContentRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/_authenticated/admin/pricing': typeof AuthenticatedAdminPricingRoute
+  '/_authenticated/admin/profile': typeof AuthenticatedAdminProfileRoute
   '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
   '/_authenticated/portal/library': typeof AuthenticatedPortalLibraryRoute
@@ -345,6 +365,8 @@ export interface FileRouteTypes {
     | '/api/library'
     | '/admin/content'
     | '/admin/dashboard'
+    | '/admin/pricing'
+    | '/admin/profile'
     | '/admin/resources'
     | '/manage/$id'
     | '/portal/library'
@@ -379,6 +401,8 @@ export interface FileRouteTypes {
     | '/api/library'
     | '/admin/content'
     | '/admin/dashboard'
+    | '/admin/pricing'
+    | '/admin/profile'
     | '/admin/resources'
     | '/manage/$id'
     | '/portal/library'
@@ -414,6 +438,8 @@ export interface FileRouteTypes {
     | '/api/library'
     | '/_authenticated/admin/content'
     | '/_authenticated/admin/dashboard'
+    | '/_authenticated/admin/pricing'
+    | '/_authenticated/admin/profile'
     | '/_authenticated/admin/resources'
     | '/_authenticated/manage/$id'
     | '/_authenticated/portal/library'
@@ -613,6 +639,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminDashboardRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/pricing': {
+      id: '/_authenticated/admin/pricing'
+      path: '/pricing'
+      fullPath: '/admin/pricing'
+      preLoaderRoute: typeof AuthenticatedAdminPricingRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/profile': {
+      id: '/_authenticated/admin/profile'
+      path: '/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AuthenticatedAdminProfileRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/resources': {
       id: '/_authenticated/admin/resources'
       path: '/resources'
@@ -703,12 +743,16 @@ const AuthenticatedAdminResourcesRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminContentRoute: typeof AuthenticatedAdminContentRoute
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
+  AuthenticatedAdminPricingRoute: typeof AuthenticatedAdminPricingRoute
+  AuthenticatedAdminProfileRoute: typeof AuthenticatedAdminProfileRoute
   AuthenticatedAdminResourcesRoute: typeof AuthenticatedAdminResourcesRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminContentRoute: AuthenticatedAdminContentRoute,
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
+  AuthenticatedAdminPricingRoute: AuthenticatedAdminPricingRoute,
+  AuthenticatedAdminProfileRoute: AuthenticatedAdminProfileRoute,
   AuthenticatedAdminResourcesRoute:
     AuthenticatedAdminResourcesRouteWithChildren,
 }
