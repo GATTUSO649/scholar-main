@@ -136,12 +136,15 @@ describe("M-Pesa configuration", () => {
       );
 
     await expect(
-      initiateMpesaStkPush({
-        phoneNumber: "254712345678",
-        amount: 500,
-        accountReference: "LIB-123",
-        transactionDesc: "LIBRARY",
-      }),
+      initiateMpesaStkPush(
+        {
+          phoneNumber: "254712345678",
+          amount: 500,
+          accountReference: "LIB-123",
+          transactionDesc: "LIBRARY",
+        },
+        "123456",
+      ),
     ).resolves.toMatchObject({ CheckoutRequestID: "ws_CO_test" });
 
     expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
@@ -163,12 +166,12 @@ describe("M-Pesa configuration", () => {
       PartyB: string;
     };
     expect(requestBody).toMatchObject({
-      BusinessShortCode: "174379",
+      BusinessShortCode: "123456",
       CallBackURL: "https://example.com/api/library/callback",
       Amount: 500,
       PhoneNumber: "254712345678",
       PartyA: "254712345678",
-      PartyB: "174379",
+      PartyB: "123456",
       TransactionType: "CustomerBuyGoodsOnline",
     });
     fetchSpy.mockRestore();

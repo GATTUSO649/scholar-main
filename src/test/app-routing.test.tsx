@@ -31,6 +31,14 @@ describe("App routing", () => {
     expect(matches.at(-1)?.routeId).toBe("/_authenticated/admin/payments");
   });
 
+  it("matches the administrator business settings page", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    const matches = router.matchRoutes("/admin/business-settings");
+
+    expect(matches.at(-1)?.routeId).toBe("/_authenticated/admin/business-settings");
+  });
+
   it.each([
     ["/how-it-works", "/how-it-works"],
     ["/services", "/services"],

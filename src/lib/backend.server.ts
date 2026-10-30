@@ -750,6 +750,58 @@ export async function getPublicSiteContent() {
   };
 }
 
+export async function getPublicPaymentDetails() {
+  const [settings] = await getDatabase()
+    .select({
+      businessName: siteSettings.businessName,
+      mpesaTillNumber: siteSettings.mpesaTillNumber,
+    })
+    .from(siteSettings)
+    .where(eq(siteSettings.id, 1))
+    .limit(1);
+  return {
+    businessName: settings?.businessName ?? "ScholarDesk",
+    tillNumber: settings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "",
+    paymentMethod: "M-PESA" as const,
+    currency: "KES" as const,
+  };
+}
+
+export async function getAdminBusinessSettings() {
+  await requireAdmin();
+  const [settings] = await getDatabase()
+    .select({
+      businessName: siteSettings.businessName,
+      mpesaTillNumber: siteSettings.mpesaTillNumber,
+    })
+    .from(siteSettings)
+    .where(eq(siteSettings.id, 1))
+    .limit(1);
+  return {
+    businessName: settings?.businessName ?? "ScholarDesk",
+    mpesaTillNumber: settings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "",
+  };
+}
+
+export async function saveAdminBusinessSettings(input: {
+  businessName: string;
+  mpesaTillNumber: string;
+}) {
+  await requireAdmin();
+  const businessName = input.businessName.trim();
+  const mpesaTillNumber = input.mpesaTillNumber.trim();
+  if (!businessName || businessName.length > 120) throw new Error("Enter a valid business name.");
+  if (!/^\d{5,7}$/.test(mpesaTillNumber)) {
+    throw new Error("Enter the registered M-PESA Till Number using 5 to 7 digits.");
+  }
+  const updatedAt = new Date();
+  await getDatabase()
+    .insert(siteSettings)
+    .values({ id: 1, businessName, mpesaTillNumber, updatedAt })
+    .onDuplicateKeyUpdate({ set: { businessName, mpesaTillNumber, updatedAt } });
+  return { success: true };
+}
+
 export async function getAdminSiteContent() {
   await requireAdmin();
   const db = getDatabase();
@@ -1002,8 +1054,15 @@ export async function getLibraryResourceForDownload(id: string) {
 export async function startLibraryPurchase(input: { resourceId: string; phoneNumber: string }) {
   const student = await requireLibraryStudent();
   const phoneNumber = normalizeMpesaPhoneNumber(input.phoneNumber);
-  if (!getMpesaConfig()) throw new Error("M-Pesa payments are not configured.");
   const db = getDatabase();
+  const [businessSettings] = await db
+    .select({ mpesaTillNumber: siteSettings.mpesaTillNumber })
+    .from(siteSettings)
+    .where(eq(siteSettings.id, 1))
+    .limit(1);
+  const merchantShortcode =
+    businessSettings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "";
+  if (!getMpesaConfig(merchantShortcode)) throw new Error("M-Pesa payments are not configured.");
   const [resource] = await db
     .select({
       id: libraryResources.id,
@@ -1108,6 +1167,7 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       status: "pending",
       phoneNumber,
       accountReference,
+      merchantShortcode,
       expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
     });
     return { purchaseId, status: "new" as const };
@@ -1117,12 +1177,15 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
   const { purchaseId } = purchase;
   let providerAccepted = false;
   try {
-    const checkout = await initiateMpesaStkPush({
-      phoneNumber,
-      amount: resource.price,
-      accountReference: `L${purchaseId.replaceAll("-", "").slice(0, 11)}`,
-      transactionDesc: "LIBRARY",
-    });
+    const checkout = await initiateMpesaStkPush(
+      {
+        phoneNumber,
+        amount: resource.price,
+        accountReference: `L${purchaseId.replaceAll("-", "").slice(0, 11)}`,
+        transactionDesc: "LIBRARY",
+      },
+      merchantShortcode,
+    );
     providerAccepted = true;
     if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {
       throw new MpesaUncertainOutcomeError();
@@ -1183,6 +1246,7 @@ async function syncLibraryPurchaseFromProvider(
       amount: libraryPurchases.amount,
       status: libraryPurchases.status,
       checkoutRequestId: libraryPurchases.checkoutRequestId,
+      merchantShortcode: libraryPurchases.merchantShortcode,
       expiresAt: libraryPurchases.expiresAt,
       createdAt: libraryPurchases.createdAt,
       failureReason: libraryPurchases.failureReason,
@@ -1221,7 +1285,10 @@ async function syncLibraryPurchaseFromProvider(
   }
   let verification;
   try {
-    verification = await queryMpesaStkPush(purchase.checkoutRequestId);
+    verification = await queryMpesaStkPush(
+      purchase.checkoutRequestId,
+      purchase.merchantShortcode ?? undefined,
+    );
   } catch (error) {
     if (expired()) return expirePurchase();
     throw error;

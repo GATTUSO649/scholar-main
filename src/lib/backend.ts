@@ -176,6 +176,32 @@ export const getPublicSiteContentFn = createServerFn({ method: "GET" }).handler(
   return getPublicSiteContent();
 });
 
+export const getPublicPaymentDetailsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getPublicPaymentDetails } = await import("./backend.server");
+  return getPublicPaymentDetails();
+});
+
+export const getAdminBusinessSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getAdminBusinessSettings } = await import("./backend.server");
+  return getAdminBusinessSettings();
+});
+
+export const saveAdminBusinessSettingsFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      businessName: z.string().trim().min(2).max(120),
+      mpesaTillNumber: z
+        .string()
+        .trim()
+        .regex(/^\d{5,7}$/),
+    }),
+  )
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { saveAdminBusinessSettings } = await import("./backend.server");
+    return saveAdminBusinessSettings(data);
+  });
+
 export const getAdminSiteContentFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getAdminSiteContent } = await import("./backend.server");
   return getAdminSiteContent();

@@ -290,6 +290,7 @@ export const libraryPurchases = mysqlTable(
     merchantRequestId: varchar("merchant_request_id", { length: 100 }),
     checkoutRequestId: varchar("checkout_request_id", { length: 100 }),
     receiptNumber: varchar("receipt_number", { length: 32 }),
+    merchantShortcode: varchar("merchant_shortcode", { length: 7 }),
     transactionTimestamp: datetime("transaction_timestamp", { mode: "date", fsp: 3 }),
     callbackResponse: json("callback_response").$type<Record<string, unknown>>(),
     failureReason: varchar("failure_reason", { length: 255 }),
@@ -329,6 +330,8 @@ export const faqEntries = mysqlTable(
 
 export const siteSettings = mysqlTable("site_settings", {
   id: int("id").primaryKey().default(1),
+  businessName: varchar("business_name", { length: 120 }).notNull().default("ScholarDesk"),
+  mpesaTillNumber: varchar("mpesa_till_number", { length: 7 }),
   showPrices: boolean("show_prices").notNull().default(true),
   contactEmail: varchar("contact_email", { length: 255 })
     .notNull()

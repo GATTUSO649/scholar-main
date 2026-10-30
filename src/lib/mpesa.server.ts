@@ -37,10 +37,10 @@ export function mapMpesaResultCodeToPurchaseStatus(
   return "failed";
 }
 
-export function getMpesaConfig(): MpesaConfig | null {
+export function getMpesaConfig(merchantShortcode?: string): MpesaConfig | null {
   const consumerKey = process.env["MPESA_CONSUMER_KEY"]?.trim() ?? "";
   const consumerSecret = process.env["MPESA_CONSUMER_SECRET"]?.trim() ?? "";
-  const shortcode = process.env["MPESA_SHORTCODE"]?.trim() ?? "";
+  const shortcode = merchantShortcode?.trim() || process.env["MPESA_SHORTCODE"]?.trim() || "";
   const passkey = process.env["MPESA_PASSKEY"]?.trim() ?? "";
   const callbackUrl = process.env["MPESA_CALLBACK_URL"]?.trim() ?? "";
   const environment = process.env["MPESA_ENV"]?.trim();
@@ -114,8 +114,8 @@ function timestamp() {
   return `${values["year"]}${values["month"]}${values["day"]}${values["hour"]}${values["minute"]}${values["second"]}`;
 }
 
-export async function initiateMpesaStkPush(input: StkPushInput) {
-  const config = getMpesaConfig();
+export async function initiateMpesaStkPush(input: StkPushInput, merchantShortcode?: string) {
+  const config = getMpesaConfig(merchantShortcode);
   if (!config) throw new Error("M-Pesa payments are not configured.");
   if (!Number.isInteger(input.amount) || input.amount < 1 || input.amount > 150_000) {
     throw new Error("M-Pesa amount must be a whole number of KES between 1 and 150,000.");
@@ -195,8 +195,8 @@ export async function initiateMpesaStkPush(input: StkPushInput) {
   return result;
 }
 
-export async function queryMpesaStkPush(checkoutRequestId: string) {
-  const config = getMpesaConfig();
+export async function queryMpesaStkPush(checkoutRequestId: string, merchantShortcode?: string) {
+  const config = getMpesaConfig(merchantShortcode);
   if (!config) throw new Error("M-Pesa payments are not configured.");
   if (!/^[\w-]{1,100}$/.test(checkoutRequestId)) {
     throw new Error("Invalid M-Pesa checkout reference.");

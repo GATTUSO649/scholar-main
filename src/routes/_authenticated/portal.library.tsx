@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getStudentLibraryResourcesFn } from "@/lib/backend";
+import { getPublicPaymentDetailsFn, getStudentLibraryResourcesFn } from "@/lib/backend";
 import { MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
 type LibraryCategory = "all" | "novel" | "business_plan" | "article";
@@ -84,6 +84,14 @@ function StudentLibraryPage() {
   } = useQuery({
     queryKey: ["library-resources"],
     queryFn: () => getStudentLibraryResourcesFn(),
+  });
+  const {
+    data: paymentDetails,
+    isLoading: paymentDetailsLoading,
+    isError: paymentDetailsError,
+  } = useQuery({
+    queryKey: ["public-payment-details"],
+    queryFn: () => getPublicPaymentDetailsFn(),
   });
 
   const filtered = useMemo(() => {
@@ -421,6 +429,52 @@ function StudentLibraryPage() {
                 {purchaseResource.currency} {purchaseResource.price.toLocaleString()}
               </p>
             </div>
+            <section
+              aria-label="Payment details"
+              className="space-y-3 rounded-md border border-[#dfe8e3] bg-[#f7faf7] p-4"
+            >
+              <h3 className="text-sm font-semibold text-[#24473b]">Payment details</h3>
+              {paymentDetailsError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  Payment details could not be loaded. Please retry in a moment.
+                </p>
+              ) : (
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs text-[#71817a]">Paying</dt>
+                    <dd className="mt-0.5 font-medium text-[#24473b]">
+                      {paymentDetailsLoading
+                        ? "Loading…"
+                        : (paymentDetails?.businessName ?? "ScholarDesk")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-[#71817a]">M-PESA Till Number</dt>
+                    <dd className="mt-0.5 font-mono font-semibold text-[#24473b]">
+                      {paymentDetailsLoading
+                        ? "Loading…"
+                        : paymentDetails?.tillNumber || "Not configured"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-[#71817a]">Amount</dt>
+                    <dd className="mt-0.5 font-semibold text-[#24473b]">
+                      {purchaseResource.currency} {purchaseResource.price.toLocaleString()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-[#71817a]">Prompt phone number</dt>
+                    <dd className="mt-0.5 font-medium text-[#24473b]">
+                      {purchasePhone || "Enter your number below"}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+              <p className="text-xs leading-5 text-[#71817a]">
+                After you continue, approve the M-PESA prompt on this phone with your PIN. Access
+                unlocks after payment is confirmed.
+              </p>
+            </section>
             {purchaseStatus === "waiting" || purchaseStatus === "pending" ? (
               <div
                 role="status"
@@ -491,12 +545,23 @@ function StudentLibraryPage() {
               purchaseStatus === "failed" ||
               purchaseStatus === "cancelled" ||
               purchaseStatus === "expired" ? (
-                <Button type="submit" form="library-purchase" disabled={purchaseBusy}>
+                <Button
+                  type="submit"
+                  form="library-purchase"
+                  disabled={
+                    purchaseBusy ||
+                    paymentDetailsLoading ||
+                    paymentDetailsError ||
+                    !paymentDetails?.tillNumber
+                  }
+                >
                   {purchaseBusy
                     ? "Sending prompt…"
-                    : purchaseStatus === "idle"
-                      ? "Pay with M-PESA"
-                      : "Retry payment"}
+                    : !paymentDetails?.tillNumber
+                      ? "M-PESA unavailable"
+                      : purchaseStatus === "idle"
+                        ? "Pay with M-PESA"
+                        : "Retry payment"}
                 </Button>
               ) : null}
             </DialogFooter>

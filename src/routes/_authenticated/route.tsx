@@ -29,6 +29,7 @@ import {
   Sparkles,
   Banknote,
   FilePenLine,
+  Building2,
 } from "lucide-react";
 import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
 import { adminWorkspaceRedirectFor, useProfile } from "@/lib/auth";
@@ -73,6 +74,7 @@ const adminNav = [
   { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
   { to: "/admin/pricing", label: "Public pricing", icon: Banknote },
   { to: "/admin/content", label: "Website content", icon: FilePenLine },
+  { to: "/admin/business-settings", label: "Business settings", icon: Building2 },
   { to: "/admin/profile", label: "Admin profile", icon: User },
 ] as const;
 
@@ -105,11 +107,13 @@ function Shell() {
                   ? "Service pricing"
                   : path === "/admin/profile"
                     ? "Admin profile"
-                    : path.startsWith("/students")
-                      ? "Student directory"
-                      : path.startsWith("/manage")
-                        ? "Request workspace"
-                        : "Service requests";
+                    : path === "/admin/business-settings"
+                      ? "Business settings"
+                      : path.startsWith("/students")
+                        ? "Student directory"
+                        : path.startsWith("/manage")
+                          ? "Request workspace"
+                          : "Service requests";
 
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
