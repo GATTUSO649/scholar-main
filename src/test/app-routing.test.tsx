@@ -23,6 +23,14 @@ describe("App routing", () => {
     expect(matches.at(-1)?.routeId).toBe("/admin/login");
   });
 
+  it("matches the administrator M-PESA transaction page", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    const matches = router.matchRoutes("/admin/payments");
+
+    expect(matches.at(-1)?.routeId).toBe("/_authenticated/admin/payments");
+  });
+
   it.each([
     ["/how-it-works", "/how-it-works"],
     ["/services", "/services"],

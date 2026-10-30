@@ -14,19 +14,23 @@ function errorResponse(error: unknown) {
       ? 413
       : error instanceof InvalidRequestBodyError
         ? 400
-        : message.includes("signed in")
-          ? 401
-          : message.includes("Student library")
-            ? 403
-            : message.includes("not found")
-              ? 404
-              : message.includes("not configured")
-                ? 503
-                : message.includes("phone number") ||
-                    message.includes("price") ||
-                    message.includes("free")
-                  ? 400
-                  : 500;
+        : message.includes("Too many recent payment attempts")
+          ? 429
+          : message.includes("signed in")
+            ? 401
+            : message.includes("Student library")
+              ? 403
+              : message.includes("not found")
+                ? 404
+                : message.includes("not configured") ||
+                    message.includes("configuration") ||
+                    message.startsWith("MPESA_")
+                  ? 503
+                  : message.includes("phone number") ||
+                      message.includes("price") ||
+                      message.includes("free")
+                    ? 400
+                    : 500;
   if (status === 500) {
     console.error("Library checkout failed.", {
       name: error instanceof Error ? error.name : "UnknownError",
@@ -34,7 +38,14 @@ function errorResponse(error: unknown) {
     });
   }
   return Response.json(
-    { error: status === 500 ? "Could not start library checkout." : message },
+    {
+      error:
+        status === 500
+          ? "Could not start library checkout."
+          : status === 503
+            ? "M-PESA payments are temporarily unavailable. Please try again later."
+            : message,
+    },
     { status },
   );
 }

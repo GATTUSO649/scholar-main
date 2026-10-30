@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  LoaderCircle,
   Search,
   Smartphone,
 } from "lucide-react";
@@ -36,7 +37,7 @@ type StudentResource = {
   price: number;
   currency: string;
   created_at: string;
-  purchase_status: "free" | "available" | "pending" | "paid" | "failed";
+  purchase_status: "free" | "available" | "pending" | "paid" | "failed" | "cancelled";
 };
 
 const categories: { id: LibraryCategory; label: string }[] = [
@@ -68,6 +69,10 @@ function StudentLibraryPage() {
   const [purchaseResource, setPurchaseResource] = useState<StudentResource | null>(null);
   const [purchasePhone, setPurchasePhone] = useState("");
   const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [paymentPhone, setPaymentPhone] = useState("");
+  const [purchaseStatus, setPurchaseStatus] = useState<
+    "idle" | "waiting" | "paid" | "failed" | "cancelled" | "pending"
+  >("idle");
   const [checkingPurchaseId, setCheckingPurchaseId] = useState<string | null>(null);
   const {
     data: resources = [],
@@ -102,12 +107,14 @@ function StudentLibraryPage() {
         body: JSON.stringify({ purchaseId }),
       });
       const result = (await response.json().catch(() => null)) as {
-        status?: "pending" | "paid" | "failed" | "not_found";
+        status?: "pending" | "paid" | "failed" | "cancelled" | "not_found";
         error?: string;
       } | null;
       if (!response.ok) throw new Error(result?.error ?? "Could not check payment status.");
       await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
       if (result?.status === "paid") toast.success("Payment confirmed. Your document is ready.");
+      else if (result?.status === "cancelled")
+        toast("Payment prompt cancelled. You can retry from the resource card.");
       else if (result?.status === "failed")
         toast.error("Payment was not completed. You can try again.");
       else toast("Payment is still processing. Refresh this page in a moment.");
@@ -135,19 +142,20 @@ function StudentLibraryPage() {
       const result = (await response.json().catch(() => null)) as {
         purchaseId?: string;
         status?: string;
+        phoneNumber?: string;
         message?: string;
         error?: string;
       } | null;
       if (!response.ok) throw new Error(result?.error ?? "Could not start payment.");
-      setPurchaseResource(null);
-      setPurchasePhone("");
       await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
       if (result?.status === "paid") {
         toast.success("You already own this document.");
+        setPurchaseResource(null);
         return;
       }
       if (result?.purchaseId) {
-        toast.success(result.message ?? "Payment prompt sent. Enter your M-Pesa PIN to continue.");
+        setPaymentPhone(result.phoneNumber ?? purchasePhone);
+        setPurchaseStatus("waiting");
         for (let attempt = 0; attempt < 20; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 3000));
           const check = await fetch("/api/library/purchase", {
@@ -158,17 +166,26 @@ function StudentLibraryPage() {
           const state = (await check.json().catch(() => null)) as { status?: string } | null;
           await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
           if (state?.status === "paid") {
+            setPurchaseStatus("paid");
             toast.success("Payment confirmed. Your document is ready to download.");
             return;
           }
           if (state?.status === "failed" || state?.status === "not_found") {
+            setPurchaseStatus("failed");
             toast.error("Payment was not completed. You can try again.");
             return;
           }
+          if (state?.status === "cancelled") {
+            setPurchaseStatus("cancelled");
+            toast("Payment prompt cancelled. You can retry from the resource card.");
+            return;
+          }
         }
+        setPurchaseStatus("pending");
         toast("Payment is still processing. Use Check payment on the document when ready.");
       }
     } catch (error) {
+      setPurchaseStatus("failed");
       toast.error(error instanceof Error ? error.message : "Could not start payment.");
     } finally {
       setPurchaseBusy(false);
@@ -305,6 +322,11 @@ function StudentLibraryPage() {
                     : "Free"}
                 </span>
               </div>
+              {resource.purchase_status === "cancelled" && (
+                <p className="mt-3 text-sm font-medium text-amber-700" role="status">
+                  Payment cancelled. Retry whenever you’re ready.
+                </p>
+              )}
               {resource.purchase_status === "free" || resource.purchase_status === "paid" ? (
                 <Button asChild className="mt-5 w-full">
                   <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
@@ -339,7 +361,11 @@ function StudentLibraryPage() {
                   onClick={() => setPurchaseResource(resource)}
                 >
                   <Smartphone className="mr-2 h-4 w-4" />
-                  {resource.purchase_status === "failed" ? "Try payment again" : "Buy document"}
+                  {resource.purchase_status === "cancelled"
+                    ? "Retry payment"
+                    : resource.purchase_status === "failed"
+                      ? "Try payment again"
+                      : "Buy document"}
                 </Button>
               )}
             </article>
@@ -349,7 +375,10 @@ function StudentLibraryPage() {
       <Dialog
         open={!!purchaseResource}
         onOpenChange={(open) => {
-          if (!open && !purchaseBusy) setPurchaseResource(null);
+          if (!open && !purchaseBusy) {
+            setPurchaseResource(null);
+            setPurchaseStatus("idle");
+          }
         }}
       >
         {purchaseResource && (
@@ -357,8 +386,11 @@ function StudentLibraryPage() {
             <DialogHeader>
               <DialogTitle>Buy this resource</DialogTitle>
               <DialogDescription>
-                An M-Pesa prompt will be sent to your phone. The download unlocks after payment is
-                confirmed.
+                {purchaseStatus === "waiting"
+                  ? "Complete the M-PESA prompt. Access unlocks after Safaricom confirms payment."
+                  : purchaseStatus === "paid"
+                    ? "Safaricom confirmed your payment. Your resource is ready."
+                    : "An M-PESA prompt will be sent to your phone. The download unlocks after payment is confirmed."}
               </DialogDescription>
             </DialogHeader>
             <div className="border-y py-3">
@@ -367,33 +399,79 @@ function StudentLibraryPage() {
                 {purchaseResource.currency} {purchaseResource.price.toLocaleString()}
               </p>
             </div>
-            <form id="library-purchase" onSubmit={startPurchase} className="space-y-2">
-              <Label htmlFor="purchase-phone">Safaricom phone number</Label>
-              <Input
-                id="purchase-phone"
-                type="tel"
-                autoComplete="tel"
-                placeholder="07XX XXX XXX or 2547XX XXX XXX"
-                value={purchasePhone}
-                onChange={(event) => setPurchasePhone(event.target.value)}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Charges are made in whole KES using M-Pesa STK Push.
-              </p>
-            </form>
+            {purchaseStatus === "waiting" || purchaseStatus === "pending" ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex items-start gap-3 border-y py-5"
+              >
+                <LoaderCircle className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-primary" />
+                <div>
+                  <p className="font-medium">
+                    {purchaseStatus === "waiting"
+                      ? "Waiting for M-PESA confirmation"
+                      : "Payment is still pending"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Prompt sent to {paymentPhone || purchasePhone}. Enter your M-PESA PIN on your
+                    phone. Do not retry while this payment is pending.
+                  </p>
+                </div>
+              </div>
+            ) : purchaseStatus === "paid" ? (
+              <div className="flex items-start gap-3 border-y py-5" role="status">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                <p className="text-sm">Payment verified. Your resource is ready to download.</p>
+              </div>
+            ) : (
+              <>
+                {purchaseStatus === "failed" || purchaseStatus === "cancelled" ? (
+                  <p className="border-y py-3 text-sm text-destructive" role="alert">
+                    {purchaseStatus === "cancelled"
+                      ? "The M-PESA prompt was cancelled. You can safely retry."
+                      : "Payment was not confirmed. Check your M-PESA balance or number, then retry."}
+                  </p>
+                ) : null}
+                <form id="library-purchase" onSubmit={startPurchase} className="space-y-2">
+                  <Label htmlFor="purchase-phone">Safaricom phone number</Label>
+                  <Input
+                    id="purchase-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder="07XX XXX XXX or 2547XX XXX XXX"
+                    value={purchasePhone}
+                    onChange={(event) => setPurchasePhone(event.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Charges are made in whole KES using M-PESA STK Push.
+                  </p>
+                </form>
+              </>
+            )}
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setPurchaseResource(null)}
+                onClick={() => {
+                  setPurchaseResource(null);
+                  setPurchaseStatus("idle");
+                }}
                 disabled={purchaseBusy}
               >
-                Cancel
+                {purchaseStatus === "paid" || purchaseStatus === "pending" ? "Close" : "Cancel"}
               </Button>
-              <Button type="submit" form="library-purchase" disabled={purchaseBusy}>
-                {purchaseBusy ? "Sending prompt…" : "Pay with M-Pesa"}
-              </Button>
+              {purchaseStatus === "idle" ||
+              purchaseStatus === "failed" ||
+              purchaseStatus === "cancelled" ? (
+                <Button type="submit" form="library-purchase" disabled={purchaseBusy}>
+                  {purchaseBusy
+                    ? "Sending prompt…"
+                    : purchaseStatus === "idle"
+                      ? "Pay with M-PESA"
+                      : "Retry payment"}
+                </Button>
+              ) : null}
             </DialogFooter>
           </DialogContent>
         )}

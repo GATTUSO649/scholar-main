@@ -4,6 +4,7 @@ import {
   decimal,
   index,
   int,
+  json,
   mysqlEnum,
   mysqlTable,
   text,
@@ -280,20 +281,33 @@ export const libraryPurchases = mysqlTable(
       .references(() => users.id, { onDelete: "cascade" }),
     amount: decimal("amount", { precision: 10, scale: 2, mode: "number" }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull().default("KES"),
-    status: mysqlEnum("status", ["pending", "paid", "failed"]).notNull().default("pending"),
+    status: mysqlEnum("status", ["pending", "paid", "failed", "cancelled"])
+      .notNull()
+      .default("pending"),
+    paymentMethod: varchar("payment_method", { length: 20 }).notNull().default("mpesa"),
+    accountReference: varchar("account_reference", { length: 12 }),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
     merchantRequestId: varchar("merchant_request_id", { length: 100 }),
     checkoutRequestId: varchar("checkout_request_id", { length: 100 }),
     receiptNumber: varchar("receipt_number", { length: 32 }),
+    transactionTimestamp: datetime("transaction_timestamp", { mode: "date", fsp: 3 }),
+    callbackResponse: json("callback_response").$type<Record<string, unknown>>(),
+    failureReason: varchar("failure_reason", { length: 255 }),
     createdAt: datetime("created_at", { mode: "date", fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+    updatedAt: datetime("updated_at", { mode: "date", fsp: 3 })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP(3)`),
     paidAt: datetime("paid_at", { mode: "date", fsp: 3 }),
   },
   (table) => [
     uniqueIndex("library_purchases_checkout_unique").on(table.checkoutRequestId),
+    uniqueIndex("library_purchases_merchant_unique").on(table.merchantRequestId),
+    uniqueIndex("library_purchases_receipt_unique").on(table.receiptNumber),
     index("library_purchases_student_status_idx").on(table.studentId, table.status),
     index("library_purchases_resource_created_idx").on(table.resourceId, table.createdAt),
+    index("library_purchases_status_created_idx").on(table.status, table.createdAt),
   ],
 );
 

@@ -85,6 +85,20 @@
       "when": 1793200765813,
       "tag": "0011_faq_page_copy",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1793205376491,
+      "tag": "0012_cancelled_library_purchase",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1793400000000,
+      "tag": "0013_mpesa_production_payments",
+      "breakpoints": true
     }
   ]
 }

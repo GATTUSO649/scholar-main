@@ -1,0 +1,1 @@
+ALTER TABLE `library_purchases` MODIFY COLUMN `status` enum('pending','paid','failed','cancelled') NOT NULL DEFAULT 'pending';

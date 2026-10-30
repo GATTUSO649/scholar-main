@@ -24,10 +24,10 @@ services:
         value: production
       - key: APP_URL
         sync: false
-      - key: MPESA_ENVIRONMENT
-        value: sandbox
+      - key: MPESA_ENV
+        value: production
       - key: MPESA_TRANSACTION_TYPE
-        value: CustomerPayBillOnline
+        value: CustomerBuyGoodsOnline
       - key: MPESA_CONSUMER_KEY
         sync: false
       - key: MPESA_CONSUMER_SECRET
@@ -38,6 +38,8 @@ services:
         sync: false
       - key: MPESA_CALLBACK_URL
         sync: false
+      - key: MPESA_STK_QUERY_ENABLED
+        value: "true"
       - key: ADMIN_SIGNUP_SECRET
         sync: false
       - key: FILE_STORAGE_DIR

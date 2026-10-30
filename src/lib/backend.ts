@@ -304,6 +304,19 @@ export const getAdminRequestsFn = createServerFn({ method: "GET" }).handler(asyn
   return getAdminRequests();
 });
 
+export const getAdminMpesaPurchasesFn = createServerFn({ method: "GET" })
+  .validator(
+    z.object({
+      search: z.string().max(100),
+      status: z.enum(["all", "pending", "paid", "failed", "cancelled"]),
+      offset: z.number().int().min(0).max(1_000_000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { getAdminMpesaPurchases } = await import("./backend.server");
+    return getAdminMpesaPurchases(data);
+  });
+
 export const getAdminStudentsFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getAdminStudents } = await import("./backend.server");
   return getAdminStudents();

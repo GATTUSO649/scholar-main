@@ -65,6 +65,7 @@ const studentNav = [
 const adminNav = [
   { to: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/admin", label: "Service requests", icon: ClipboardList },
+  { to: "/admin/payments", label: "M-PESA payments", icon: Banknote },
   { to: "/students", label: "Students", icon: Users },
   { to: "/admin/resources", label: "Library", icon: BookOpen },
   { to: "/admin/resources/articles", label: "Articles", icon: FileText },
@@ -88,25 +89,27 @@ function Shell() {
     (path.startsWith("/admin") || path.startsWith("/students") || path.startsWith("/manage"));
   const pageTitle = path.startsWith("/admin/dashboard")
     ? "Operations overview"
-    : path === "/admin/resources/articles"
-      ? "Article library"
-      : path === "/admin/resources/novels"
-        ? "Novel library"
-        : path === "/admin/resources/business-plans"
-          ? "Business plan library"
-          : path.startsWith("/admin/resources")
-            ? "Library management"
-            : path === "/admin/content"
-              ? "Website content"
-              : path === "/admin/pricing"
-                ? "Service pricing"
-                : path === "/admin/profile"
-                  ? "Admin profile"
-                  : path.startsWith("/students")
-                    ? "Student directory"
-                    : path.startsWith("/manage")
-                      ? "Request workspace"
-                      : "Service requests";
+    : path === "/admin/payments"
+      ? "M-PESA transactions"
+      : path === "/admin/resources/articles"
+        ? "Article library"
+        : path === "/admin/resources/novels"
+          ? "Novel library"
+          : path === "/admin/resources/business-plans"
+            ? "Business plan library"
+            : path.startsWith("/admin/resources")
+              ? "Library management"
+              : path === "/admin/content"
+                ? "Website content"
+                : path === "/admin/pricing"
+                  ? "Service pricing"
+                  : path === "/admin/profile"
+                    ? "Admin profile"
+                    : path.startsWith("/students")
+                      ? "Student directory"
+                      : path.startsWith("/manage")
+                        ? "Request workspace"
+                        : "Service requests";
 
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;

@@ -30,7 +30,7 @@ export function PublicPage({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <SiteHeader overlay={false} />
       <main className="flex-1">{children}</main>
-      <footer className="bg-[#123b33] text-white">
+      <footer className="bg-[#0b1f3a] text-white">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:grid-cols-2 sm:py-14 lg:grid-cols-[1.4fr_0.8fr_1fr]">
           <div>
             <Logo light />

@@ -1,6 +1,5 @@
 type MpesaConfig = {
-  environment: "sandbox" | "production";
-  transactionType: "CustomerPayBillOnline" | "CustomerBuyGoodsOnline";
+  transactionType: "CustomerBuyGoodsOnline";
   consumerKey: string;
   consumerSecret: string;
   shortcode: string;
@@ -22,14 +21,31 @@ export type StkPushQueryResult = {
   CheckoutRequestID?: string;
 };
 
+export class MpesaUncertainOutcomeError extends Error {
+  constructor() {
+    super("Safaricom's STK Push outcome is not yet known.");
+    this.name = "MpesaUncertainOutcomeError";
+  }
+}
+
+export function mapMpesaResultCodeToPurchaseStatus(
+  resultCode: number | string,
+): "paid" | "cancelled" | "failed" {
+  const code = String(resultCode);
+  if (code === "0") return "paid";
+  if (code === "1032") return "cancelled";
+  return "failed";
+}
+
 export function getMpesaConfig(): MpesaConfig | null {
   const consumerKey = process.env["MPESA_CONSUMER_KEY"]?.trim() ?? "";
   const consumerSecret = process.env["MPESA_CONSUMER_SECRET"]?.trim() ?? "";
   const shortcode = process.env["MPESA_SHORTCODE"]?.trim() ?? "";
   const passkey = process.env["MPESA_PASSKEY"]?.trim() ?? "";
   const callbackUrl = process.env["MPESA_CALLBACK_URL"]?.trim() ?? "";
-  const environment = process.env["MPESA_ENVIRONMENT"]?.trim() || "sandbox";
-  const transactionType = process.env["MPESA_TRANSACTION_TYPE"]?.trim() || "CustomerPayBillOnline";
+  const environment = process.env["MPESA_ENV"]?.trim();
+  const transactionType = process.env["MPESA_TRANSACTION_TYPE"]?.trim();
+  const queryEnabled = process.env["MPESA_STK_QUERY_ENABLED"]?.trim();
   const values = [consumerKey, consumerSecret, shortcode, passkey, callbackUrl];
 
   if (values.every((value) => !value)) return null;
@@ -38,13 +54,17 @@ export function getMpesaConfig(): MpesaConfig | null {
       "M-Pesa configuration is incomplete. Set all MPESA_* credentials and callback URL.",
     );
   }
-  if (environment !== "sandbox" && environment !== "production") {
-    throw new Error("MPESA_ENVIRONMENT must be sandbox or production.");
+  if (environment !== "production") {
+    throw new Error("MPESA_ENV must be production. Sandbox payments are not supported.");
   }
-  if (transactionType !== "CustomerPayBillOnline" && transactionType !== "CustomerBuyGoodsOnline") {
-    throw new Error(
-      "MPESA_TRANSACTION_TYPE must be CustomerPayBillOnline or CustomerBuyGoodsOnline.",
-    );
+  if (transactionType !== "CustomerBuyGoodsOnline") {
+    throw new Error("MPESA_TRANSACTION_TYPE must be CustomerBuyGoodsOnline for a registered till.");
+  }
+  if (!/^\d{5,7}$/.test(shortcode)) {
+    throw new Error("MPESA_SHORTCODE must be the registered M-PESA Till Number.");
+  }
+  if (queryEnabled !== "true") {
+    throw new Error("MPESA_STK_QUERY_ENABLED must be true for production payments.");
   }
 
   try {
@@ -64,6 +84,19 @@ export function getMpesaConfig(): MpesaConfig | null {
     passkey,
     callbackUrl,
   };
+}
+
+export function normalizeMpesaPhoneNumber(value: string) {
+  const compact = value.trim().replace(/[\s()+-]/g, "");
+  const normalized = compact.startsWith("0")
+    ? `254${compact.slice(1)}`
+    : /^[17]\d{8}$/.test(compact)
+      ? `254${compact}`
+      : compact;
+  if (!/^254[17]\d{8}$/.test(normalized)) {
+    throw new Error("Enter a valid Kenyan M-PESA phone number, such as 0712345678.");
+  }
+  return normalized;
 }
 
 function timestamp() {
@@ -97,15 +130,13 @@ export async function initiateMpesaStkPush(input: StkPushInput) {
     throw new Error("M-Pesa transaction description must be 1-13 characters.");
   }
 
-  const baseUrl =
-    config.environment === "production"
-      ? "https://api.safaricom.co.ke"
-      : "https://sandbox.safaricom.co.ke";
+  const baseUrl = "https://api.safaricom.co.ke";
   const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString(
     "base64",
   );
   const tokenResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { authorization: `Basic ${credentials}` },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!tokenResponse.ok) throw new Error(`M-Pesa authentication failed (${tokenResponse.status}).`);
   const tokenData = (await tokenResponse.json()) as { access_token?: string };
@@ -115,34 +146,53 @@ export async function initiateMpesaStkPush(input: StkPushInput) {
   const password = Buffer.from(`${config.shortcode}${config.passkey}${requestTimestamp}`).toString(
     "base64",
   );
-  const pushResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${tokenData.access_token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      BusinessShortCode: config.shortcode,
-      Password: password,
-      Timestamp: requestTimestamp,
-      TransactionType: config.transactionType,
-      Amount: input.amount,
-      PartyA: input.phoneNumber,
-      PartyB: config.shortcode,
-      PhoneNumber: input.phoneNumber,
-      CallBackURL: config.callbackUrl,
-      AccountReference: input.accountReference,
-      TransactionDesc: input.transactionDesc.trim(),
-    }),
-  });
-  if (!pushResponse.ok) throw new Error(`M-Pesa STK Push failed (${pushResponse.status}).`);
-  return pushResponse.json() as Promise<{
+  let pushResponse: Response;
+  try {
+    pushResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${tokenData.access_token}`,
+        "content-type": "application/json",
+      },
+      signal: AbortSignal.timeout(15_000),
+      body: JSON.stringify({
+        BusinessShortCode: config.shortcode,
+        Password: password,
+        Timestamp: requestTimestamp,
+        TransactionType: config.transactionType,
+        Amount: input.amount,
+        PartyA: input.phoneNumber,
+        PartyB: config.shortcode,
+        PhoneNumber: input.phoneNumber,
+        CallBackURL: config.callbackUrl,
+        AccountReference: input.accountReference,
+        TransactionDesc: input.transactionDesc.trim(),
+      }),
+    });
+  } catch {
+    throw new MpesaUncertainOutcomeError();
+  }
+  if (!pushResponse.ok) {
+    if (pushResponse.status >= 500) throw new MpesaUncertainOutcomeError();
+    throw new Error(`M-Pesa STK Push failed (${pushResponse.status}).`);
+  }
+  let result: {
     MerchantRequestID: string;
     CheckoutRequestID: string;
     ResponseCode: string;
     ResponseDescription: string;
     CustomerMessage: string;
-  }>;
+  };
+  try {
+    result = (await pushResponse.json()) as typeof result;
+  } catch {
+    throw new MpesaUncertainOutcomeError();
+  }
+  if (result.ResponseCode !== "0") throw new Error("Safaricom did not accept the M-PESA prompt.");
+  if (!result.CheckoutRequestID || !result.MerchantRequestID) {
+    throw new MpesaUncertainOutcomeError();
+  }
+  return result;
 }
 
 export async function queryMpesaStkPush(checkoutRequestId: string) {
@@ -152,15 +202,13 @@ export async function queryMpesaStkPush(checkoutRequestId: string) {
     throw new Error("Invalid M-Pesa checkout reference.");
   }
 
-  const baseUrl =
-    config.environment === "production"
-      ? "https://api.safaricom.co.ke"
-      : "https://sandbox.safaricom.co.ke";
+  const baseUrl = "https://api.safaricom.co.ke";
   const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString(
     "base64",
   );
   const tokenResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { authorization: `Basic ${credentials}` },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!tokenResponse.ok) {
     throw new Error(`M-Pesa authentication failed (${tokenResponse.status}).`);
@@ -178,6 +226,7 @@ export async function queryMpesaStkPush(checkoutRequestId: string) {
       authorization: `Bearer ${tokenData.access_token}`,
       "content-type": "application/json",
     },
+    signal: AbortSignal.timeout(15_000),
     body: JSON.stringify({
       BusinessShortCode: config.shortcode,
       Password: password,

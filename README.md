@@ -59,21 +59,22 @@ npm start
 
 Set `MYSQL_URL` to a reachable MySQL 8+ database connection string. Run `npm run db:migrate` once against that database before serving traffic. Set `APP_URL` to the public HTTPS URL. Set `ADMIN_SIGNUP_SECRET` to a private random value of at least 32 characters to enable administrator signups. Each signup requires this key; remove it from the server environment to disable further signups. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up with the database. Use TLS for MySQL and HTTPS for the site.
 
-To test library payments with Safaricom Daraja, create a sandbox app with the Lipa Na M-Pesa Online product enabled. In Render, set these server-side variables on the web service:
+Library payments use Safaricom Daraja production STK Push with a registered M-PESA Till. Add these values only in the hosting provider's server-side environment settings:
 
-| Variable | Sandbox value |
+| Variable | Production value |
 | --- | --- |
-| `MPESA_ENVIRONMENT` | `sandbox` |
-| `MPESA_TRANSACTION_TYPE` | `CustomerPayBillOnline` |
-| `MPESA_CONSUMER_KEY` | Consumer Key from your Daraja sandbox app |
-| `MPESA_CONSUMER_SECRET` | Consumer Secret from your Daraja sandbox app |
-| `MPESA_SHORTCODE` | Sandbox shortcode provided for STK Push (commonly `174379`) |
-| `MPESA_PASSKEY` | Sandbox Lipa Na M-Pesa passkey provided by Daraja |
-| `MPESA_CALLBACK_URL` | `https://scholar-main.onrender.com/api/library/callback` |
+| `MPESA_ENV` | `production` |
+| `MPESA_TRANSACTION_TYPE` | `CustomerBuyGoodsOnline` |
+| `MPESA_CONSUMER_KEY` | Consumer Key from the approved Daraja production app |
+| `MPESA_CONSUMER_SECRET` | Consumer Secret from the approved Daraja production app |
+| `MPESA_SHORTCODE` | Registered M-PESA Till Number enabled for online checkout |
+| `MPESA_PASSKEY` | Production Lipa Na M-PESA Online passkey issued for the Till |
+| `MPESA_CALLBACK_URL` | `https://your-public-domain/api/library/callback` |
+| `MPESA_STK_QUERY_ENABLED` | `true` |
 
-Keep the Consumer Secret and Passkey private; configure them only as Render environment variables, never in browser code or committed files. The callback must be a publicly reachable HTTPS URL. The Render Blueprint declares the non-secret sandbox environment and prompts for the remaining values. For an existing dashboard-created Render service, add the same variables in its Environment settings. The service sends an STK Push, accepts Daraja callbacks, and checks payment status server-side before granting downloads. Deploy migration `0008_library_pricing_and_purchases.sql` before enabling priced resources. Existing resources default to free; admins can set a whole-KES price up to KES 150,000. Without complete M-Pesa configuration, free items continue to work and paid checkout reports that payments are unavailable.
+The production client calls `https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials`, `https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest`, and `https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query`. It uses the registered Till for both `BusinessShortCode` and `PartyB`, with `CustomerBuyGoodsOnline`; it does not support PayBill or silently fall back to sandbox. The callback must be publicly reachable over HTTPS. Apply migration `0013_mpesa_production_payments.sql` (the deploy pre-command runs migrations) before accepting paid library checkouts. Existing resources remain free until an administrator sets a whole-KES price, up to KES 150,000. Until all production variables are supplied, paid checkout is unavailable.
 
-For local sandbox testing, copy `.env.example` to `.env` if needed and set the Daraja credentials and callback there, keeping `MPESA_ENVIRONMENT=sandbox` and `MPESA_TRANSACTION_TYPE=CustomerPayBillOnline` for the sandbox PayBill shortcode `174379`. Run `npm run dev` and expose its printed local port through a public HTTPS tunnel. Set `MPESA_CALLBACK_URL` to the tunnel's HTTPS URL followed by `/api/library/callback` (not `localhost` and not the production callback), then restart the dev server after changing environment variables. Keep the tunnel running while testing so Daraja can reach the callback. Apply migration `0008_library_pricing_and_purchases.sql` and set a nonzero price on a library resource to exercise checkout. `.env` is ignored by Git; never commit credentials.
+Never expose or commit the Consumer Secret or Passkey. Do not configure real payment secrets in browser code, logs, local demo environments, or public source control. The provider blueprint declares production mode and prompts for secrets; for an existing Render service, add the values in its Environment settings. A production code configuration is not proof that the service is activated: Safaricom must approve the production app/Till, the host and database must be configured, and a genuine payment must be verified before claiming live operation. This project has not performed that live verification.
 
 Run `npm run db:check` to execute `SELECT 1` against the configured database. The command prints the selected database and a sanitized error code only; it never prints credentials.
 

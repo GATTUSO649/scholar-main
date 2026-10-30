@@ -52,7 +52,13 @@ async function readBoundedRequestBytes(request: Request, maxBytes: number) {
     reader.releaseLock();
   }
 
-  return new Blob(chunks);
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 export async function parseJsonRequestBody(request: Request, maxBytes: number) {
@@ -63,7 +69,7 @@ export async function parseJsonRequestBody(request: Request, maxBytes: number) {
 
   const body = await readBoundedRequestBytes(request, maxBytes);
   try {
-    return JSON.parse(await body.text()) as unknown;
+    return JSON.parse(new TextDecoder().decode(body)) as unknown;
   } catch {
     throw new InvalidRequestBodyError();
   }
@@ -77,7 +83,7 @@ export async function parseMultipartFormData(request: Request, maxBytes: number)
 
   let body: Blob;
   try {
-    body = await readBoundedRequestBytes(request, maxBytes);
+    body = new Blob([await readBoundedRequestBytes(request, maxBytes)]);
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) throw new UploadBodyTooLargeError();
     throw new InvalidUploadBodyError();

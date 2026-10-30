@@ -5,7 +5,7 @@ import {
   timingSafeEqual,
   createHash,
 } from "node:crypto";
-import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   emailVerificationTokens,
@@ -36,7 +36,14 @@ import {
   isEmailVerificationRequired,
   sendTransactionalEmail,
 } from "./email.server";
-import { initiateMpesaStkPush, queryMpesaStkPush } from "./mpesa.server";
+import {
+  getMpesaConfig,
+  initiateMpesaStkPush,
+  mapMpesaResultCodeToPurchaseStatus,
+  MpesaUncertainOutcomeError,
+  normalizeMpesaPhoneNumber,
+  queryMpesaStkPush,
+} from "./mpesa.server";
 
 function derivePassword(password: string, salt: Buffer) {
   return new Promise<Buffer>((resolve, reject) => {
@@ -858,7 +865,7 @@ export async function getStudentLibraryResources() {
       .where(eq(libraryPurchases.studentId, student.id))
       .orderBy(desc(libraryPurchases.createdAt)),
   ]);
-  const purchaseState = new Map<string, "paid" | "pending" | "failed">();
+  const purchaseState = new Map<string, "paid" | "pending" | "failed" | "cancelled">();
   for (const purchase of purchases) {
     if (purchase.status === "paid") {
       purchaseState.set(purchase.resourceId, "paid");
@@ -867,7 +874,7 @@ export async function getStudentLibraryResources() {
     }
   }
   return resources.map((resource) => {
-    const purchaseStatus: "free" | "available" | "pending" | "paid" | "failed" =
+    const purchaseStatus: "free" | "available" | "pending" | "paid" | "failed" | "cancelled" =
       resource.price <= 0 ? "free" : (purchaseState.get(resource.id) ?? "available");
     return { ...mapLibraryResource(resource), purchase_status: purchaseStatus };
   });
@@ -977,6 +984,8 @@ export async function getLibraryResourceForDownload(id: string) {
 
 export async function startLibraryPurchase(input: { resourceId: string; phoneNumber: string }) {
   const student = await requireLibraryStudent();
+  const phoneNumber = normalizeMpesaPhoneNumber(input.phoneNumber);
+  if (!getMpesaConfig()) throw new Error("M-Pesa payments are not configured.");
   const db = getDatabase();
   const [resource] = await db
     .select({
@@ -997,10 +1006,6 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
   ) {
     throw new Error("This resource price is not configured for M-Pesa.");
   }
-  if (!/^254[17]\d{8}$/.test(input.phoneNumber)) {
-    throw new Error("Enter a Safaricom phone number in 2547XXXXXXXX format.");
-  }
-
   const purchase = await db.transaction(async (tx) => {
     await tx
       .select({ id: users.id })
@@ -1023,7 +1028,7 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
     if (paid) return { purchaseId: paid.id, status: "paid" as const };
 
     const [pending] = await tx
-      .select({ id: libraryPurchases.id })
+      .select({ id: libraryPurchases.id, phoneNumber: libraryPurchases.phoneNumber })
       .from(libraryPurchases)
       .where(
         and(
@@ -1034,9 +1039,30 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       )
       .orderBy(desc(libraryPurchases.createdAt))
       .limit(1);
-    if (pending) return { purchaseId: pending.id, status: "pending" as const };
+    if (pending) {
+      return {
+        purchaseId: pending.id,
+        status: "pending" as const,
+        phoneNumber: pending.phoneNumber,
+      };
+    }
+
+    const recentAttempts = await tx
+      .select({ id: libraryPurchases.id })
+      .from(libraryPurchases)
+      .where(
+        and(
+          eq(libraryPurchases.studentId, student.id),
+          gt(libraryPurchases.createdAt, new Date(Date.now() - 15 * 60 * 1000)),
+        ),
+      )
+      .limit(5);
+    if (recentAttempts.length >= 5) {
+      throw new Error("Too many recent payment attempts. Please wait before trying again.");
+    }
 
     const purchaseId = randomUUID();
+    const accountReference = `L${purchaseId.replaceAll("-", "").slice(0, 11)}`;
     await tx.insert(libraryPurchases).values({
       id: purchaseId,
       resourceId: resource.id,
@@ -1044,45 +1070,72 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       amount: resource.price,
       currency: resource.currency,
       status: "pending",
-      phoneNumber: input.phoneNumber,
+      phoneNumber,
+      accountReference,
     });
     return { purchaseId, status: "new" as const };
   });
 
   if (purchase.status !== "new") return purchase;
   const { purchaseId } = purchase;
+  let providerAccepted = false;
   try {
     const checkout = await initiateMpesaStkPush({
-      phoneNumber: input.phoneNumber,
+      phoneNumber,
       amount: resource.price,
       accountReference: `L${purchaseId.replaceAll("-", "").slice(0, 11)}`,
       transactionDesc: "LIBRARY",
     });
+    providerAccepted = true;
     if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {
-      throw new Error("M-Pesa did not return a checkout reference.");
+      throw new MpesaUncertainOutcomeError();
     }
     await db
       .update(libraryPurchases)
       .set({
         checkoutRequestId: checkout.CheckoutRequestID,
         merchantRequestId: checkout.MerchantRequestID,
+        updatedAt: new Date(),
       })
       .where(eq(libraryPurchases.id, purchaseId));
     return {
       purchaseId,
       status: "pending" as const,
-      message: checkout.CustomerMessage || `Check ${input.phoneNumber} to complete payment.`,
+      phoneNumber,
+      message: `Check ${phoneNumber} and enter your M-PESA PIN to complete payment.`,
     };
   } catch (error) {
+    if (providerAccepted || error instanceof MpesaUncertainOutcomeError) {
+      await db
+        .update(libraryPurchases)
+        .set({
+          failureReason: "Safaricom outcome is uncertain; payment must be reconciled before retry.",
+          updatedAt: new Date(),
+        })
+        .where(and(eq(libraryPurchases.id, purchaseId), ne(libraryPurchases.status, "paid")));
+      return {
+        purchaseId,
+        status: "pending" as const,
+        phoneNumber,
+        message: "Safaricom's response is delayed. Do not retry until this payment is reconciled.",
+      };
+    }
     await db
       .update(libraryPurchases)
-      .set({ status: "failed" })
+      .set({
+        status: "failed",
+        failureReason: error instanceof Error ? error.message.slice(0, 255) : "Checkout failed.",
+        updatedAt: new Date(),
+      })
       .where(eq(libraryPurchases.id, purchaseId));
     throw error;
   }
 }
 
-async function syncLibraryPurchaseFromProvider(purchaseId: string) {
+async function syncLibraryPurchaseFromProvider(
+  purchaseId: string,
+  callbackDetails?: { receiptNumber: string; transactionTimestamp: Date },
+) {
   const db = getDatabase();
   const [purchase] = await db
     .select({
@@ -1091,6 +1144,7 @@ async function syncLibraryPurchaseFromProvider(purchaseId: string) {
       amount: libraryPurchases.amount,
       status: libraryPurchases.status,
       checkoutRequestId: libraryPurchases.checkoutRequestId,
+      failureReason: libraryPurchases.failureReason,
       title: libraryResources.title,
     })
     .from(libraryPurchases)
@@ -1098,15 +1152,18 @@ async function syncLibraryPurchaseFromProvider(purchaseId: string) {
     .where(eq(libraryPurchases.id, purchaseId))
     .limit(1);
   if (!purchase) return { status: "not_found" as const };
-  if (purchase.status !== "pending" || !purchase.checkoutRequestId) {
+  if (purchase.status === "paid" || !purchase.checkoutRequestId) {
     return { status: purchase.status };
   }
-
   const verification = await queryMpesaStkPush(purchase.checkoutRequestId);
-  if (String(verification.ResponseCode) !== "0" || verification.ResultCode == null) {
+  if (
+    String(verification.ResponseCode) !== "0" ||
+    verification.CheckoutRequestID !== purchase.checkoutRequestId ||
+    verification.ResultCode == null
+  ) {
     return { status: "pending" as const };
   }
-  const paid = String(verification.ResultCode) === "0";
+  const nextStatus = mapMpesaResultCodeToPurchaseStatus(verification.ResultCode);
 
   const status = await db.transaction(async (tx) => {
     const [current] = await tx
@@ -1116,12 +1173,30 @@ async function syncLibraryPurchaseFromProvider(purchaseId: string) {
       .limit(1)
       .for("update");
     if (!current) return "not_found" as const;
-    if (current.status !== "pending") return current.status;
+    if (current.status === "paid") return "paid" as const;
     await tx
       .update(libraryPurchases)
-      .set({ status: paid ? "paid" : "failed", ...(paid ? { paidAt: new Date() } : {}) })
+      .set({
+        status: nextStatus,
+        failureReason:
+          nextStatus === "paid"
+            ? null
+            : (verification.ResultDesc?.slice(0, 255) ?? "Payment failed."),
+        updatedAt: new Date(),
+        ...(nextStatus === "paid"
+          ? {
+              paidAt: new Date(),
+              ...(callbackDetails
+                ? {
+                    receiptNumber: callbackDetails.receiptNumber,
+                    transactionTimestamp: callbackDetails.transactionTimestamp,
+                  }
+                : {}),
+            }
+          : {}),
+      })
       .where(eq(libraryPurchases.id, purchase.id));
-    if (paid) {
+    if (nextStatus === "paid") {
       await tx.insert(notifications).values({
         id: randomUUID(),
         userId: purchase.studentId,
@@ -1132,7 +1207,7 @@ async function syncLibraryPurchaseFromProvider(purchaseId: string) {
         href: "/portal/library",
       });
     }
-    return paid ? ("paid" as const) : ("failed" as const);
+    return nextStatus;
   });
   return { status };
 }
@@ -1150,9 +1225,14 @@ export async function refreshStudentLibraryPurchaseStatus(purchaseId: string) {
 
 export async function handleLibraryPurchaseCallback(input: {
   checkoutRequestId: string;
+  merchantRequestId: string;
   resultCode: number;
+  resultDesc: string;
   amount?: number;
+  customerPhone?: string;
   receiptNumber?: string;
+  transactionTimestamp?: Date;
+  callbackResponse: Record<string, unknown>;
 }) {
   const db = getDatabase();
   const [purchase] = await db
@@ -1162,6 +1242,8 @@ export async function handleLibraryPurchaseCallback(input: {
       resourceId: libraryPurchases.resourceId,
       amount: libraryPurchases.amount,
       status: libraryPurchases.status,
+      phoneNumber: libraryPurchases.phoneNumber,
+      merchantRequestId: libraryPurchases.merchantRequestId,
       title: libraryResources.title,
     })
     .from(libraryPurchases)
@@ -1170,23 +1252,39 @@ export async function handleLibraryPurchaseCallback(input: {
     .limit(1);
   if (!purchase) return { status: "unknown" as const };
   if (purchase.status === "paid") return { status: "paid" as const };
-  if (input.resultCode === 0 && input.amount != null && input.amount !== purchase.amount) {
+  if (purchase.merchantRequestId !== input.merchantRequestId) {
     return { status: "pending" as const };
   }
-  const result = await syncLibraryPurchaseFromProvider(purchase.id);
-  if (result.status === "paid" && input.receiptNumber?.trim()) {
-    await db
-      .update(libraryPurchases)
-      .set({ receiptNumber: input.receiptNumber.trim().slice(0, 32) })
-      .where(
-        and(
-          eq(libraryPurchases.id, purchase.id),
-          eq(libraryPurchases.status, "paid"),
-          isNull(libraryPurchases.receiptNumber),
-        ),
-      );
-  }
-  return result;
+  const invalidSuccessCallback =
+    input.resultCode === 0 &&
+    (input.amount !== purchase.amount ||
+      input.customerPhone !== purchase.phoneNumber ||
+      !input.receiptNumber ||
+      !input.transactionTimestamp ||
+      !Number.isFinite(input.transactionTimestamp.getTime()));
+  await db
+    .update(libraryPurchases)
+    .set({
+      callbackResponse: input.callbackResponse,
+      failureReason: invalidSuccessCallback
+        ? "Callback payment details did not match the stored purchase."
+        : input.resultCode === 0
+          ? "Awaiting Safaricom payment verification."
+          : input.resultDesc.slice(0, 255),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(libraryPurchases.id, purchase.id), ne(libraryPurchases.status, "paid")));
+  if (invalidSuccessCallback) return { status: "pending" as const };
+
+  return syncLibraryPurchaseFromProvider(
+    purchase.id,
+    input.resultCode === 0 && input.receiptNumber && input.transactionTimestamp
+      ? {
+          receiptNumber: input.receiptNumber,
+          transactionTimestamp: input.transactionTimestamp,
+        }
+      : undefined,
+  );
 }
 
 export async function deleteLibraryResource(id: string) {
@@ -1452,6 +1550,67 @@ export async function getAdminRequests() {
     ...mapRequest(request, serviceName, true),
     profiles: studentName ? { full_name: studentName } : null,
   }));
+}
+
+export async function getAdminMpesaPurchases(input: {
+  search: string;
+  status: "all" | "pending" | "paid" | "failed" | "cancelled";
+  offset: number;
+}) {
+  await requireAdmin();
+  const db = getDatabase();
+  const filters = input.status === "all" ? [] : [eq(libraryPurchases.status, input.status)];
+  const search = input.search.trim().slice(0, 100);
+  if (search) {
+    const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+    filters.push(
+      or(
+        like(libraryPurchases.receiptNumber, pattern),
+        like(libraryPurchases.phoneNumber, pattern),
+        like(libraryPurchases.accountReference, pattern),
+        like(libraryPurchases.id, pattern),
+        like(libraryPurchases.checkoutRequestId, pattern),
+      )!,
+    );
+  }
+  const where = filters.length ? and(...filters) : undefined;
+  const [rows, totals, verifiedRevenue] = await Promise.all([
+    db
+      .select({
+        id: libraryPurchases.id,
+        amount: libraryPurchases.amount,
+        currency: libraryPurchases.currency,
+        status: libraryPurchases.status,
+        phoneNumber: libraryPurchases.phoneNumber,
+        accountReference: libraryPurchases.accountReference,
+        receiptNumber: libraryPurchases.receiptNumber,
+        checkoutRequestId: libraryPurchases.checkoutRequestId,
+        merchantRequestId: libraryPurchases.merchantRequestId,
+        transactionTimestamp: libraryPurchases.transactionTimestamp,
+        createdAt: libraryPurchases.createdAt,
+        paidAt: libraryPurchases.paidAt,
+        failureReason: libraryPurchases.failureReason,
+        resourceTitle: libraryResources.title,
+        studentName: profiles.fullName,
+      })
+      .from(libraryPurchases)
+      .innerJoin(libraryResources, eq(libraryPurchases.resourceId, libraryResources.id))
+      .leftJoin(profiles, eq(libraryPurchases.studentId, profiles.id))
+      .where(where)
+      .orderBy(desc(libraryPurchases.createdAt))
+      .limit(50)
+      .offset(input.offset),
+    db.select({ total: count() }).from(libraryPurchases).where(where),
+    db
+      .select({ total: sql<string>`COALESCE(SUM(${libraryPurchases.amount}), 0)` })
+      .from(libraryPurchases)
+      .where(eq(libraryPurchases.status, "paid")),
+  ]);
+  return {
+    items: rows,
+    total: totals[0]?.total ?? 0,
+    verifiedRevenue: Number(verifiedRevenue[0]?.total ?? 0),
+  };
 }
 
 export async function getAdminStudents() {
