@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getStudentLibraryResourcesFn } from "@/lib/backend";
+import { MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
 type LibraryCategory = "all" | "novel" | "business_plan" | "article";
 type StudentResource = {
@@ -71,7 +72,7 @@ function StudentLibraryPage() {
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [paymentPhone, setPaymentPhone] = useState("");
   const [purchaseStatus, setPurchaseStatus] = useState<
-    "idle" | "waiting" | "paid" | "failed" | "cancelled" | "pending"
+    "idle" | "waiting" | "paid" | "failed" | "cancelled" | "pending" | "expired"
   >("idle");
   const [checkingPurchaseId, setCheckingPurchaseId] = useState<string | null>(null);
   const {
@@ -156,14 +157,22 @@ function StudentLibraryPage() {
       if (result?.purchaseId) {
         setPaymentPhone(result.phoneNumber ?? purchasePhone);
         setPurchaseStatus("waiting");
-        for (let attempt = 0; attempt < 20; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
+        const deadline = Date.now() + MPESA_PAYMENT_EXPIRY_MS;
+        while (Date.now() < deadline) {
+          const remaining = deadline - Date.now();
+          await new Promise((resolve) => setTimeout(resolve, Math.min(3000, remaining)));
+          const requestTimeRemaining = deadline - Date.now();
+          if (requestTimeRemaining <= 0) break;
           const check = await fetch("/api/library/purchase", {
             method: "PATCH",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ purchaseId: result.purchaseId }),
+            signal: AbortSignal.timeout(Math.min(5000, requestTimeRemaining)),
           });
-          const state = (await check.json().catch(() => null)) as { status?: string } | null;
+          const state = (await check.json().catch(() => null)) as {
+            status?: string;
+            reason?: string;
+          } | null;
           await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
           if (state?.status === "paid") {
             setPurchaseStatus("paid");
@@ -171,8 +180,13 @@ function StudentLibraryPage() {
             return;
           }
           if (state?.status === "failed" || state?.status === "not_found") {
-            setPurchaseStatus("failed");
-            toast.error("Payment was not completed. You can try again.");
+            const expired = state.reason?.includes("expired") ?? false;
+            setPurchaseStatus(expired ? "expired" : "failed");
+            toast.error(
+              expired
+                ? "Payment request expired after 60 seconds. You can retry."
+                : "Payment was not completed. You can try again.",
+            );
             return;
           }
           if (state?.status === "cancelled") {
@@ -181,8 +195,9 @@ function StudentLibraryPage() {
             return;
           }
         }
-        setPurchaseStatus("pending");
-        toast("Payment is still processing. Use Check payment on the document when ready.");
+        setPurchaseStatus("expired");
+        await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
+        toast.error("Payment request expired after 60 seconds. You can retry.");
       }
     } catch (error) {
       setPurchaseStatus("failed");
@@ -358,7 +373,10 @@ function StudentLibraryPage() {
                 <Button
                   type="button"
                   className="mt-5 w-full"
-                  onClick={() => setPurchaseResource(resource)}
+                  onClick={() => {
+                    setPurchaseResource(resource);
+                    setPurchaseStatus("idle");
+                  }}
                 >
                   <Smartphone className="mr-2 h-4 w-4" />
                   {resource.purchase_status === "cancelled"
@@ -392,7 +410,9 @@ function StudentLibraryPage() {
                     ? "Safaricom confirmed your payment. Your resource is ready."
                     : purchaseStatus === "cancelled"
                       ? "Payment cancelled. No payment was confirmed. You can retry."
-                      : "An M-PESA prompt will be sent to your phone. The download unlocks after payment is confirmed."}
+                      : purchaseStatus === "expired"
+                        ? "The M-PESA request expired after 60 seconds. You can retry the payment."
+                        : "An M-PESA prompt will be sent to your phone. The download unlocks after payment is confirmed."}
               </DialogDescription>
             </DialogHeader>
             <div className="border-y py-3">
@@ -427,11 +447,15 @@ function StudentLibraryPage() {
               </div>
             ) : (
               <>
-                {purchaseStatus === "failed" || purchaseStatus === "cancelled" ? (
+                {purchaseStatus === "failed" ||
+                purchaseStatus === "cancelled" ||
+                purchaseStatus === "expired" ? (
                   <p className="border-y py-3 text-sm text-destructive" role="alert">
                     {purchaseStatus === "cancelled"
                       ? "Payment cancelled. The M-PESA prompt was cancelled, and you can safely retry."
-                      : "Payment was not confirmed. Check your M-PESA balance or number, then retry."}
+                      : purchaseStatus === "expired"
+                        ? "Payment request expired after 60 seconds. You can retry now."
+                        : "Payment was not confirmed. Check your M-PESA balance or number, then retry."}
                   </p>
                 ) : null}
                 <form id="library-purchase" onSubmit={startPurchase} className="space-y-2">
@@ -465,7 +489,8 @@ function StudentLibraryPage() {
               </Button>
               {purchaseStatus === "idle" ||
               purchaseStatus === "failed" ||
-              purchaseStatus === "cancelled" ? (
+              purchaseStatus === "cancelled" ||
+              purchaseStatus === "expired" ? (
                 <Button type="submit" form="library-purchase" disabled={purchaseBusy}>
                   {purchaseBusy
                     ? "Sending prompt…"

@@ -5,7 +5,7 @@ import {
   timingSafeEqual,
   createHash,
 } from "node:crypto";
-import { and, count, desc, eq, gt, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   emailVerificationTokens,
@@ -44,6 +44,7 @@ import {
   normalizeMpesaPhoneNumber,
   queryMpesaStkPush,
 } from "./mpesa.server";
+import { MPESA_PAYMENT_EXPIRY_MS, hasMpesaPaymentExpired } from "./mpesa-timeout";
 
 function derivePassword(password: string, salt: Buffer) {
   return new Promise<Buffer>((resolve, reject) => {
@@ -61,6 +62,7 @@ const EMAIL_REQUEST_WINDOW_MINUTES = 15;
 const MAX_EMAIL_REQUESTS = 3;
 const LOGIN_WINDOW_MINUTES = 15;
 const MAX_LOGIN_ATTEMPTS = 8;
+const MPESA_PAYMENT_EXPIRED_REASON = "M-PESA prompt expired after 60 seconds. Retry payment.";
 
 export type SessionUser = { id: string; email: string };
 export type ProfileDto = {
@@ -857,6 +859,21 @@ export async function getAdminLibraryResources() {
 export async function getStudentLibraryResources() {
   const student = await requireLibraryStudent();
   const db = getDatabase();
+  const now = new Date();
+  const pendingCutoff = new Date(now.getTime() - MPESA_PAYMENT_EXPIRY_MS);
+  await db
+    .update(libraryPurchases)
+    .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: now })
+    .where(
+      and(
+        eq(libraryPurchases.studentId, student.id),
+        eq(libraryPurchases.status, "pending"),
+        or(
+          lt(libraryPurchases.expiresAt, now),
+          and(isNull(libraryPurchases.expiresAt), lt(libraryPurchases.createdAt, pendingCutoff)),
+        ),
+      ),
+    );
   const [resources, purchases] = await Promise.all([
     db.select().from(libraryResources).orderBy(desc(libraryResources.createdAt)),
     db
@@ -1028,7 +1045,12 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
     if (paid) return { purchaseId: paid.id, status: "paid" as const };
 
     const [pending] = await tx
-      .select({ id: libraryPurchases.id, phoneNumber: libraryPurchases.phoneNumber })
+      .select({
+        id: libraryPurchases.id,
+        phoneNumber: libraryPurchases.phoneNumber,
+        expiresAt: libraryPurchases.expiresAt,
+        createdAt: libraryPurchases.createdAt,
+      })
       .from(libraryPurchases)
       .where(
         and(
@@ -1039,7 +1061,21 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       )
       .orderBy(desc(libraryPurchases.createdAt))
       .limit(1);
-    if (pending) {
+    if (
+      pending &&
+      hasMpesaPaymentExpired(
+        pending.expiresAt ?? new Date(pending.createdAt.getTime() + MPESA_PAYMENT_EXPIRY_MS),
+      )
+    ) {
+      await tx
+        .update(libraryPurchases)
+        .set({
+          status: "failed",
+          failureReason: MPESA_PAYMENT_EXPIRED_REASON,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(libraryPurchases.id, pending.id), eq(libraryPurchases.status, "pending")));
+    } else if (pending) {
       return {
         purchaseId: pending.id,
         status: "pending" as const,
@@ -1072,6 +1108,7 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       status: "pending",
       phoneNumber,
       accountReference,
+      expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
     });
     return { purchaseId, status: "new" as const };
   });
@@ -1095,6 +1132,7 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       .set({
         checkoutRequestId: checkout.CheckoutRequestID,
         merchantRequestId: checkout.MerchantRequestID,
+        expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
         updatedAt: new Date(),
       })
       .where(eq(libraryPurchases.id, purchaseId));
@@ -1110,6 +1148,7 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
         .update(libraryPurchases)
         .set({
           failureReason: "Safaricom outcome is uncertain; payment must be reconciled before retry.",
+          expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
           updatedAt: new Date(),
         })
         .where(and(eq(libraryPurchases.id, purchaseId), ne(libraryPurchases.status, "paid")));
@@ -1144,6 +1183,8 @@ async function syncLibraryPurchaseFromProvider(
       amount: libraryPurchases.amount,
       status: libraryPurchases.status,
       checkoutRequestId: libraryPurchases.checkoutRequestId,
+      expiresAt: libraryPurchases.expiresAt,
+      createdAt: libraryPurchases.createdAt,
       failureReason: libraryPurchases.failureReason,
       title: libraryResources.title,
     })
@@ -1152,15 +1193,45 @@ async function syncLibraryPurchaseFromProvider(
     .where(eq(libraryPurchases.id, purchaseId))
     .limit(1);
   if (!purchase) return { status: "not_found" as const };
-  if (purchase.status === "paid" || !purchase.checkoutRequestId) {
+  if (purchase.status === "paid") {
     return { status: purchase.status };
   }
-  const verification = await queryMpesaStkPush(purchase.checkoutRequestId);
+  const expired = () =>
+    hasMpesaPaymentExpired(
+      purchase.expiresAt ?? new Date(purchase.createdAt.getTime() + MPESA_PAYMENT_EXPIRY_MS),
+    );
+  const expirePurchase = async () => {
+    await db
+      .update(libraryPurchases)
+      .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: new Date() })
+      .where(and(eq(libraryPurchases.id, purchase.id), eq(libraryPurchases.status, "pending")));
+    const [current] = await db
+      .select({ status: libraryPurchases.status })
+      .from(libraryPurchases)
+      .where(eq(libraryPurchases.id, purchase.id))
+      .limit(1);
+    if (current?.status === "paid") return { status: "paid" as const };
+    if (current?.status === "failed") {
+      return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+    }
+    return { status: current?.status ?? ("not_found" as const) };
+  };
+  if (!purchase.checkoutRequestId) {
+    return expired() ? expirePurchase() : { status: purchase.status };
+  }
+  let verification;
+  try {
+    verification = await queryMpesaStkPush(purchase.checkoutRequestId);
+  } catch (error) {
+    if (expired()) return expirePurchase();
+    throw error;
+  }
   if (
     String(verification.ResponseCode) !== "0" ||
     verification.CheckoutRequestID !== purchase.checkoutRequestId ||
     verification.ResultCode == null
   ) {
+    if (expired()) return expirePurchase();
     return { status: "pending" as const };
   }
   const nextStatus = mapMpesaResultCodeToPurchaseStatus(verification.ResultCode);

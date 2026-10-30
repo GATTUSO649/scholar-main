@@ -6,6 +6,7 @@ import {
   normalizeMpesaPhoneNumber,
   queryMpesaStkPush,
 } from "@/lib/mpesa.server";
+import { hasMpesaPaymentExpired, MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
 const mpesaEnv = [
   "MPESA_ENV",
@@ -245,5 +246,17 @@ describe("M-Pesa checkout result mapping", () => {
     expect(mapMpesaResultCodeToPurchaseStatus(1032)).toBe("cancelled");
     expect(mapMpesaResultCodeToPurchaseStatus("0")).toBe("paid");
     expect(mapMpesaResultCodeToPurchaseStatus(1)).toBe("failed");
+  });
+});
+
+describe("M-PESA payment request expiry", () => {
+  it("expires at 60 seconds and remains active before the deadline", () => {
+    const startedAt = 1_800_000_000_000;
+    const expiresAt = new Date(startedAt + MPESA_PAYMENT_EXPIRY_MS);
+
+    expect(MPESA_PAYMENT_EXPIRY_MS).toBe(60_000);
+    expect(hasMpesaPaymentExpired(expiresAt, startedAt + 59_999)).toBe(false);
+    expect(hasMpesaPaymentExpired(expiresAt, startedAt + 60_000)).toBe(true);
+    expect(hasMpesaPaymentExpired(null, startedAt + 60_000)).toBe(false);
   });
 });

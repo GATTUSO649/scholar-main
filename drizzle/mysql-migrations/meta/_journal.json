@@ -99,6 +99,13 @@
       "when": 1793400000000,
       "tag": "0013_mpesa_production_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1793403600000,
+      "tag": "0014_mpesa_payment_expiry",
+      "breakpoints": true
     }
   ]
 }

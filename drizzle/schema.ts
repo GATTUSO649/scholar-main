@@ -293,6 +293,7 @@ export const libraryPurchases = mysqlTable(
     transactionTimestamp: datetime("transaction_timestamp", { mode: "date", fsp: 3 }),
     callbackResponse: json("callback_response").$type<Record<string, unknown>>(),
     failureReason: varchar("failure_reason", { length: 255 }),
+    expiresAt: datetime("expires_at", { mode: "date", fsp: 3 }),
     createdAt: datetime("created_at", { mode: "date", fsp: 3 })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP(3)`),
