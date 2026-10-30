@@ -390,7 +390,9 @@ function StudentLibraryPage() {
                   ? "Complete the M-PESA prompt. Access unlocks after Safaricom confirms payment."
                   : purchaseStatus === "paid"
                     ? "Safaricom confirmed your payment. Your resource is ready."
-                    : "An M-PESA prompt will be sent to your phone. The download unlocks after payment is confirmed."}
+                    : purchaseStatus === "cancelled"
+                      ? "Payment cancelled. No payment was confirmed. You can retry."
+                      : "An M-PESA prompt will be sent to your phone. The download unlocks after payment is confirmed."}
               </DialogDescription>
             </DialogHeader>
             <div className="border-y py-3">
@@ -428,7 +430,7 @@ function StudentLibraryPage() {
                 {purchaseStatus === "failed" || purchaseStatus === "cancelled" ? (
                   <p className="border-y py-3 text-sm text-destructive" role="alert">
                     {purchaseStatus === "cancelled"
-                      ? "The M-PESA prompt was cancelled. You can safely retry."
+                      ? "Payment cancelled. The M-PESA prompt was cancelled, and you can safely retry."
                       : "Payment was not confirmed. Check your M-PESA balance or number, then retry."}
                   </p>
                 ) : null}
