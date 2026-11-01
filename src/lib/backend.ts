@@ -32,6 +32,11 @@ export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(async 
   return getCurrentUser();
 });
 
+export const getCurrentUserStateFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getCurrentUserState } = await import("./backend.server");
+  return getCurrentUserState();
+});
+
 export const registerFn = createServerFn({ method: "POST" })
   .validator(
     z.object({

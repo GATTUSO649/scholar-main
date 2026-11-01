@@ -174,6 +174,23 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   return row ?? null;
 }
 
+export async function getCurrentUserState() {
+  const token = getCookie(SESSION_COOKIE);
+  if (!token) return { user: null, isAdmin: false };
+
+  const [row] = await getDatabase()
+    .select({ id: users.id, email: users.email, adminRoleId: userRoles.id })
+    .from(sessions)
+    .innerJoin(users, eq(sessions.userId, users.id))
+    .leftJoin(userRoles, and(eq(userRoles.userId, users.id), eq(userRoles.role, "admin")))
+    .where(and(eq(sessions.tokenHash, tokenHash(token)), gt(sessions.expiresAt, new Date())))
+    .limit(1);
+
+  return row
+    ? { user: { id: row.id, email: row.email }, isAdmin: row.adminRoleId !== null }
+    : { user: null, isAdmin: false };
+}
+
 async function requireUser() {
   const user = await getCurrentUser();
   if (!user) throw new Error("You must be signed in to perform this action.");

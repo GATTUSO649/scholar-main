@@ -31,7 +31,7 @@ import {
   FilePenLine,
   Building2,
 } from "lucide-react";
-import { getAdminStateFn, getCurrentUserFn, logoutFn } from "@/lib/backend";
+import { getCurrentUserStateFn, logoutFn } from "@/lib/backend";
 import { adminWorkspaceRedirectFor, useProfile } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -41,12 +41,11 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const user = await getCurrentUserFn();
+    const { user, isAdmin } = await getCurrentUserStateFn();
     if (!user) {
       if (location.pathname.startsWith("/admin")) throw redirect({ to: "/admin/login" });
       throw redirect({ to: "/auth", search: { mode: "login" } });
     }
-    const isAdmin = await getAdminStateFn();
     const redirectTo = adminWorkspaceRedirectFor(isAdmin, location.pathname);
     if (redirectTo) throw redirect({ to: redirectTo });
     return { user, isAdmin };
