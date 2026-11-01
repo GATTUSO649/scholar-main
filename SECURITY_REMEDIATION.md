@@ -24,7 +24,7 @@ Audit scope: repository source, server functions and API routes, auth/session co
 
 - [x] **Prevent password-reset account enumeration.** Reset and verification requests now return one shared response for unknown accounts, verified accounts, rate-limited requests, and delivery outcomes.
 - [x] **Rate-limit sensitive email workflows.** Password-reset and verification/resend paths now use hashed account keys with a database-backed limit of three requests per 15 minutes. IP-based limits remain unavailable until a trusted proxy/client-IP policy or shared limiter is configured.
-- [x] **Make authentication throttles concurrency-safe.** Login and email-request counters use atomic PostgreSQL upserts so concurrent requests cannot overwrite increments.
+- [x] **Make authentication throttles concurrency-safe.** Login and email-request counters use atomic PostgreSQL upserts so concurrent requests cannot overwrite increments. Timestamp values in raw SQL expressions are ISO strings with explicit `timestamptz` casts, avoiding untyped JavaScript `Date` serialization failures.
 - [x] **Bound multipart bodies before parsing.** Both file endpoints now count streamed request bytes before calling `formData()`, with regression coverage for chunked bodies lacking `Content-Length`.
 - [x] **Reduce sensitive error logging.** Production exception logging omits raw messages/stacks; sign-in failures log only a processing stage and database error code, never email, password, or hash. Some SMTP logs still include bounded operational metadata only.
 - [ ] **Review paginated reads.** Several admin and student list queries return all matching records without pagination or a maximum result count.

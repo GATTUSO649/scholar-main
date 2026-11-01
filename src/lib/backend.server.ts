@@ -252,6 +252,8 @@ async function isEmailRequestRateLimited(action: "reset" | "verification", email
   const key = `${action}:${tokenHash(email)}`;
   const now = new Date();
   const windowStartedAt = new Date(Date.now() - EMAIL_REQUEST_WINDOW_MINUTES * 60 * 1000);
+  const nowTimestamp = now.toISOString();
+  const windowStartedAtTimestamp = windowStartedAt.toISOString();
   const db = getDatabase();
   const [attempt] = await db
     .insert(loginAttempts)
@@ -259,8 +261,8 @@ async function isEmailRequestRateLimited(action: "reset" | "verification", email
     .onConflictDoUpdate({
       target: loginAttempts.email,
       set: {
-        attempts: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN 1 ELSE ${loginAttempts.attempts} + 1 END`,
-        windowStartedAt: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN ${now} ELSE ${loginAttempts.windowStartedAt} END`,
+        attempts: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAtTimestamp}::timestamptz THEN 1 ELSE ${loginAttempts.attempts} + 1 END`,
+        windowStartedAt: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAtTimestamp}::timestamptz THEN ${nowTimestamp}::timestamptz ELSE ${loginAttempts.windowStartedAt} END`,
       },
     })
     .returning({ attempts: loginAttempts.attempts });
@@ -504,14 +506,16 @@ async function authenticateAccount(input: { email: string; password: string }, a
     const email = input.email.trim().toLowerCase();
     const now = new Date();
     const windowStartedAt = new Date(Date.now() - LOGIN_WINDOW_MINUTES * 60 * 1000);
+    const nowTimestamp = now.toISOString();
+    const windowStartedAtTimestamp = windowStartedAt.toISOString();
     const [attempt] = await db
       .insert(loginAttempts)
       .values({ email, attempts: 1, windowStartedAt: now })
       .onConflictDoUpdate({
         target: loginAttempts.email,
         set: {
-          attempts: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN 1 ELSE ${loginAttempts.attempts} + 1 END`,
-          windowStartedAt: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN ${now} ELSE ${loginAttempts.windowStartedAt} END`,
+          attempts: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAtTimestamp}::timestamptz THEN 1 ELSE ${loginAttempts.attempts} + 1 END`,
+          windowStartedAt: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAtTimestamp}::timestamptz THEN ${nowTimestamp}::timestamptz ELSE ${loginAttempts.windowStartedAt} END`,
         },
       })
       .returning({ attempts: loginAttempts.attempts });
