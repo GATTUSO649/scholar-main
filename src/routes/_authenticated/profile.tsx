@@ -199,6 +199,7 @@ export function ProfileSettings({ userId, isAdmin }: { userId: string; isAdmin: 
   const [profileBusy, setProfileBusy] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
   if (isLoading || !p) return <p className="text-muted-foreground">Loading…</p>;
+  const profile = p;
   const currentStudyYear =
     STUDY_YEARS.find((year) => year === p.year_of_study) ?? (p.year_of_study ? "Other" : undefined);
 
@@ -215,9 +216,10 @@ export function ProfileSettings({ userId, isAdmin }: { userId: string; isAdmin: 
       phone: fd["phone"]?.trim().slice(0, 40) ?? "",
       country: fd["country"]?.trim().slice(0, 60) ?? "",
       institution: isAdmin
-        ? (p.institution ?? "")
+        ? (profile.institution ?? "")
         : (fd["institution"]?.trim().slice(0, 120) ?? ""),
-      year_of_study: yearOfStudy ?? p.year_of_study ?? "Other",
+      year_of_study:
+        yearOfStudy ?? STUDY_YEARS.find((year) => year === profile.year_of_study) ?? "Other",
     };
     if (!patch["full_name"]) {
       toast.error("Name is required");

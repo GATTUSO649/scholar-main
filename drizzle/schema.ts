@@ -1,33 +1,70 @@
 import {
-  boolean,
-  datetime,
-  decimal,
   index,
-  int,
-  json,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  pgEnum,
+  pgTable,
   text,
+  timestamp,
   uniqueIndex,
   varchar,
-} from "drizzle-orm/mysql-core";
-import { sql } from "drizzle-orm";
+  boolean,
+  decimal,
+  jsonb,
+} from "drizzle-orm/pg-core";
 
-export const users = mysqlTable(
+export const userRoleEnum = pgEnum("user_role", ["admin", "student"]);
+export const requestStatusEnum = pgEnum("request_status", [
+  "submitted",
+  "under_review",
+  "quoted",
+  "awaiting_payment",
+  "in_progress",
+  "completed",
+  "declined",
+  "cancelled",
+]);
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "unpaid",
+  "pending",
+  "paid",
+  "refunded",
+]);
+export const requestUpdateStatusEnum = pgEnum("request_update_status", [
+  "submitted",
+  "under_review",
+  "quoted",
+  "awaiting_payment",
+  "in_progress",
+  "completed",
+  "declined",
+  "cancelled",
+]);
+export const requestFileKindEnum = pgEnum("request_file_kind", ["submission", "delivery"]);
+export const libraryCategoryEnum = pgEnum("library_category", [
+  "novel",
+  "business_plan",
+  "article",
+]);
+export const libraryPurchaseStatusEnum = pgEnum("library_purchase_status", [
+  "pending",
+  "paid",
+  "failed",
+  "cancelled",
+]);
+
+export const users = pgTable(
   "users",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     email: varchar("email", { length: 255 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    emailVerifiedAt: datetime("email_verified_at", { mode: "date", fsp: 3 }),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("users_email_unique").on(table.email)],
 );
 
-export const profiles = mysqlTable("profiles", {
+export const profiles = pgTable("profiles", {
   id: varchar("id", { length: 36 })
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -39,37 +76,31 @@ export const profiles = mysqlTable("profiles", {
   institution: varchar("institution", { length: 120 }),
   course: varchar("course", { length: 120 }),
   yearOfStudy: varchar("year_of_study", { length: 20 }),
-  createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP(3)`),
-  updatedAt: datetime("updated_at", { mode: "date", fsp: 3 })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP(3)`),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
 
-export const userRoles = mysqlTable(
+export const userRoles = pgTable(
   "user_roles",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     userId: varchar("user_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: mysqlEnum("role", ["admin", "student"]).notNull().default("student"),
+    role: userRoleEnum("role").notNull().default("student"),
   },
   (table) => [uniqueIndex("user_roles_user_role_unique").on(table.userId, table.role)],
 );
 
-export const sessions = mysqlTable(
+export const sessions = pgTable(
   "sessions",
   {
     tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
     userId: varchar("user_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: datetime("expires_at", { mode: "date", fsp: 3 }).notNull(),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("sessions_user_id_idx").on(table.userId),
@@ -77,43 +108,39 @@ export const sessions = mysqlTable(
   ],
 );
 
-export const passwordResetTokens = mysqlTable(
+export const passwordResetTokens = pgTable(
   "password_reset_tokens",
   {
     tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
     userId: varchar("user_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: datetime("expires_at", { mode: "date", fsp: 3 }).notNull(),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("password_reset_expiry_idx").on(table.expiresAt)],
 );
 
-export const emailVerificationTokens = mysqlTable(
+export const emailVerificationTokens = pgTable(
   "email_verification_tokens",
   {
     tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
     userId: varchar("user_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: datetime("expires_at", { mode: "date", fsp: 3 }).notNull(),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("email_verification_expiry_idx").on(table.expiresAt)],
 );
 
-export const loginAttempts = mysqlTable("login_attempts", {
+export const loginAttempts = pgTable("login_attempts", {
   email: varchar("email", { length: 255 }).primaryKey(),
-  attempts: int("attempts").notNull().default(0),
-  windowStartedAt: datetime("window_started_at", { mode: "date", fsp: 3 }).notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true, mode: "date" }).notNull(),
 });
 
-export const services = mysqlTable(
+export const services = pgTable(
   "services",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
@@ -125,15 +152,13 @@ export const services = mysqlTable(
     currency: varchar("currency", { length: 3 }).notNull().default("KES"),
     unit: varchar("unit", { length: 40 }).notNull().default("per page"),
     active: boolean("active").notNull().default(true),
-    sort: int("sort").notNull().default(0),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    sort: integer("sort").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("services_active_sort_idx").on(table.active, table.sort)],
 );
 
-export const requests = mysqlTable(
+export const requests = pgTable(
   "requests",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
@@ -148,41 +173,24 @@ export const requests = mysqlTable(
     courseUnit: varchar("course_unit", { length: 120 }),
     lecturer: varchar("lecturer", { length: 120 }),
     description: text("description").notNull(),
-    numQuestions: int("num_questions"),
-    numPages: int("num_pages"),
+    numQuestions: integer("num_questions"),
+    numPages: integer("num_pages"),
     academicLevel: varchar("academic_level", { length: 60 }),
-    deadline: datetime("deadline", { mode: "date", fsp: 3 }),
-    preferredDate: datetime("preferred_date", { mode: "date", fsp: 3 }),
-    status: mysqlEnum("status", [
-      "submitted",
-      "under_review",
-      "quoted",
-      "awaiting_payment",
-      "in_progress",
-      "completed",
-      "declined",
-      "cancelled",
-    ])
-      .notNull()
-      .default("submitted"),
-    paymentStatus: mysqlEnum("payment_status", ["unpaid", "pending", "paid", "refunded"])
-      .notNull()
-      .default("unpaid"),
+    deadline: timestamp("deadline", { withTimezone: true, mode: "date" }),
+    preferredDate: timestamp("preferred_date", { withTimezone: true, mode: "date" }),
+    status: requestStatusEnum("status").notNull().default("submitted"),
+    paymentStatus: paymentStatusEnum("payment_status").notNull().default("unpaid"),
     price: decimal("price", { precision: 10, scale: 2, mode: "number" }),
     currency: varchar("currency", { length: 3 }).notNull().default("KES"),
     adminNotes: text("admin_notes"),
     grade: varchar("grade", { length: 20 }),
     adminFeedback: text("admin_feedback"),
-    gradedAt: datetime("graded_at", { mode: "date", fsp: 3 }),
+    gradedAt: timestamp("graded_at", { withTimezone: true, mode: "date" }),
     gradedBy: varchar("graded_by", { length: 36 }).references(() => users.id, {
       onDelete: "set null",
     }),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
-    updatedAt: datetime("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("requests_ref_unique").on(table.ref),
@@ -191,35 +199,24 @@ export const requests = mysqlTable(
   ],
 );
 
-export const requestUpdates = mysqlTable(
+export const requestUpdates = pgTable(
   "request_updates",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     requestId: varchar("request_id", { length: 36 })
       .notNull()
       .references(() => requests.id, { onDelete: "cascade" }),
-    status: mysqlEnum("status", [
-      "submitted",
-      "under_review",
-      "quoted",
-      "awaiting_payment",
-      "in_progress",
-      "completed",
-      "declined",
-      "cancelled",
-    ]),
+    status: requestUpdateStatusEnum("status"),
     note: text("note"),
     createdBy: varchar("created_by", { length: 36 }).references(() => users.id, {
       onDelete: "set null",
     }),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("request_updates_request_created_idx").on(table.requestId, table.createdAt)],
 );
 
-export const requestFiles = mysqlTable(
+export const requestFiles = pgTable(
   "request_files",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
@@ -232,11 +229,9 @@ export const requestFiles = mysqlTable(
     storageKey: varchar("storage_key", { length: 36 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     mimeType: varchar("mime_type", { length: 120 }).notNull(),
-    size: int("size").notNull(),
-    kind: mysqlEnum("kind", ["submission", "delivery"]).notNull().default("submission"),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    size: integer("size").notNull(),
+    kind: requestFileKindEnum("kind").notNull().default("submission"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("request_files_storage_key_unique").on(table.storageKey),
@@ -244,24 +239,22 @@ export const requestFiles = mysqlTable(
   ],
 );
 
-export const libraryResources = mysqlTable(
+export const libraryResources = pgTable(
   "library_resources",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     title: varchar("title", { length: 200 }).notNull(),
     description: text("description").notNull(),
-    category: mysqlEnum("category", ["novel", "business_plan", "article"]).notNull(),
+    category: libraryCategoryEnum("category").notNull(),
     storageKey: varchar("storage_key", { length: 36 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
-    size: int("size").notNull(),
+    size: integer("size").notNull(),
     price: decimal("price", { precision: 10, scale: 2, mode: "number" }).notNull().default(0),
     currency: varchar("currency", { length: 3 }).notNull().default("KES"),
     uploadedBy: varchar("uploaded_by", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("library_resources_storage_key_unique").on(table.storageKey),
@@ -269,7 +262,7 @@ export const libraryResources = mysqlTable(
   ],
 );
 
-export const libraryPurchases = mysqlTable(
+export const libraryPurchases = pgTable(
   "library_purchases",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
@@ -281,9 +274,7 @@ export const libraryPurchases = mysqlTable(
       .references(() => users.id, { onDelete: "cascade" }),
     amount: decimal("amount", { precision: 10, scale: 2, mode: "number" }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull().default("KES"),
-    status: mysqlEnum("status", ["pending", "paid", "failed", "cancelled"])
-      .notNull()
-      .default("pending"),
+    status: libraryPurchaseStatusEnum("status").notNull().default("pending"),
     paymentMethod: varchar("payment_method", { length: 20 }).notNull().default("mpesa"),
     accountReference: varchar("account_reference", { length: 12 }),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
@@ -291,17 +282,13 @@ export const libraryPurchases = mysqlTable(
     checkoutRequestId: varchar("checkout_request_id", { length: 100 }),
     receiptNumber: varchar("receipt_number", { length: 32 }),
     merchantShortcode: varchar("merchant_shortcode", { length: 7 }),
-    transactionTimestamp: datetime("transaction_timestamp", { mode: "date", fsp: 3 }),
-    callbackResponse: json("callback_response").$type<Record<string, unknown>>(),
+    transactionTimestamp: timestamp("transaction_timestamp", { withTimezone: true, mode: "date" }),
+    callbackResponse: jsonb("callback_response").$type<Record<string, unknown>>(),
     failureReason: varchar("failure_reason", { length: 255 }),
-    expiresAt: datetime("expires_at", { mode: "date", fsp: 3 }),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
-    updatedAt: datetime("updated_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
-    paidAt: datetime("paid_at", { mode: "date", fsp: 3 }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    paidAt: timestamp("paid_at", { withTimezone: true, mode: "date" }),
   },
   (table) => [
     uniqueIndex("library_purchases_checkout_unique").on(table.checkoutRequestId),
@@ -313,23 +300,21 @@ export const libraryPurchases = mysqlTable(
   ],
 );
 
-export const faqEntries = mysqlTable(
+export const faqEntries = pgTable(
   "faq_entries",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     question: varchar("question", { length: 300 }).notNull(),
     answer: text("answer").notNull(),
     active: boolean("active").notNull().default(true),
-    sort: int("sort").notNull().default(0),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    sort: integer("sort").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("faq_entries_active_sort_idx").on(table.active, table.sort)],
 );
 
-export const siteSettings = mysqlTable("site_settings", {
-  id: int("id").primaryKey().default(1),
+export const siteSettings = pgTable("site_settings", {
+  id: integer("id").primaryKey().default(1),
   businessName: varchar("business_name", { length: 120 }).notNull().default("ScholarDesk"),
   mpesaTillNumber: varchar("mpesa_till_number", { length: 7 }),
   showPrices: boolean("show_prices").notNull().default(true),
@@ -348,12 +333,10 @@ export const siteSettings = mysqlTable("site_settings", {
   faqIntro: varchar("faq_intro", { length: 500 })
     .notNull()
     .default("Answers to common questions about ScholarDesk services, payments and privacy."),
-  updatedAt: datetime("updated_at", { mode: "date", fsp: 3 })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP(3)`),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
 
-export const notifications = mysqlTable(
+export const notifications = pgTable(
   "notifications",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
@@ -367,10 +350,8 @@ export const notifications = mysqlTable(
     title: varchar("title", { length: 160 }).notNull(),
     message: varchar("message", { length: 500 }).notNull(),
     href: varchar("href", { length: 255 }).notNull(),
-    readAt: datetime("read_at", { mode: "date", fsp: 3 }),
-    createdAt: datetime("created_at", { mode: "date", fsp: 3 })
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP(3)`),
+    readAt: timestamp("read_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("notifications_user_created_idx").on(table.userId, table.createdAt),

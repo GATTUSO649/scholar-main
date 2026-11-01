@@ -1,24 +1,24 @@
 import { randomUUID } from "node:crypto";
-import mysql from "mysql2/promise";
+import postgres from "postgres";
 
 const email = process.argv[2]?.trim().toLowerCase();
-const databaseUrl = process.env.MYSQL_URL;
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 if (!email || !databaseUrl) {
-  console.error("Usage: npm run db:promote-admin -- user@example.com (with MYSQL_URL configured)");
+  console.error(
+    "Usage: npm run db:promote-admin -- user@example.com (with DATABASE_URL configured)",
+  );
   process.exitCode = 1;
 } else {
-  const connection = await mysql.createConnection(databaseUrl);
+  const connection = postgres(databaseUrl, { max: 1, prepare: false });
   try {
-    const [rows] = await connection.execute("SELECT id FROM users WHERE email = ? LIMIT 1", [
-      email,
-    ]);
-    const user = rows[0];
+    const [user] = await connection`SELECT id FROM users WHERE email = ${email} LIMIT 1`;
     if (!user) throw new Error(`No registered account found for ${email}.`);
-    await connection.execute(
-      "INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, 'admin') ON DUPLICATE KEY UPDATE role = 'admin'",
-      [randomUUID(), user.id],
-    );
+    await connection`
+      INSERT INTO user_roles (id, user_id, role)
+      VALUES (${randomUUID()}, ${user.id}, 'admin')
+      ON CONFLICT (user_id, role) DO UPDATE SET role = EXCLUDED.role
+    `;
     console.log(`Administrator role granted to ${email}.`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);

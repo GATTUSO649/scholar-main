@@ -7,16 +7,16 @@ import {
 } from "@/lib/backend.server";
 
 describe("database error handling", () => {
-  it("reads MySQL error codes from Drizzle's wrapped cause", () => {
-    const mysqlError = Object.assign(new Error("duplicate"), { code: "ER_DUP_ENTRY" });
+  it("reads PostgreSQL unique-constraint error codes from wrapped causes", () => {
+    const postgresError = Object.assign(new Error("duplicate"), { code: "23505" });
     const drizzleError = Object.assign(new Error("Failed query with params"), {
-      cause: mysqlError,
+      cause: postgresError,
     });
 
-    expect(getDatabaseErrorCode(drizzleError)).toBe("ER_DUP_ENTRY");
+    expect(getDatabaseErrorCode(drizzleError)).toBe("23505");
   });
 
-  it("returns no code for errors without a MySQL cause", () => {
+  it("returns no code for errors without a database cause", () => {
     expect(getDatabaseErrorCode(new Error("unexpected failure"))).toBeUndefined();
   });
 

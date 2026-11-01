@@ -1,37 +1,51 @@
-import { drizzle } from "drizzle-orm/mysql2";
-import mysql from "mysql2/promise";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "../../drizzle/schema";
 
 const normalizeEnvValue = (value: string | undefined) => value?.trim() || undefined;
 
-let pool: mysql.Pool | undefined;
-function createDatabase(connectionPool: mysql.Pool) {
-  return drizzle(connectionPool, { schema, mode: "default" });
+const directUrlCandidates = ["DATABASE_URL", "POSTGRES_URL", "PG_URL"] as const;
+
+const splitVariableCandidates = {
+  host: ["PGHOST", "POSTGRES_HOST"],
+  port: ["PGPORT", "POSTGRES_PORT"],
+  username: ["PGUSER", "POSTGRES_USER"],
+  password: ["PGPASSWORD", "POSTGRES_PASSWORD"],
+  database: ["PGDATABASE", "POSTGRES_DB", "POSTGRES_DATABASE"],
+} as const;
+
+let pool: ReturnType<typeof postgres> | undefined;
+function createDatabase(connectionPool: ReturnType<typeof postgres>) {
+  return drizzle(connectionPool, { schema });
 }
 let database: ReturnType<typeof createDatabase> | undefined;
 
+function resolveValue(environment: Record<string, string | undefined>, keys: readonly string[]) {
+  for (const key of keys) {
+    const value = normalizeEnvValue(environment[key]);
+    if (value) return value;
+  }
+  return undefined;
+}
+
 export function resolveDatabaseUrl(environment: Record<string, string | undefined> = process.env) {
-  const directUrl = normalizeEnvValue(environment["MYSQL_URL"]);
+  const directUrl = directUrlCandidates
+    .map((key) => normalizeEnvValue(environment[key]))
+    .find((value): value is string => Boolean(value));
   if (directUrl) return directUrl;
 
-  const host = normalizeEnvValue(environment["MYSQLHOST"]);
-  const username = normalizeEnvValue(environment["MYSQLUSER"]);
-  const databaseName =
-    normalizeEnvValue(environment["MYSQLDATABASE"]) ||
-    normalizeEnvValue(environment["MYSQL_DATABASE"]);
+  const host = resolveValue(environment, splitVariableCandidates.host);
+  const username = resolveValue(environment, splitVariableCandidates.username);
+  const databaseName = resolveValue(environment, splitVariableCandidates.database);
   if (!host || !username || !databaseName) {
-    throw new Error(
-      "Set MYSQL_URL or provide MYSQLHOST, MYSQLUSER, and MYSQLDATABASE/MYSQL_DATABASE.",
-    );
+    throw new Error("Set DATABASE_URL or provide PGHOST, PGUSER, and PGDATABASE/POSTGRES_DB.");
   }
 
-  const url = new URL("mysql://localhost");
+  const url = new URL("postgres://localhost");
   url.hostname = host;
-  url.port = normalizeEnvValue(environment["MYSQLPORT"]) || "3306";
+  url.port = resolveValue(environment, splitVariableCandidates.port) || "5432";
   url.username = username;
-  const password =
-    normalizeEnvValue(environment["MYSQLPASSWORD"]) ||
-    (username === "root" ? normalizeEnvValue(environment["MYSQL_ROOT_PASSWORD"]) : undefined);
+  const password = resolveValue(environment, splitVariableCandidates.password);
   if (password) url.password = password;
   url.pathname = `/${databaseName.replace(/^\/+/, "")}`;
   return url.toString();
@@ -40,11 +54,18 @@ export function resolveDatabaseUrl(environment: Record<string, string | undefine
 export function resolveMigrationDatabaseUrl(
   environment: Record<string, string | undefined> = process.env,
 ) {
-  const migrationUrl = normalizeEnvValue(environment["MYSQL_MIGRATION_URL"]);
+  const migrationUrl =
+    normalizeEnvValue(environment["DATABASE_MIGRATION_URL"]) ||
+    normalizeEnvValue(environment["POSTGRES_MIGRATION_URL"]);
+
   if (migrationUrl) {
     try {
       const parsedUrl = new URL(migrationUrl);
-      if (parsedUrl.protocol === "mysql:" && parsedUrl.hostname && parsedUrl.pathname.length > 1) {
+      if (
+        (parsedUrl.protocol === "postgres:" || parsedUrl.protocol === "postgresql:") &&
+        parsedUrl.hostname &&
+        parsedUrl.pathname.length > 1
+      ) {
         return migrationUrl;
       }
     } catch {
@@ -57,9 +78,15 @@ export function resolveMigrationDatabaseUrl(
 export function getDatabase() {
   const url = resolveDatabaseUrl();
   if (!pool) {
-    const parsedUrl = new URL(url);
-    parsedUrl.searchParams.set("timezone", "Z");
-    pool = mysql.createPool(parsedUrl.toString());
+    const ssl =
+      process.env["NODE_ENV"] === "production" || url.includes("supabase") ? "require" : false;
+    pool = postgres(url, {
+      max: 10,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      prepare: false,
+      ssl,
+    });
     database = createDatabase(pool);
   }
   return database!;

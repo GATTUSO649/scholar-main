@@ -206,17 +206,30 @@ async function requireLibraryStudent() {
 async function isEmailRequestRateLimited(action: "reset" | "verification", email: string) {
   const key = `${action}:${tokenHash(email)}`;
   const now = new Date();
-  const windowInterval = sql.raw(`${EMAIL_REQUEST_WINDOW_MINUTES} MINUTE`);
   const db = getDatabase();
-  await db
-    .insert(loginAttempts)
-    .values({ email: key, attempts: 1, windowStartedAt: now })
-    .onDuplicateKeyUpdate({
-      set: {
-        attempts: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${windowInterval}), 1, ${loginAttempts.attempts} + 1)`,
-        windowStartedAt: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${windowInterval}), NOW(3), ${loginAttempts.windowStartedAt})`,
-      },
-    });
+  const [existing] = await db
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.email, key))
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(loginAttempts).values({ email: key, attempts: 1, windowStartedAt: now });
+  } else if (
+    existing.windowStartedAt.getTime() <
+    Date.now() - EMAIL_REQUEST_WINDOW_MINUTES * 60 * 1000
+  ) {
+    await db
+      .update(loginAttempts)
+      .set({ attempts: 1, windowStartedAt: now })
+      .where(eq(loginAttempts.email, key));
+  } else {
+    await db
+      .update(loginAttempts)
+      .set({ attempts: existing.attempts + 1, windowStartedAt: existing.windowStartedAt })
+      .where(eq(loginAttempts.email, key));
+  }
+
   const [attempt] = await db
     .select({ attempts: loginAttempts.attempts })
     .from(loginAttempts)
@@ -247,7 +260,7 @@ async function sendVerificationEmail(userId: string, email: string, fullName?: s
   const mail = buildVerificationEmail({
     appUrl: config.appUrl,
     code: token,
-    name: fullName ?? undefined,
+    ...(fullName ? { name: fullName } : {}),
   });
   const result = await sendTransactionalEmail({
     to: email,
@@ -400,7 +413,7 @@ export async function registerAdmin(input: {
       await tx
         .insert(siteSettings)
         .values({ id: 1, showPrices: true })
-        .onDuplicateKeyUpdate({ set: { showPrices: sql`show_prices` } });
+        .onConflictDoUpdate({ target: siteSettings.id, set: { showPrices: true } });
 
       await tx.insert(users).values({ id, email, passwordHash });
       await tx.insert(profiles).values({
@@ -450,7 +463,8 @@ export function getDatabaseErrorCode(error: unknown): string | undefined {
 }
 
 function isDuplicateKey(error: unknown): boolean {
-  return getDatabaseErrorCode(error) === "ER_DUP_ENTRY";
+  const code = getDatabaseErrorCode(error);
+  return code === "23505";
 }
 
 async function authenticateAccount(input: { email: string; password: string }, adminOnly: boolean) {
@@ -458,16 +472,32 @@ async function authenticateAccount(input: { email: string; password: string }, a
     const db = getDatabase();
     const email = input.email.trim().toLowerCase();
     const now = new Date();
-    const loginWindowInterval = sql.raw(`${LOGIN_WINDOW_MINUTES} MINUTE`);
-    await db
-      .insert(loginAttempts)
-      .values({ email, attempts: 1, windowStartedAt: now })
-      .onDuplicateKeyUpdate({
-        set: {
-          attempts: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), 1, ${loginAttempts.attempts} + 1)`,
-          windowStartedAt: sql`IF(${loginAttempts.windowStartedAt} < DATE_SUB(NOW(3), INTERVAL ${loginWindowInterval}), NOW(3), ${loginAttempts.windowStartedAt})`,
-        },
-      });
+    const [existingAttempt] = await db
+      .select()
+      .from(loginAttempts)
+      .where(eq(loginAttempts.email, email))
+      .limit(1);
+
+    if (!existingAttempt) {
+      await db.insert(loginAttempts).values({ email, attempts: 1, windowStartedAt: now });
+    } else if (
+      existingAttempt.windowStartedAt.getTime() <
+      Date.now() - LOGIN_WINDOW_MINUTES * 60 * 1000
+    ) {
+      await db
+        .update(loginAttempts)
+        .set({ attempts: 1, windowStartedAt: now })
+        .where(eq(loginAttempts.email, email));
+    } else {
+      await db
+        .update(loginAttempts)
+        .set({
+          attempts: existingAttempt.attempts + 1,
+          windowStartedAt: existingAttempt.windowStartedAt,
+        })
+        .where(eq(loginAttempts.email, email));
+    }
+
     const [attempt] = await db
       .select()
       .from(loginAttempts)
@@ -552,7 +582,7 @@ export async function requestPasswordReset(emailInput: string) {
   const mail = buildPasswordResetEmail({
     appUrl: config.appUrl,
     token,
-    name: account.fullName ?? undefined,
+    ...(account.fullName ? { name: account.fullName } : {}),
   });
   const result = await sendTransactionalEmail({
     to: account.email,
@@ -602,7 +632,7 @@ export async function resetPassword(token: string, password: string) {
   if (config.enabled) {
     const mail = buildPasswordChangedEmail({
       appUrl: config.appUrl,
-      name: reset.fullName ?? undefined,
+      ...(reset.fullName ? { name: reset.fullName } : {}),
     });
     await sendTransactionalEmail({
       to: reset.email,
@@ -798,7 +828,10 @@ export async function saveAdminBusinessSettings(input: {
   await getDatabase()
     .insert(siteSettings)
     .values({ id: 1, businessName, mpesaTillNumber, updatedAt })
-    .onDuplicateKeyUpdate({ set: { businessName, mpesaTillNumber, updatedAt } });
+    .onConflictDoUpdate({
+      target: siteSettings.id,
+      set: { businessName, mpesaTillNumber, updatedAt },
+    });
   return { success: true };
 }
 
@@ -835,12 +868,15 @@ export async function savePublicSiteContent(input: {
   await getDatabase()
     .insert(siteSettings)
     .values({ id: 1, ...input, updatedAt: now })
-    .onDuplicateKeyUpdate({ set: { ...input, updatedAt: now } });
+    .onConflictDoUpdate({
+      target: siteSettings.id,
+      set: { ...input, updatedAt: now },
+    });
   return { success: true };
 }
 
 export async function saveFaqEntry(input: {
-  id?: string;
+  id?: string | undefined;
   question: string;
   answer: string;
   active: boolean;
@@ -876,8 +912,9 @@ export async function setFaqEntryActive(input: { id: string; active: boolean }) 
   const result = await getDatabase()
     .update(faqEntries)
     .set({ active: input.active })
-    .where(eq(faqEntries.id, input.id));
-  if (result[0].affectedRows === 0) throw new Error("FAQ entry not found.");
+    .where(eq(faqEntries.id, input.id))
+    .returning({ id: faqEntries.id });
+  if (result.length === 0) throw new Error("FAQ entry not found.");
   return { success: true };
 }
 
@@ -1763,7 +1800,7 @@ export async function getAdminServices() {
 }
 
 export async function saveAdminService(input: {
-  id?: string;
+  id?: string | undefined;
   name: string;
   description: string;
   base_price: number;
@@ -1805,8 +1842,9 @@ export async function setAdminServiceActive(input: { id: string; active: boolean
   const result = await getDatabase()
     .update(services)
     .set({ active: input.active })
-    .where(eq(services.id, input.id));
-  if (result[0].affectedRows === 0) throw new Error("Service not found.");
+    .where(eq(services.id, input.id))
+    .returning({ id: services.id });
+  if (result.length === 0) throw new Error("Service not found.");
   return { success: true };
 }
 
@@ -1815,7 +1853,10 @@ export async function setPublicPrices(showPrices: boolean) {
   await getDatabase()
     .insert(siteSettings)
     .values({ id: 1, showPrices, updatedAt: new Date() })
-    .onDuplicateKeyUpdate({ set: { showPrices, updatedAt: new Date() } });
+    .onConflictDoUpdate({
+      target: siteSettings.id,
+      set: { showPrices, updatedAt: new Date() },
+    });
   return showPrices;
 }
 

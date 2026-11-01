@@ -9,9 +9,11 @@ vi.mock("@/lib/backend.server", () => ({ handleLibraryPurchaseCallback }));
 import { Route } from "@/routes/api.library.callback";
 import { parseJsonRequestBody } from "@/lib/form-data.server";
 
-const post = Route.options.server?.handlers?.POST as unknown as (input: {
-  request: Request;
-}) => Promise<Response>;
+const server = Route.options.server as unknown as {
+  handlers?: { POST?: (input: { request: Request }) => Promise<Response> };
+};
+const post = server?.handlers?.POST;
+if (!post) throw new Error("The payment callback POST handler is not registered.");
 
 function callbackRequest(body: unknown) {
   return new Request("https://portal.example/api/library/callback", {

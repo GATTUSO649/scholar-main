@@ -1,28 +1,33 @@
-import mysql from "mysql2/promise";
+import postgres from "postgres";
 
 function normalizeEnvValue(value) {
   return typeof value === "string" ? value.trim() || undefined : undefined;
 }
 
 function getConnectionUrl(environment) {
-  const directUrl = normalizeEnvValue(environment.MYSQL_URL);
+  const directUrl =
+    normalizeEnvValue(environment.DATABASE_URL) || normalizeEnvValue(environment.POSTGRES_URL);
   if (directUrl) return directUrl;
 
-  const host = normalizeEnvValue(environment.MYSQLHOST);
-  const username = normalizeEnvValue(environment.MYSQLUSER);
+  const host =
+    normalizeEnvValue(environment.PGHOST) || normalizeEnvValue(environment.POSTGRES_HOST);
+  const username =
+    normalizeEnvValue(environment.PGUSER) || normalizeEnvValue(environment.POSTGRES_USER);
   const database =
-    normalizeEnvValue(environment.MYSQLDATABASE) || normalizeEnvValue(environment.MYSQL_DATABASE);
+    normalizeEnvValue(environment.PGDATABASE) ||
+    normalizeEnvValue(environment.POSTGRES_DB) ||
+    normalizeEnvValue(environment.POSTGRES_DATABASE);
   if (!host || !username || !database) {
-    throw new Error("Configure MYSQL_URL or MYSQLHOST, MYSQLUSER, and MYSQLDATABASE.");
+    throw new Error("Configure DATABASE_URL or PGHOST, PGUSER, and PGDATABASE.");
   }
 
-  const url = new URL("mysql://localhost");
+  const url = new URL("postgres://localhost");
   url.hostname = host;
-  url.port = normalizeEnvValue(environment.MYSQLPORT) || "3306";
+  url.port =
+    normalizeEnvValue(environment.PGPORT) || normalizeEnvValue(environment.POSTGRES_PORT) || "5432";
   url.username = username;
   const password =
-    normalizeEnvValue(environment.MYSQLPASSWORD) ||
-    (username === "root" ? normalizeEnvValue(environment.MYSQL_ROOT_PASSWORD) : undefined);
+    normalizeEnvValue(environment.PGPASSWORD) || normalizeEnvValue(environment.POSTGRES_PASSWORD);
   if (password) url.password = password;
   url.pathname = `/${database.replace(/^\/+/, "")}`;
   return url.toString();
@@ -30,23 +35,25 @@ function getConnectionUrl(environment) {
 
 let connection;
 try {
-  connection = await mysql.createConnection({
-    uri: getConnectionUrl(process.env),
-    connectTimeout: 10000,
+  const connectionUrl = getConnectionUrl(process.env);
+  connection = postgres(connectionUrl, {
+    max: 1,
+    connect_timeout: 10,
+    ssl: process.env.NODE_ENV === "production" || connectionUrl.includes("supabase") ? "require" : false,
+    prepare: false,
   });
-  const [rows] = await connection.query("SELECT 1 AS connected, DATABASE() AS database_name");
-  const result = rows[0];
-  if (Number(result?.connected) !== 1 || !result.database_name) {
+  const [row] = await connection`SELECT 1 AS connected, current_database() AS database_name`;
+  if (Number(row?.connected) !== 1 || !row.database_name) {
     throw new Error("The server did not select a database.");
   }
-  console.log(`MySQL connection succeeded for database: ${result.database_name}`);
+  console.log(`PostgreSQL connection succeeded for database: ${row.database_name}`);
 } catch (error) {
   const code =
     typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
       ? error.code
       : "CONNECTION_FAILED";
   console.error(
-    `MySQL connection failed (${code}). Check credentials, database, and network access.`,
+    `PostgreSQL connection failed (${code}). Check credentials, database, and network access.`,
   );
   process.exitCode = 1;
 } finally {

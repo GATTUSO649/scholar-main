@@ -4,7 +4,6 @@ services:
     runtime: node
     plan: 0.5c-512mb
     buildCommand: npm ci && npm run build
-    preDeployCommand: npm run db:migrate
     startCommand: npm start
     healthCheckPath: /
     disk:
@@ -16,9 +15,9 @@ services:
         value: 24.21.0
       - key: HOST
         value: 0.0.0.0
-      - key: MYSQL_URL
+      - key: DATABASE_URL
         sync: false
-      - key: MYSQL_MIGRATION_URL
+      - key: DATABASE_MIGRATION_URL
         sync: false
       - key: NODE_ENV
         value: production

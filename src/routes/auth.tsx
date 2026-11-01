@@ -344,8 +344,8 @@ function AuthPage() {
                         defaultValue={emailForLogin}
                         className="mt-1.5 h-11 rounded-xl"
                       />
-                      {mode === "forgot" && errors.email && (
-                        <p className="mt-1 text-xs text-destructive">{errors.email}</p>
+                      {mode === "forgot" && errors["email"] && (
+                        <p className="mt-1 text-xs text-destructive">{errors["email"]}</p>
                       )}
                     </div>
                     {mode === "login" && (

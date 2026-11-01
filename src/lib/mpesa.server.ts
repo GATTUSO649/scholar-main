@@ -76,7 +76,6 @@ export function getMpesaConfig(merchantShortcode?: string): MpesaConfig | null {
   }
 
   return {
-    environment,
     transactionType,
     consumerKey,
     consumerSecret,

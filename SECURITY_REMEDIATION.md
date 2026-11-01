@@ -1,11 +1,11 @@
 # Security Remediation Checklist
 
-Audit scope: repository source, server functions and API routes, auth/session code, MySQL schema and migrations, file handling, payment callbacks, deployment configuration, dependency audit, and available tests. No penetration test or production exploit testing was performed.
+Audit scope: repository source, server functions and API routes, auth/session code, PostgreSQL schema and active migrations, archived MySQL migrations, file handling, payment callbacks, deployment configuration, dependency audit, and available tests. No penetration test or production exploit testing was performed.
 
 ## Technologies and Dependency Baseline
 
 - Runtime: Node.js 24; Render pins 24.21.0. Local verification used Node 24.22.1 and npm 11.19.1.
-- Framework: TanStack Start/Router, React 19, Vite 8, Nitro, TypeScript, Drizzle ORM, MySQL 8, Nodemailer, and M-Pesa Daraja.
+- Framework: TanStack Start/Router, React 19, Vite 8, Nitro, TypeScript, Drizzle ORM with PostgreSQL/Supabase, Nodemailer, and M-Pesa Daraja.
 - Deployment/package managers: Render and Railway configuration both use npm (`npm ci`); npm and Bun lockfiles already existed. No Dockerfile, Compose file, GitHub workflow, `.nvmrc`, or `.node-version` existed at baseline. Added GitHub Actions/Dependabot and declared Node `>=24.21.0 <25`.
 - Patched direct versions: Vite 8.3.5, Nodemailer 10.2.1, Zod 4.6.7. A root `esbuild` override pins all transitive copies to 0.28.2 because Drizzle Kit 0.31.11 still carries `@esbuild-kit` and esbuild 0.18.x transitively.
 - `npm outdated` listed 28 direct packages with newer versions available. No additional upgrades were made where the update was non-security-related or crossed a major version; the full audit is clean.
@@ -17,8 +17,7 @@ Audit scope: repository source, server functions and API routes, auth/session co
 ## High
 
 - [ ] **Rotate exposed credentials.** `.env` was present in reachable Git history and was later deleted. The current `.env` is ignored, but history and prior conversation exposure mean database, Brevo SMTP, and admin-signup credentials should be rotated by the owner. Do not rewrite published history without an approved repository-history plan.
-- [ ] **Encrypt and verify Railway MySQL transport.** The configured connection negotiated no TLS cipher; a TLS connection with certificate verification failed. `database.server.ts` currently creates a MySQL pool without TLS options. Railway documents encrypted private networking for Railway-to-Railway traffic; Render-to-Railway needs a verified-TLS-capable endpoint or approved private connectivity. Never disable certificate verification.
-- [ ] **Replace the root runtime database account.** The configured principal is `root@%` with global privileges and `WITH GRANT OPTION`. Render now declares `MYSQL_MIGRATION_URL` separately; create a least-privilege app account for `MYSQL_URL` and a distinct, restricted migration account for `MYSQL_MIGRATION_URL`, then configure both in Render. Do not paste either URL into chat.
+- [ ] **Complete and verify production Supabase cutover.** PostgreSQL TLS is enabled by the runtime, and Render now uses `DATABASE_URL` with optional `DATABASE_MIGRATION_URL`; production credentials, a least-privilege runtime role, migration privileges, network access, and actual cutover still require owner-side verification. The MySQL source URL is migration-only and must not be configured on Render.
 - [x] **Dependency advisories remediated.** Baseline findings included Nodemailer GHSA-8c8m-p3m8-cjg8, GHSA-m943-m63m-w62w, and GHSA-85x2-q946-cp5h (recipient parsing; fixed in 10.1.4+), Zod GHSA-mrhx-c7xc-m3w5 (oversized validation workload; fixed in 4.6.6+), multiple Vite advisories including high GHSA-587h-7wmj-h5pm (fixed in 8.3.5), and esbuild GHSA-67mh-4wv8-2f99 (fixed above 0.24.2). Upgraded Nodemailer to 10.2.1, Zod to 4.6.7, Vite to 8.3.5, and overrode nested esbuild to 0.28.2. Current full `npm audit` reports zero vulnerabilities. Tests/build pass with the override, `npm ls esbuild --all` shows only 0.28.2, and Drizzle Kit CLI starts successfully.
 
 ## Medium
