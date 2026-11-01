@@ -7,7 +7,9 @@ import {
   getLibraryResourceForDownload,
   requireLibraryAdmin,
   updateLibraryResource,
+  getDatabaseErrorCode,
 } from "@/lib/backend.server";
+import { hasSupportedLibraryFileSignature } from "@/lib/file-signature.server";
 import { requireSameOrigin } from "@/lib/backend";
 import {
   InvalidUploadBodyError,
@@ -55,7 +57,12 @@ function errorResponse(error: unknown) {
                     : message === "Invalid file key."
                       ? 400
                       : 500;
-  if (status === 500) console.error("Library operation failed", error);
+  if (status === 500) {
+    console.error(
+      "Library operation failed.",
+      getDatabaseErrorCode(error) ?? (error instanceof Error ? error.name : "unknown error"),
+    );
+  }
   return Response.json(
     { error: status === 500 ? "Library operation failed." : message },
     { status },
@@ -107,12 +114,19 @@ export const Route = createFileRoute("/api/library")({
               { status: 400 },
             );
           }
+          const content = Buffer.from(await file.arrayBuffer());
+          if (!hasSupportedLibraryFileSignature(extension, content)) {
+            return Response.json(
+              { error: "The file contents do not match the selected document type." },
+              { status: 400 },
+            );
+          }
 
           const storageKey = crypto.randomUUID();
           const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "download";
           destination = storagePath(storageKey);
           await mkdir(path.dirname(destination), { recursive: true });
-          await writeFile(destination, Buffer.from(await file.arrayBuffer()), {
+          await writeFile(destination, content, {
             flag: "wx",
             mode: 0o600,
           });

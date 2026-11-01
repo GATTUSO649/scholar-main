@@ -24,11 +24,12 @@ Audit scope: repository source, server functions and API routes, auth/session co
 
 - [x] **Prevent password-reset account enumeration.** Reset and verification requests now return one shared response for unknown accounts, verified accounts, rate-limited requests, and delivery outcomes.
 - [x] **Rate-limit sensitive email workflows.** Password-reset and verification/resend paths now use hashed account keys with a database-backed limit of three requests per 15 minutes. IP-based limits remain unavailable until a trusted proxy/client-IP policy or shared limiter is configured.
+- [x] **Make authentication throttles concurrency-safe.** Login and email-request counters use atomic PostgreSQL upserts so concurrent requests cannot overwrite increments.
 - [x] **Bound multipart bodies before parsing.** Both file endpoints now count streamed request bytes before calling `formData()`, with regression coverage for chunked bodies lacking `Content-Length`.
 - [x] **Reduce sensitive error logging.** Production exception logging now omits raw messages/stacks and sign-in logs no longer emit SQL/parameters. Some SMTP logs still include bounded operational metadata only.
 - [ ] **Review paginated reads.** Several admin and student list queries return all matching records without pagination or a maximum result count.
 - [ ] **Add security audit events for privileged actions.** Admin role changes and sensitive admin changes are not consistently persisted to an append-only audit log.
-- [ ] **Validate uploaded file signatures.** Library extensions are allowlisted, but content signatures are not checked. Request uploads intentionally accept broader document types and rely on private storage, forced download, and `nosniff`.
+- [x] **Validate library upload signatures.** PDF, legacy Word, ZIP-based Office/EPUB, and UTF-8 text uploads are checked against their expected content signatures before storage. Request uploads intentionally accept broader document types and rely on private storage, forced download, and `nosniff`.
 - [ ] **Reassess verification policy.** Email verification is disabled unless `REQUIRE_EMAIL_VERIFICATION=true`; it was explicitly turned off during sign-in troubleshooting. Keep it disabled until production email is verified, then decide whether to enforce verification.
 
 ## Low / Informational
@@ -47,10 +48,12 @@ Audit scope: repository source, server functions and API routes, auth/session co
 ## Verification State
 
 - [x] Production and full dependency audit: 0 vulnerabilities after the esbuild override.
-- [x] Regression tests added for shared email-request response, production-safe errors, and bounded multipart parsing.
-- [x] `npm test`: 49 tests passed after remediation and dependency upgrades.
+- [x] Regression tests cover shared email-request responses, production-safe errors, bounded multipart parsing, and library upload signatures.
+- [x] `npm test`: 69 tests passed.
 - [x] `npm run lint`: 0 errors; 7 pre-existing React Fast Refresh warnings remain.
 - [x] `npm run build`: passed with Vite 8.3.5.
+- [x] `npx tsc --noEmit`: passed.
+- [x] `npm run db:migrate`: passed against Supabase; 16 application tables and 2 migrations verified.
 - [x] `npm ci --dry-run`: passed with repository `.npmrc` (`legacy-peer-deps=true`).
 - [x] Render uses npm with `npm ci`; npm and Bun lockfiles already existed. npm lock regenerated with npm 10 and peer-mode enabled; Bun lock remains synchronized.
 - [ ] Verify Render's configured database URL, TLS behavior, SMTP settings, and least-privilege DB user in the dashboard without sharing secrets.

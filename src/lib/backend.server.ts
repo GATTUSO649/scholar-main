@@ -206,35 +206,19 @@ async function requireLibraryStudent() {
 async function isEmailRequestRateLimited(action: "reset" | "verification", email: string) {
   const key = `${action}:${tokenHash(email)}`;
   const now = new Date();
+  const windowStartedAt = new Date(Date.now() - EMAIL_REQUEST_WINDOW_MINUTES * 60 * 1000);
   const db = getDatabase();
-  const [existing] = await db
-    .select()
-    .from(loginAttempts)
-    .where(eq(loginAttempts.email, key))
-    .limit(1);
-
-  if (!existing) {
-    await db.insert(loginAttempts).values({ email: key, attempts: 1, windowStartedAt: now });
-  } else if (
-    existing.windowStartedAt.getTime() <
-    Date.now() - EMAIL_REQUEST_WINDOW_MINUTES * 60 * 1000
-  ) {
-    await db
-      .update(loginAttempts)
-      .set({ attempts: 1, windowStartedAt: now })
-      .where(eq(loginAttempts.email, key));
-  } else {
-    await db
-      .update(loginAttempts)
-      .set({ attempts: existing.attempts + 1, windowStartedAt: existing.windowStartedAt })
-      .where(eq(loginAttempts.email, key));
-  }
-
   const [attempt] = await db
-    .select({ attempts: loginAttempts.attempts })
-    .from(loginAttempts)
-    .where(eq(loginAttempts.email, key))
-    .limit(1);
+    .insert(loginAttempts)
+    .values({ email: key, attempts: 1, windowStartedAt: now })
+    .onConflictDoUpdate({
+      target: loginAttempts.email,
+      set: {
+        attempts: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN 1 ELSE ${loginAttempts.attempts} + 1 END`,
+        windowStartedAt: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN ${now} ELSE ${loginAttempts.windowStartedAt} END`,
+      },
+    })
+    .returning({ attempts: loginAttempts.attempts });
   return (attempt?.attempts ?? 0) > MAX_EMAIL_REQUESTS;
 }
 
@@ -472,37 +456,18 @@ async function authenticateAccount(input: { email: string; password: string }, a
     const db = getDatabase();
     const email = input.email.trim().toLowerCase();
     const now = new Date();
-    const [existingAttempt] = await db
-      .select()
-      .from(loginAttempts)
-      .where(eq(loginAttempts.email, email))
-      .limit(1);
-
-    if (!existingAttempt) {
-      await db.insert(loginAttempts).values({ email, attempts: 1, windowStartedAt: now });
-    } else if (
-      existingAttempt.windowStartedAt.getTime() <
-      Date.now() - LOGIN_WINDOW_MINUTES * 60 * 1000
-    ) {
-      await db
-        .update(loginAttempts)
-        .set({ attempts: 1, windowStartedAt: now })
-        .where(eq(loginAttempts.email, email));
-    } else {
-      await db
-        .update(loginAttempts)
-        .set({
-          attempts: existingAttempt.attempts + 1,
-          windowStartedAt: existingAttempt.windowStartedAt,
-        })
-        .where(eq(loginAttempts.email, email));
-    }
-
+    const windowStartedAt = new Date(Date.now() - LOGIN_WINDOW_MINUTES * 60 * 1000);
     const [attempt] = await db
-      .select()
-      .from(loginAttempts)
-      .where(eq(loginAttempts.email, email))
-      .limit(1);
+      .insert(loginAttempts)
+      .values({ email, attempts: 1, windowStartedAt: now })
+      .onConflictDoUpdate({
+        target: loginAttempts.email,
+        set: {
+          attempts: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN 1 ELSE ${loginAttempts.attempts} + 1 END`,
+          windowStartedAt: sql`CASE WHEN ${loginAttempts.windowStartedAt} < ${windowStartedAt} THEN ${now} ELSE ${loginAttempts.windowStartedAt} END`,
+        },
+      })
+      .returning({ attempts: loginAttempts.attempts });
     if (attempt && attempt.attempts > MAX_LOGIN_ATTEMPTS) {
       throw new AuthError("Too many sign-in attempts. Please wait 15 minutes and try again.");
     }

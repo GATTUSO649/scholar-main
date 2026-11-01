@@ -39,7 +39,10 @@ try {
   connection = postgres(connectionUrl, {
     max: 1,
     connect_timeout: 10,
-    ssl: process.env.NODE_ENV === "production" || connectionUrl.includes("supabase") ? "require" : false,
+    ssl:
+      process.env.NODE_ENV === "production" || connectionUrl.includes("supabase")
+        ? "require"
+        : false,
     prepare: false,
   });
   const [row] = await connection`SELECT 1 AS connected, current_database() AS database_name`;

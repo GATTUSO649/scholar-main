@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Bell, CheckCheck } from "lucide-react";
@@ -14,10 +14,12 @@ const notificationQueryKey = ["notifications"];
 
 export function NotificationBell() {
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
   const { data, isLoading, isError } = useQuery({
     queryKey: notificationQueryKey,
     queryFn: () => getMyNotificationsFn(),
-    refetchInterval: 5_000,
+    refetchInterval: open ? 5_000 : 30_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
   const notificationIds = data?.items.map((item) => item.id).join(",") ?? "";
@@ -47,7 +49,7 @@ export function NotificationBell() {
   const unreadCount = data?.unreadCount ?? 0;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"

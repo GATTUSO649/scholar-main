@@ -39,11 +39,7 @@ function resolveDatabaseUrl(environment = process.env) {
 
   const host = firstValue(environment, ["PGHOST", "POSTGRES_HOST"]);
   const username = firstValue(environment, ["PGUSER", "POSTGRES_USER"]);
-  const database = firstValue(environment, [
-    "PGDATABASE",
-    "POSTGRES_DB",
-    "POSTGRES_DATABASE",
-  ]);
+  const database = firstValue(environment, ["PGDATABASE", "POSTGRES_DB", "POSTGRES_DATABASE"]);
   if (!host || !username || !database) {
     throw new Error("Set DATABASE_URL or provide PGHOST, PGUSER, and PGDATABASE/POSTGRES_DB.");
   }
@@ -63,7 +59,8 @@ const database = postgres(databaseUrl, {
   max: 1,
   connect_timeout: 10,
   prepare: false,
-  ssl: process.env.NODE_ENV === "production" || databaseUrl.includes("supabase") ? "require" : false,
+  ssl:
+    process.env.NODE_ENV === "production" || databaseUrl.includes("supabase") ? "require" : false,
 });
 
 try {
