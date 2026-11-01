@@ -31,6 +31,7 @@ import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticate
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as ApiLibraryRouteImport } from './routes/api.library'
+import { Route as ApiRequestPaymentRouteImport } from './routes/api.request-payment'
 import { Route as AuthenticatedAdminBusinessSettingsRouteImport } from './routes/_authenticated/admin.business-settings'
 import { Route as AuthenticatedAdminContentRouteImport } from './routes/_authenticated/admin.content'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
@@ -156,6 +157,11 @@ const ApiLibraryRoute = ApiLibraryRouteImport.update({
   path: '/api/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRequestPaymentRoute = ApiRequestPaymentRouteImport.update({
+  id: '/api/request-payment',
+  path: '/api/request-payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminBusinessSettingsRoute =
   AuthenticatedAdminBusinessSettingsRouteImport.update({
     id: '/business-settings',
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
+  '/api/request-payment': typeof ApiRequestPaymentRoute
   '/admin/business-settings': typeof AuthenticatedAdminBusinessSettingsRoute
   '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
@@ -303,6 +310,7 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
+  '/api/request-payment': typeof ApiRequestPaymentRoute
   '/admin/business-settings': typeof AuthenticatedAdminBusinessSettingsRoute
   '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
@@ -343,6 +351,7 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
+  '/api/request-payment': typeof ApiRequestPaymentRoute
   '/_authenticated/admin/business-settings': typeof AuthenticatedAdminBusinessSettingsRoute
   '/_authenticated/admin/content': typeof AuthenticatedAdminContentRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
@@ -383,6 +392,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/api/files'
     | '/api/library'
+    | '/api/request-payment'
     | '/admin/business-settings'
     | '/admin/content'
     | '/admin/dashboard'
@@ -421,6 +431,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/api/files'
     | '/api/library'
+    | '/api/request-payment'
     | '/admin/business-settings'
     | '/admin/content'
     | '/admin/dashboard'
@@ -460,6 +471,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/api/files'
     | '/api/library'
+    | '/api/request-payment'
     | '/_authenticated/admin/business-settings'
     | '/_authenticated/admin/content'
     | '/_authenticated/admin/dashboard'
@@ -493,6 +505,7 @@ export interface RootRouteChildren {
   AdminLoginRoute: typeof AdminLoginRoute
   ApiFilesRoute: typeof ApiFilesRoute
   ApiLibraryRoute: typeof ApiLibraryRouteWithChildren
+  ApiRequestPaymentRoute: typeof ApiRequestPaymentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -649,6 +662,13 @@ declare module '@tanstack/react-router' {
       path: '/api/library'
       fullPath: '/api/library'
       preLoaderRoute: typeof ApiLibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/request-payment': {
+      id: '/api/request-payment'
+      path: '/api/request-payment'
+      fullPath: '/api/request-payment'
+      preLoaderRoute: typeof ApiRequestPaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/business-settings': {
@@ -864,6 +884,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminLoginRoute: AdminLoginRoute,
   ApiFilesRoute: ApiFilesRoute,
   ApiLibraryRoute: ApiLibraryRouteWithChildren,
+  ApiRequestPaymentRoute: ApiRequestPaymentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

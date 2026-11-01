@@ -21,7 +21,6 @@ const statusSchema = z.enum([
   "declined",
   "cancelled",
 ]);
-const paymentSchema = z.enum(["unpaid", "pending", "paid", "refunded"]);
 
 function assertSameOrigin() {
   requireSameOrigin(getRequest());
@@ -348,6 +347,19 @@ export const getAdminMpesaPurchasesFn = createServerFn({ method: "GET" })
     return getAdminMpesaPurchases(data);
   });
 
+export const getAdminServiceRequestPaymentsFn = createServerFn({ method: "GET" })
+  .validator(
+    z.object({
+      search: z.string().max(100),
+      status: z.enum(["all", "pending", "paid", "failed", "cancelled", "refunded"]),
+      offset: z.number().int().min(0).max(1_000_000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { getAdminServiceRequestPayments } = await import("./backend.server");
+    return getAdminServiceRequestPayments(data);
+  });
+
 export const getAdminStudentsFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getAdminStudents } = await import("./backend.server");
   return getAdminStudents();
@@ -410,7 +422,6 @@ export const updateRequestFn = createServerFn({ method: "POST" })
     z.object({
       id: z.string().uuid(),
       status: statusSchema,
-      payment_status: paymentSchema,
       price: z.number().finite().min(0).max(99999999).nullable(),
       currency: z.enum(["USD", "KES", "GBP", "EUR"]),
       admin_notes: z.string().max(10000),

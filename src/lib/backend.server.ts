@@ -20,6 +20,7 @@ import {
   requestUpdates,
   requests,
   services,
+  serviceRequestPayments,
   sessions,
   siteSettings,
   userRoles,
@@ -1444,6 +1445,483 @@ export async function handleLibraryPurchaseCallback(input: {
   );
 }
 
+export async function startServiceRequestPayment(input: {
+  requestId: string;
+  phoneNumber: string;
+}) {
+  const student = await requireLibraryStudent();
+  const phoneNumber = normalizeMpesaPhoneNumber(input.phoneNumber);
+  const db = getDatabase();
+  const [businessSettings] = await db
+    .select({ mpesaTillNumber: siteSettings.mpesaTillNumber })
+    .from(siteSettings)
+    .where(eq(siteSettings.id, 1))
+    .limit(1);
+  const merchantShortcode =
+    businessSettings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "";
+  if (!getMpesaConfig(merchantShortcode)) throw new Error("M-Pesa payments are not configured.");
+
+  const payment = await db.transaction(async (tx) => {
+    const [request] = await tx
+      .select({
+        id: requests.id,
+        studentId: requests.studentId,
+        title: requests.title,
+        status: requests.status,
+        paymentStatus: requests.paymentStatus,
+        price: requests.price,
+        currency: requests.currency,
+      })
+      .from(requests)
+      .where(and(eq(requests.id, input.requestId), eq(requests.studentId, student.id)))
+      .limit(1)
+      .for("update");
+    if (!request) throw new Error("Request not found.");
+    if (
+      request.status !== "awaiting_payment" &&
+      request.status !== "in_progress" &&
+      request.status !== "completed"
+    ) {
+      throw new Error("Payment is not available for this request.");
+    }
+    if (request.price == null || request.price <= 0) {
+      throw new Error("A payable quote is not available for this request.");
+    }
+    if (request.currency !== "KES" || !Number.isInteger(request.price) || request.price > 150_000) {
+      throw new Error("This request quote is not configured for M-PESA.");
+    }
+    if (request.paymentStatus === "paid") return { status: "paid" as const };
+
+    const [pending] = await tx
+      .select({
+        id: serviceRequestPayments.id,
+        phoneNumber: serviceRequestPayments.phoneNumber,
+        expiresAt: serviceRequestPayments.expiresAt,
+        createdAt: serviceRequestPayments.createdAt,
+      })
+      .from(serviceRequestPayments)
+      .where(
+        and(
+          eq(serviceRequestPayments.requestId, request.id),
+          eq(serviceRequestPayments.status, "pending"),
+        ),
+      )
+      .orderBy(desc(serviceRequestPayments.createdAt))
+      .limit(1)
+      .for("update");
+    if (
+      pending &&
+      !hasMpesaPaymentExpired(
+        pending.expiresAt ?? new Date(pending.createdAt.getTime() + MPESA_PAYMENT_EXPIRY_MS),
+      )
+    ) {
+      return {
+        paymentId: pending.id,
+        status: "pending" as const,
+        phoneNumber: pending.phoneNumber,
+      };
+    }
+    if (pending) {
+      await tx
+        .update(serviceRequestPayments)
+        .set({
+          status: "failed",
+          failureReason: MPESA_PAYMENT_EXPIRED_REASON,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(serviceRequestPayments.id, pending.id),
+            eq(serviceRequestPayments.status, "pending"),
+          ),
+        );
+    }
+
+    const recentAttempts = await tx
+      .select({ id: serviceRequestPayments.id })
+      .from(serviceRequestPayments)
+      .where(
+        and(
+          eq(serviceRequestPayments.studentId, student.id),
+          gt(serviceRequestPayments.createdAt, new Date(Date.now() - 15 * 60 * 1000)),
+        ),
+      )
+      .limit(5);
+    if (recentAttempts.length >= 5) {
+      throw new Error("Too many recent payment attempts. Please wait before trying again.");
+    }
+
+    const paymentId = randomUUID();
+    const accountReference = `R${paymentId.replaceAll("-", "").slice(0, 11)}`;
+    await tx.insert(serviceRequestPayments).values({
+      id: paymentId,
+      requestId: request.id,
+      studentId: student.id,
+      amount: request.price,
+      currency: request.currency,
+      status: "pending",
+      phoneNumber,
+      accountReference,
+      merchantShortcode,
+      expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
+    });
+    await tx
+      .update(requests)
+      .set({ paymentStatus: "pending", updatedAt: new Date() })
+      .where(eq(requests.id, request.id));
+    return {
+      paymentId,
+      status: "new" as const,
+      amount: request.price,
+      title: request.title,
+      accountReference,
+    };
+  });
+
+  if (payment.status !== "new") return payment;
+  let providerAccepted = false;
+  try {
+    const checkout = await initiateMpesaStkPush(
+      {
+        phoneNumber,
+        amount: payment.amount,
+        accountReference: payment.accountReference,
+        transactionDesc: "SERVICE",
+      },
+      merchantShortcode,
+    );
+    providerAccepted = true;
+    if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {
+      throw new MpesaUncertainOutcomeError();
+    }
+    await db
+      .update(serviceRequestPayments)
+      .set({
+        checkoutRequestId: checkout.CheckoutRequestID,
+        merchantRequestId: checkout.MerchantRequestID,
+        expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceRequestPayments.id, payment.paymentId));
+    return {
+      paymentId: payment.paymentId,
+      status: "pending" as const,
+      phoneNumber,
+      message: `Check ${phoneNumber} and enter your M-PESA PIN to complete payment.`,
+    };
+  } catch (error) {
+    if (providerAccepted || error instanceof MpesaUncertainOutcomeError) {
+      await db
+        .update(serviceRequestPayments)
+        .set({
+          failureReason: "Safaricom outcome is uncertain; payment must be reconciled before retry.",
+          expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(serviceRequestPayments.id, payment.paymentId),
+            ne(serviceRequestPayments.status, "paid"),
+          ),
+        );
+      return {
+        paymentId: payment.paymentId,
+        status: "pending" as const,
+        phoneNumber,
+        message: "Safaricom's response is delayed. Do not retry until this payment is reconciled.",
+      };
+    }
+    await db
+      .update(serviceRequestPayments)
+      .set({
+        status: "failed",
+        failureReason: error instanceof Error ? error.message.slice(0, 255) : "Checkout failed.",
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceRequestPayments.id, payment.paymentId));
+    await db
+      .update(requests)
+      .set({ paymentStatus: "unpaid", updatedAt: new Date() })
+      .where(and(eq(requests.id, input.requestId), eq(requests.paymentStatus, "pending")));
+    throw error;
+  }
+}
+
+async function syncServiceRequestPaymentFromProvider(
+  paymentId: string,
+  callbackDetails?: { receiptNumber: string; transactionTimestamp: Date },
+) {
+  const db = getDatabase();
+  const [payment] = await db
+    .select({
+      id: serviceRequestPayments.id,
+      requestId: serviceRequestPayments.requestId,
+      studentId: serviceRequestPayments.studentId,
+      amount: serviceRequestPayments.amount,
+      status: serviceRequestPayments.status,
+      checkoutRequestId: serviceRequestPayments.checkoutRequestId,
+      merchantShortcode: serviceRequestPayments.merchantShortcode,
+      expiresAt: serviceRequestPayments.expiresAt,
+      createdAt: serviceRequestPayments.createdAt,
+      requestTitle: requests.title,
+      requestRef: requests.ref,
+    })
+    .from(serviceRequestPayments)
+    .innerJoin(requests, eq(serviceRequestPayments.requestId, requests.id))
+    .where(eq(serviceRequestPayments.id, paymentId))
+    .limit(1);
+  if (!payment) return { status: "not_found" as const };
+  if (payment.status === "paid") return { status: "paid" as const };
+  const expired = () =>
+    hasMpesaPaymentExpired(
+      payment.expiresAt ?? new Date(payment.createdAt.getTime() + MPESA_PAYMENT_EXPIRY_MS),
+    );
+  if (!payment.checkoutRequestId) {
+    if (!expired()) return { status: payment.status };
+    await db
+      .update(serviceRequestPayments)
+      .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: new Date() })
+      .where(
+        and(
+          eq(serviceRequestPayments.id, payment.id),
+          eq(serviceRequestPayments.status, "pending"),
+        ),
+      );
+    await db
+      .update(requests)
+      .set({ paymentStatus: "unpaid", updatedAt: new Date() })
+      .where(and(eq(requests.id, payment.requestId), eq(requests.paymentStatus, "pending")));
+    return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+  }
+
+  let verification;
+  try {
+    verification = await queryMpesaStkPush(
+      payment.checkoutRequestId,
+      payment.merchantShortcode ?? undefined,
+    );
+  } catch (error) {
+    if (!expired()) throw error;
+    await db
+      .update(serviceRequestPayments)
+      .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: new Date() })
+      .where(
+        and(
+          eq(serviceRequestPayments.id, payment.id),
+          eq(serviceRequestPayments.status, "pending"),
+        ),
+      );
+    await db
+      .update(requests)
+      .set({ paymentStatus: "unpaid", updatedAt: new Date() })
+      .where(and(eq(requests.id, payment.requestId), eq(requests.paymentStatus, "pending")));
+    return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+  }
+  if (
+    String(verification.ResponseCode) !== "0" ||
+    verification.CheckoutRequestID !== payment.checkoutRequestId ||
+    verification.ResultCode == null
+  ) {
+    if (!expired()) return { status: "pending" as const };
+    await db
+      .update(serviceRequestPayments)
+      .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: new Date() })
+      .where(
+        and(
+          eq(serviceRequestPayments.id, payment.id),
+          eq(serviceRequestPayments.status, "pending"),
+        ),
+      );
+    await db
+      .update(requests)
+      .set({ paymentStatus: "unpaid", updatedAt: new Date() })
+      .where(and(eq(requests.id, payment.requestId), eq(requests.paymentStatus, "pending")));
+    return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+  }
+
+  const nextStatus = mapMpesaResultCodeToPurchaseStatus(verification.ResultCode);
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ status: serviceRequestPayments.status })
+      .from(serviceRequestPayments)
+      .where(eq(serviceRequestPayments.id, payment.id))
+      .limit(1)
+      .for("update");
+    if (!current) return { status: "not_found" as const };
+    if (current.status === "paid") return { status: "paid" as const };
+    await tx
+      .update(serviceRequestPayments)
+      .set({
+        status: nextStatus,
+        failureReason:
+          nextStatus === "paid"
+            ? null
+            : (verification.ResultDesc?.slice(0, 255) ?? "Payment failed."),
+        updatedAt: new Date(),
+        ...(nextStatus === "paid"
+          ? {
+              paidAt: new Date(),
+              ...(callbackDetails
+                ? {
+                    receiptNumber: callbackDetails.receiptNumber,
+                    transactionTimestamp: callbackDetails.transactionTimestamp,
+                  }
+                : {}),
+            }
+          : {}),
+      })
+      .where(eq(serviceRequestPayments.id, payment.id));
+
+    const [latest] = await tx
+      .select({ status: serviceRequestPayments.status })
+      .from(serviceRequestPayments)
+      .where(eq(serviceRequestPayments.requestId, payment.requestId))
+      .orderBy(desc(serviceRequestPayments.createdAt))
+      .limit(1);
+    const requestPaymentStatus =
+      nextStatus === "paid" || latest?.status === "paid"
+        ? "paid"
+        : latest?.status === "pending"
+          ? "pending"
+          : "unpaid";
+    const [request] = await tx
+      .select({ status: requests.status })
+      .from(requests)
+      .where(eq(requests.id, payment.requestId))
+      .limit(1)
+      .for("update");
+    const nextRequestStatus =
+      nextStatus === "paid" && request?.status === "awaiting_payment"
+        ? "in_progress"
+        : request?.status;
+    await tx
+      .update(requests)
+      .set({
+        paymentStatus: requestPaymentStatus,
+        ...(nextRequestStatus ? { status: nextRequestStatus } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(requests.id, payment.requestId));
+
+    const deliveryFiles = await tx
+      .select({ id: requestFiles.id })
+      .from(requestFiles)
+      .where(and(eq(requestFiles.requestId, payment.requestId), eq(requestFiles.kind, "delivery")))
+      .limit(1);
+    const paidAndDeliverable = nextStatus === "paid" && deliveryFiles.length > 0;
+    const title =
+      nextStatus === "paid"
+        ? paidAndDeliverable
+          ? "Payment confirmed: work is ready"
+          : "M-PESA payment confirmed"
+        : "M-PESA payment not completed";
+    const message =
+      nextStatus === "paid"
+        ? paidAndDeliverable
+          ? `Payment for request ${payment.requestRef} is confirmed. Your completed work is ready to download.`
+          : `Payment for request ${payment.requestRef} is confirmed. The team has been notified.`
+        : `Payment for request ${payment.requestRef} was not completed. You can retry from the request page.`;
+    await tx.insert(requestUpdates).values({
+      id: randomUUID(),
+      requestId: payment.requestId,
+      status: nextRequestStatus ?? null,
+      note: message,
+      createdBy: null,
+    });
+    await tx.insert(notifications).values({
+      id: randomUUID(),
+      userId: payment.studentId,
+      requestId: payment.requestId,
+      type: nextStatus === "paid" ? "request_payment" : "request_payment_failed",
+      title,
+      message,
+      href: `/request/${payment.requestId}`,
+    });
+    return { status: nextStatus };
+  });
+}
+
+export async function refreshStudentServiceRequestPaymentStatus(paymentId: string) {
+  const student = await requireLibraryStudent();
+  const [payment] = await getDatabase()
+    .select({ id: serviceRequestPayments.id })
+    .from(serviceRequestPayments)
+    .where(
+      and(
+        eq(serviceRequestPayments.id, paymentId),
+        eq(serviceRequestPayments.studentId, student.id),
+      ),
+    )
+    .limit(1);
+  if (!payment) return { status: "not_found" as const };
+  return syncServiceRequestPaymentFromProvider(payment.id);
+}
+
+export async function handleServiceRequestPaymentCallback(input: {
+  checkoutRequestId: string;
+  merchantRequestId: string;
+  resultCode: number;
+  resultDesc: string;
+  amount?: number;
+  customerPhone?: string;
+  receiptNumber?: string;
+  transactionTimestamp?: Date;
+  callbackResponse: Record<string, unknown>;
+}) {
+  const db = getDatabase();
+  const [payment] = await db
+    .select({
+      id: serviceRequestPayments.id,
+      requestId: serviceRequestPayments.requestId,
+      studentId: serviceRequestPayments.studentId,
+      amount: serviceRequestPayments.amount,
+      status: serviceRequestPayments.status,
+      phoneNumber: serviceRequestPayments.phoneNumber,
+      merchantRequestId: serviceRequestPayments.merchantRequestId,
+      requestRef: requests.ref,
+    })
+    .from(serviceRequestPayments)
+    .innerJoin(requests, eq(serviceRequestPayments.requestId, requests.id))
+    .where(eq(serviceRequestPayments.checkoutRequestId, input.checkoutRequestId))
+    .limit(1);
+  if (!payment) return { status: "unknown" as const };
+  if (payment.status === "paid") return { status: "paid" as const };
+  if (payment.merchantRequestId !== input.merchantRequestId) {
+    return { status: "pending" as const };
+  }
+  const invalidSuccessCallback =
+    input.resultCode === 0 &&
+    (input.amount !== payment.amount ||
+      input.customerPhone !== payment.phoneNumber ||
+      !input.receiptNumber ||
+      !input.transactionTimestamp ||
+      !Number.isFinite(input.transactionTimestamp.getTime()));
+  await db
+    .update(serviceRequestPayments)
+    .set({
+      callbackResponse: input.callbackResponse,
+      failureReason: invalidSuccessCallback
+        ? "Callback payment details did not match the stored service request payment."
+        : input.resultCode === 0
+          ? "Awaiting Safaricom payment verification."
+          : input.resultDesc.slice(0, 255),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(serviceRequestPayments.id, payment.id), ne(serviceRequestPayments.status, "paid")),
+    );
+  if (invalidSuccessCallback) return { status: "pending" as const };
+  return syncServiceRequestPaymentFromProvider(
+    payment.id,
+    input.resultCode === 0 && input.receiptNumber && input.transactionTimestamp
+      ? {
+          receiptNumber: input.receiptNumber,
+          transactionTimestamp: input.transactionTimestamp,
+        }
+      : undefined,
+  );
+}
+
 export async function deleteLibraryResource(id: string) {
   await requireAdmin();
   const [resource] = await getDatabase()
@@ -1575,7 +2053,7 @@ export async function getRequestBundle(id: string) {
   if (!joined || (joined.request.studentId !== user.id && !isAdmin)) {
     return { req: null, files: [], updates: [] };
   }
-  const [files, updates] = await Promise.all([
+  const [files, updates, payments] = await Promise.all([
     db
       .select()
       .from(requestFiles)
@@ -1586,10 +2064,28 @@ export async function getRequestBundle(id: string) {
       .from(requestUpdates)
       .where(eq(requestUpdates.requestId, id))
       .orderBy(desc(requestUpdates.createdAt)),
+    db
+      .select({
+        id: serviceRequestPayments.id,
+        amount: serviceRequestPayments.amount,
+        currency: serviceRequestPayments.currency,
+        status: serviceRequestPayments.status,
+        receiptNumber: serviceRequestPayments.receiptNumber,
+        failureReason: serviceRequestPayments.failureReason,
+        createdAt: serviceRequestPayments.createdAt,
+        paidAt: serviceRequestPayments.paidAt,
+      })
+      .from(serviceRequestPayments)
+      .where(eq(serviceRequestPayments.requestId, id))
+      .orderBy(desc(serviceRequestPayments.createdAt))
+      .limit(10),
   ]);
+  const visibleFiles = isAdmin
+    ? files
+    : files.filter((file) => file.kind !== "delivery" || joined.request.paymentStatus === "paid");
   return {
     req: mapRequest(joined.request, joined.serviceName, isAdmin),
-    files: files.map((file) => ({
+    files: visibleFiles.map((file) => ({
       id: file.id,
       request_id: file.requestId,
       uploaded_by: file.uploadedBy,
@@ -1605,6 +2101,16 @@ export async function getRequestBundle(id: string) {
       note: update.note,
       created_by: update.createdBy,
       created_at: update.createdAt.toISOString(),
+    })),
+    payments: payments.map((payment) => ({
+      id: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+      receipt_number: payment.receiptNumber,
+      failure_reason: payment.failureReason,
+      created_at: payment.createdAt.toISOString(),
+      paid_at: payment.paidAt?.toISOString() ?? null,
     })),
   };
 }
@@ -1770,6 +2276,73 @@ export async function getAdminMpesaPurchases(input: {
   };
 }
 
+export async function getAdminServiceRequestPayments(input: {
+  search: string;
+  status: "all" | "pending" | "paid" | "failed" | "cancelled" | "refunded";
+  offset: number;
+}) {
+  await requireAdmin();
+  const db = getDatabase();
+  const filters = input.status === "all" ? [] : [eq(serviceRequestPayments.status, input.status)];
+  const search = input.search.trim().slice(0, 100);
+  if (search) {
+    const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+    filters.push(
+      or(
+        like(serviceRequestPayments.receiptNumber, pattern),
+        like(serviceRequestPayments.phoneNumber, pattern),
+        like(serviceRequestPayments.accountReference, pattern),
+        like(serviceRequestPayments.id, pattern),
+        like(serviceRequestPayments.checkoutRequestId, pattern),
+        like(requests.ref, pattern),
+      )!,
+    );
+  }
+  const where = filters.length ? and(...filters) : undefined;
+  const [rows, totals, verifiedRevenue] = await Promise.all([
+    db
+      .select({
+        id: serviceRequestPayments.id,
+        amount: serviceRequestPayments.amount,
+        currency: serviceRequestPayments.currency,
+        status: serviceRequestPayments.status,
+        phoneNumber: serviceRequestPayments.phoneNumber,
+        accountReference: serviceRequestPayments.accountReference,
+        receiptNumber: serviceRequestPayments.receiptNumber,
+        checkoutRequestId: serviceRequestPayments.checkoutRequestId,
+        merchantRequestId: serviceRequestPayments.merchantRequestId,
+        transactionTimestamp: serviceRequestPayments.transactionTimestamp,
+        createdAt: serviceRequestPayments.createdAt,
+        paidAt: serviceRequestPayments.paidAt,
+        failureReason: serviceRequestPayments.failureReason,
+        resourceTitle: requests.title,
+        requestRef: requests.ref,
+        studentName: profiles.fullName,
+      })
+      .from(serviceRequestPayments)
+      .innerJoin(requests, eq(serviceRequestPayments.requestId, requests.id))
+      .leftJoin(profiles, eq(serviceRequestPayments.studentId, profiles.id))
+      .where(where)
+      .orderBy(desc(serviceRequestPayments.createdAt))
+      .limit(50)
+      .offset(input.offset),
+    db
+      .select({ total: count() })
+      .from(serviceRequestPayments)
+      .innerJoin(requests, eq(serviceRequestPayments.requestId, requests.id))
+      .where(where),
+    db
+      .select({ total: sql<string>`COALESCE(SUM(${serviceRequestPayments.amount}), 0)` })
+      .from(serviceRequestPayments)
+      .where(eq(serviceRequestPayments.status, "paid")),
+  ]);
+  return {
+    items: rows,
+    total: totals[0]?.total ?? 0,
+    verifiedRevenue: Number(verifiedRevenue[0]?.total ?? 0),
+  };
+}
+
 export async function getAdminStudents() {
   await requireAdmin();
   const rows = await getDatabase().select().from(profiles).orderBy(desc(profiles.createdAt));
@@ -1845,7 +2418,6 @@ export async function setPublicPrices(showPrices: boolean) {
 export async function updateRequest(input: {
   id: string;
   status: RequestState;
-  payment_status: PaymentState;
   price: number | null;
   currency: string;
   admin_notes: string;
@@ -1858,6 +2430,12 @@ export async function updateRequest(input: {
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(requests).where(eq(requests.id, input.id)).limit(1);
     if (!current) throw new Error("Request not found.");
+    if (
+      current.paymentStatus === "pending" &&
+      (input.price !== current.price || input.currency !== current.currency)
+    ) {
+      throw new Error("The quote cannot change while an M-PESA payment is pending.");
+    }
     if (input.currency !== "KES" && input.currency !== current.currency) {
       throw new Error(
         "New quotes must use KES. Existing request currencies can only be changed to KES.",
@@ -1869,7 +2447,6 @@ export async function updateRequest(input: {
       .update(requests)
       .set({
         status: input.status,
-        paymentStatus: input.payment_status,
         price: input.price,
         currency: input.currency,
         adminNotes: input.admin_notes,
@@ -1895,7 +2472,6 @@ export async function updateRequest(input: {
     }
     const studentVisibleChange =
       input.status !== current.status ||
-      input.payment_status !== current.paymentStatus ||
       input.price !== current.price ||
       input.grade !== current.grade ||
       input.admin_feedback !== current.adminFeedback ||
@@ -1904,25 +2480,21 @@ export async function updateRequest(input: {
       const title =
         input.status !== current.status
           ? "Request status changed"
-          : input.payment_status !== current.paymentStatus
-            ? "Payment status updated"
-            : input.price !== current.price
-              ? "Your quote was updated"
-              : input.grade !== current.grade || input.admin_feedback !== current.adminFeedback
-                ? "New feedback is available"
-                : "New request update";
+          : input.price !== current.price
+            ? "Your quote was updated"
+            : input.grade !== current.grade || input.admin_feedback !== current.adminFeedback
+              ? "New feedback is available"
+              : "New request update";
       const statusLabel =
         input.status === "submitted" ? "received" : input.status.replaceAll("_", " ");
       const message =
         input.status !== current.status
           ? `Request ${current.ref} is now ${statusLabel}.`
-          : input.payment_status !== current.paymentStatus
-            ? `Payment status for request ${current.ref} is now ${input.payment_status}.`
-            : input.price !== current.price
-              ? `The quote for request ${current.ref} has changed.`
-              : input.grade !== current.grade || input.admin_feedback !== current.adminFeedback
-                ? `New feedback has been added to request ${current.ref}.`
-                : `There is a new update for request ${current.ref}.`;
+          : input.price !== current.price
+            ? `The quote for request ${current.ref} has changed.`
+            : input.grade !== current.grade || input.admin_feedback !== current.adminFeedback
+              ? `New feedback has been added to request ${current.ref}.`
+              : `There is a new update for request ${current.ref}.`;
       await tx.insert(notifications).values({
         id: randomUUID(),
         userId: current.studentId,
@@ -1959,9 +2531,15 @@ export async function getAuthorizedFile(storageKey: string) {
     .where(
       and(
         eq(requestFiles.storageKey, storageKey),
-        sql`(${requests.studentId} = ${user.id} OR EXISTS (
-      SELECT 1 FROM user_roles WHERE user_id = ${user.id} AND role = 'admin'
-    ))`,
+        or(
+          and(
+            eq(requests.studentId, user.id),
+            or(ne(requestFiles.kind, "delivery"), eq(requests.paymentStatus, "paid")),
+          ),
+          sql`EXISTS (
+            SELECT 1 FROM user_roles WHERE user_id = ${user.id} AND role = 'admin'
+          )`,
+        ),
       ),
     )
     .limit(1);
@@ -2038,13 +2616,21 @@ export async function completeRequestDelivery(requestId: string) {
   const db = getDatabase();
   await db.transaction(async (tx) => {
     const [request] = await tx
-      .select({ id: requests.id, studentId: requests.studentId, ref: requests.ref })
+      .select({
+        id: requests.id,
+        studentId: requests.studentId,
+        ref: requests.ref,
+        paymentStatus: requests.paymentStatus,
+      })
       .from(requests)
       .where(eq(requests.id, requestId))
       .limit(1);
     if (!request) throw new Error("Request not found.");
 
-    const note = "Completed work files are ready to download.";
+    const paid = request.paymentStatus === "paid";
+    const note = paid
+      ? "Completed work files are ready to download."
+      : "Work is complete. Pay the confirmed quote to unlock the delivery files.";
     await tx
       .update(requests)
       .set({ status: "completed", updatedAt: new Date() })
@@ -2060,9 +2646,11 @@ export async function completeRequestDelivery(requestId: string) {
       id: randomUUID(),
       userId: request.studentId,
       requestId,
-      type: "delivery_ready",
-      title: "Completed work is ready",
-      message: `Completed work for request ${request.ref} is ready to download.`,
+      type: paid ? "delivery_ready" : "delivery_payment_required",
+      title: paid ? "Completed work is ready" : "Work completed; payment required",
+      message: paid
+        ? `Completed work for request ${request.ref} is ready to download.`
+        : `Work for request ${request.ref} is complete. Pay the confirmed quote to download it.`,
       href: `/request/${requestId}`,
     });
   });

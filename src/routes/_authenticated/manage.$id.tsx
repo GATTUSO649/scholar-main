@@ -33,8 +33,6 @@ function ManageRoute() {
   );
 }
 
-const PAYS: PaymentStatus[] = ["unpaid", "pending", "paid", "refunded"];
-
 function Manage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
@@ -92,7 +90,6 @@ function Manage() {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const status = formData.get("status") as RequestStatus;
-    const payment_status = formData.get("payment_status") as PaymentStatus;
     const priceRaw = String(formData.get("price") ?? "");
     const price = priceRaw === "" ? null : Number(priceRaw);
     if (price != null && (!Number.isFinite(price) || price < 0)) {
@@ -122,7 +119,6 @@ function Manage() {
         data: {
           id,
           status: hasDeliveryFiles ? "completed" : status,
-          payment_status,
           price,
           currency: String(formData.get("currency")) as "USD" | "KES" | "GBP" | "EUR",
           admin_notes: String(formData.get("admin_notes") ?? ""),
@@ -306,21 +302,9 @@ function Manage() {
                   </p>
                 </div>
               </div>
-              <div>
-                <Label htmlFor="payment_status">Payment status</Label>
-                <select
-                  id="payment_status"
-                  name="payment_status"
-                  defaultValue={r.payment_status}
-                  className="mt-1.5 h-10 w-full rounded-md border border-[#d7e2dc] bg-white px-3 text-sm capitalize outline-none focus:ring-2 focus:ring-[#72a78d]"
-                >
-                  {PAYS.map((payment) => (
-                    <option key={payment} value={payment}>
-                      {payment}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <p className="rounded-md bg-[#f7faf8] px-3 py-2 text-sm text-[#60746b]">
+                Payment status updates automatically after M-PESA verifies the transaction.
+              </p>
               <div className="border-t pt-4">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Feedback & delivery

@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { handleLibraryPurchaseCallback } from "@/lib/backend.server";
+import {
+  handleLibraryPurchaseCallback,
+  handleServiceRequestPaymentCallback,
+} from "@/lib/backend.server";
 import {
   InvalidRequestBodyError,
   parseJsonRequestBody,
@@ -67,7 +70,7 @@ export const Route = createFileRoute("/api/library/callback")({
           const phoneValue = valueFor("PhoneNumber");
           const transactionDate = parseTransactionDate(valueFor("TransactionDate"));
 
-          await handleLibraryPurchaseCallback({
+          const callbackInput = {
             checkoutRequestId: callback["CheckoutRequestID"],
             merchantRequestId: callback["MerchantRequestID"],
             resultCode,
@@ -82,7 +85,11 @@ export const Route = createFileRoute("/api/library/callback")({
             ...(typeof receiptValue === "string" ? { receiptNumber: receiptValue } : {}),
             ...(transactionDate ? { transactionTimestamp: transactionDate } : {}),
             callbackResponse: body,
-          });
+          };
+          const libraryResult = await handleLibraryPurchaseCallback(callbackInput);
+          if (libraryResult.status === "unknown") {
+            await handleServiceRequestPaymentCallback(callbackInput);
+          }
           return Response.json({ ResultCode: 0, ResultDesc: "Callback accepted." });
         } catch (error) {
           if (error instanceof RequestBodyTooLargeError) {

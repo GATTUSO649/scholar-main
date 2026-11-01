@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { handleLibraryPurchaseCallback } = vi.hoisted(() => ({
+const { handleLibraryPurchaseCallback, handleServiceRequestPaymentCallback } = vi.hoisted(() => ({
   handleLibraryPurchaseCallback: vi.fn(),
+  handleServiceRequestPaymentCallback: vi.fn(),
 }));
 
-vi.mock("@/lib/backend.server", () => ({ handleLibraryPurchaseCallback }));
+vi.mock("@/lib/backend.server", () => ({
+  handleLibraryPurchaseCallback,
+  handleServiceRequestPaymentCallback,
+}));
 
 import { Route } from "@/routes/api.library.callback";
 import { parseJsonRequestBody } from "@/lib/form-data.server";
@@ -48,6 +52,7 @@ describe("M-PESA payment callback route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     handleLibraryPurchaseCallback.mockResolvedValue({ status: "paid" });
+    handleServiceRequestPaymentCallback.mockResolvedValue({ status: "paid" });
   });
 
   it("rejects malformed callback structures", async () => {
@@ -89,6 +94,20 @@ describe("M-PESA payment callback route", () => {
       callbackResponse: body,
     });
     expect(sent.transactionTimestamp.toISOString()).toBe("2026-10-30T09:00:00.000Z");
+    expect(handleServiceRequestPaymentCallback).not.toHaveBeenCalled();
+  });
+
+  it("routes callbacks for service-request payments when no library purchase matches", async () => {
+    handleLibraryPurchaseCallback.mockResolvedValue({ status: "unknown" });
+    const body = successfulCallback();
+
+    const response = await post({ request: callbackRequest(body) });
+
+    expect(response.status).toBe(200);
+    expect(handleLibraryPurchaseCallback).toHaveBeenCalledTimes(1);
+    expect(handleServiceRequestPaymentCallback).toHaveBeenCalledWith(
+      handleLibraryPurchaseCallback.mock.calls[0]?.[0],
+    );
   });
 
   it("passes duplicate callback deliveries to the idempotent transaction handler", async () => {

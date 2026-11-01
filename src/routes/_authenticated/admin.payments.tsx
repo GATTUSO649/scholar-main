@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getAdminMpesaPurchasesFn } from "@/lib/backend";
+import { getAdminMpesaPurchasesFn, getAdminServiceRequestPaymentsFn } from "@/lib/backend";
 import { money } from "@/lib/requests";
 
 export const Route = createFileRoute("/_authenticated/admin/payments")({
@@ -19,7 +19,9 @@ const statusLabels = {
   paid: "Successful",
   failed: "Failed",
   cancelled: "Cancelled",
+  refunded: "Refunded",
 } as const;
+type PaymentFilter = "all" | "pending" | "paid" | "failed" | "cancelled";
 
 function formatDate(value: Date | string | null) {
   return value ? new Date(value).toLocaleString() : "Not confirmed";
@@ -28,12 +30,20 @@ function formatDate(value: Date | string | null) {
 function AdminPaymentsPage() {
   const [queryInput, setQueryInput] = useState("");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<keyof typeof statusLabels>("all");
+  const [ledger, setLedger] = useState<"library" | "requests">("library");
+  const [status, setStatus] = useState<PaymentFilter>("all");
   const [offset, setOffset] = useState(0);
-  const { data, isLoading, isError, refetch } = useQuery({
+  const libraryQuery = useQuery({
     queryKey: ["admin-mpesa-payments", search, status, offset],
     queryFn: () => getAdminMpesaPurchasesFn({ data: { search, status, offset } }),
+    enabled: ledger === "library",
   });
+  const serviceQuery = useQuery({
+    queryKey: ["admin-service-request-payments", search, status, offset],
+    queryFn: () => getAdminServiceRequestPaymentsFn({ data: { search, status, offset } }),
+    enabled: ledger === "requests",
+  });
+  const { data, isLoading, isError, refetch } = ledger === "library" ? libraryQuery : serviceQuery;
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const page = Math.floor(offset / PAGE_SIZE) + 1;
@@ -45,7 +55,7 @@ function AdminPaymentsPage() {
     setOffset(0);
   }
 
-  function changeStatus(value: keyof typeof statusLabels) {
+  function changeStatus(value: PaymentFilter) {
     setStatus(value);
     setOffset(0);
   }
@@ -58,9 +68,40 @@ function AdminPaymentsPage() {
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-[#173c33]">M-PESA transactions</h1>
         <p className="mt-2 text-sm text-[#677872]">
-          Library purchases reconciled against Safaricom STK Query results.
+          Library purchases and service-request payments reconciled against Safaricom STK Query.
         </p>
       </header>
+
+      <div
+        className="inline-flex rounded-lg border border-[#d4e1da] bg-white p-1"
+        role="group"
+        aria-label="Payment ledger"
+      >
+        <button
+          type="button"
+          aria-pressed={ledger === "library"}
+          onClick={() => {
+            setLedger("library");
+            setStatus("all");
+            setOffset(0);
+          }}
+          className={`rounded-md px-3 py-2 text-sm font-medium ${ledger === "library" ? "bg-[#185c4b] text-white" : "text-[#456057] hover:bg-[#f2f7f3]"}`}
+        >
+          Library
+        </button>
+        <button
+          type="button"
+          aria-pressed={ledger === "requests"}
+          onClick={() => {
+            setLedger("requests");
+            setStatus("all");
+            setOffset(0);
+          }}
+          className={`rounded-md px-3 py-2 text-sm font-medium ${ledger === "requests" ? "bg-[#185c4b] text-white" : "text-[#456057] hover:bg-[#f2f7f3]"}`}
+        >
+          Service requests
+        </button>
+      </div>
 
       {isError ? (
         <section
@@ -92,7 +133,7 @@ function AdminPaymentsPage() {
           <div>
             <h2 className="text-lg font-semibold text-[#173c33]">Payment ledger</h2>
             <p className="mt-1 text-sm text-[#718078]">
-              Search receipt, customer phone, or order reference.
+              Search receipt, phone, request reference, or checkout ID.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -101,8 +142,8 @@ function AdminPaymentsPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#788780]" />
                 <Input
                   type="search"
-                  aria-label="Search receipt, phone, or order reference"
-                  placeholder="Receipt, phone, order reference"
+                  aria-label="Search receipt, phone, reference, or checkout ID"
+                  placeholder="Receipt, phone, reference, checkout ID"
                   value={queryInput}
                   onChange={(event) => setQueryInput(event.target.value)}
                   className="h-10 border-[#d7e2dc] bg-white pl-9"
@@ -115,14 +156,16 @@ function AdminPaymentsPage() {
             <select
               aria-label="Filter transactions by status"
               value={status}
-              onChange={(event) => changeStatus(event.target.value as keyof typeof statusLabels)}
+              onChange={(event) => changeStatus(event.target.value as PaymentFilter)}
               className="h-10 rounded-md border border-[#d7e2dc] bg-white px-3 text-sm text-[#31574b]"
             >
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
+              {Object.entries(statusLabels)
+                .filter(([value]) => value !== "refunded")
+                .map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
             </select>
           </div>
         </div>
@@ -141,7 +184,9 @@ function AdminPaymentsPage() {
                 <tr>
                   <th className="px-4 py-3">Order reference</th>
                   <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3">Library item</th>
+                  <th className="px-4 py-3">
+                    {ledger === "library" ? "Library item" : "Service request"}
+                  </th>
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">M-PESA receipt</th>
@@ -167,8 +212,13 @@ function AdminPaymentsPage() {
                         {payment.phoneNumber}
                       </span>
                     </td>
-                    <td className="max-w-56 truncate px-4 py-3 text-[#31574b]">
-                      {payment.resourceTitle}
+                    <td className="max-w-56 px-4 py-3 text-[#31574b]">
+                      <span className="block truncate">{payment.resourceTitle}</span>
+                      {"requestRef" in payment && (
+                        <span className="mt-1 block text-xs text-[#788780]">
+                          {payment.requestRef}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 font-semibold text-[#24473b]">
                       {money(Number(payment.amount), payment.currency)}
@@ -183,7 +233,10 @@ function AdminPaymentsPage() {
                               : "bg-[#fff0ec] text-[#a34737]"
                         }`}
                       >
-                        {payment.status === "paid" ? "Successful" : statusLabels[payment.status]}
+                        {payment.status === "paid"
+                          ? "Successful"
+                          : (statusLabels[payment.status as keyof typeof statusLabels] ??
+                            payment.status)}
                       </span>
                       {payment.failureReason ? (
                         <span className="mt-1 block max-w-40 truncate text-xs text-[#8b554a]">

@@ -51,6 +51,13 @@ export const libraryPurchaseStatusEnum = pgEnum("library_purchase_status", [
   "failed",
   "cancelled",
 ]);
+export const serviceRequestPaymentStatusEnum = pgEnum("service_request_payment_status", [
+  "pending",
+  "paid",
+  "failed",
+  "cancelled",
+  "refunded",
+]);
 
 export const users = pgTable(
   "users",
@@ -297,6 +304,43 @@ export const libraryPurchases = pgTable(
     index("library_purchases_student_status_idx").on(table.studentId, table.status),
     index("library_purchases_resource_created_idx").on(table.resourceId, table.createdAt),
     index("library_purchases_status_created_idx").on(table.status, table.createdAt),
+  ],
+);
+
+export const serviceRequestPayments = pgTable(
+  "service_request_payments",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    requestId: varchar("request_id", { length: 36 })
+      .notNull()
+      .references(() => requests.id, { onDelete: "cascade" }),
+    studentId: varchar("student_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    amount: decimal("amount", { precision: 10, scale: 2, mode: "number" }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull().default("KES"),
+    status: serviceRequestPaymentStatusEnum("status").notNull().default("pending"),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    accountReference: varchar("account_reference", { length: 12 }).notNull(),
+    merchantRequestId: varchar("merchant_request_id", { length: 100 }),
+    checkoutRequestId: varchar("checkout_request_id", { length: 100 }),
+    receiptNumber: varchar("receipt_number", { length: 32 }),
+    merchantShortcode: varchar("merchant_shortcode", { length: 7 }),
+    transactionTimestamp: timestamp("transaction_timestamp", { withTimezone: true, mode: "date" }),
+    callbackResponse: jsonb("callback_response").$type<Record<string, unknown>>(),
+    failureReason: varchar("failure_reason", { length: 255 }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    paidAt: timestamp("paid_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    uniqueIndex("service_request_payments_checkout_unique").on(table.checkoutRequestId),
+    uniqueIndex("service_request_payments_merchant_unique").on(table.merchantRequestId),
+    uniqueIndex("service_request_payments_receipt_unique").on(table.receiptNumber),
+    index("service_request_payments_request_created_idx").on(table.requestId, table.createdAt),
+    index("service_request_payments_student_status_idx").on(table.studentId, table.status),
+    index("service_request_payments_status_created_idx").on(table.status, table.createdAt),
   ],
 );
 
