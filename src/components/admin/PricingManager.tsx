@@ -125,14 +125,14 @@ export function PricingManager() {
       <header className="flex flex-col justify-between gap-4 border-b border-[#dfe8e3] pb-5 sm:flex-row sm:items-end">
         <div>
           <p className="text-[10px] font-bold uppercase text-[#6b8177]">Public site</p>
-          <h1 className="mt-2 text-3xl font-semibold text-[#173c33]">Service pricing</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-[#173c33]">Services & offers</h1>
           <p className="mt-2 max-w-2xl text-sm text-[#677872]">
             Edit the prices and catalog shown on the public pricing page. Archive removes a service
             from new requests without changing its history.
           </p>
         </div>
         <Button type="button" onClick={startNewService}>
-          <Plus className="mr-2 h-4 w-4" /> Add service
+          <Plus className="mr-2 h-4 w-4" /> Create service offer
         </Button>
       </header>
 

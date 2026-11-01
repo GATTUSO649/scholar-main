@@ -71,7 +71,7 @@ const adminNav = [
   { to: "/admin/resources/articles", label: "Articles", icon: FileText },
   { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
   { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
-  { to: "/admin/pricing", label: "Public pricing", icon: Banknote },
+  { to: "/admin/pricing", label: "Services & offers", icon: Banknote },
   { to: "/admin/content", label: "Website content", icon: FilePenLine },
   { to: "/admin/business-settings", label: "Business settings", icon: Building2 },
   { to: "/admin/profile", label: "Admin profile", icon: User },
