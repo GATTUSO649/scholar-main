@@ -26,7 +26,7 @@ Audit scope: repository source, server functions and API routes, auth/session co
 - [x] **Rate-limit sensitive email workflows.** Password-reset and verification/resend paths now use hashed account keys with a database-backed limit of three requests per 15 minutes. IP-based limits remain unavailable until a trusted proxy/client-IP policy or shared limiter is configured.
 - [x] **Make authentication throttles concurrency-safe.** Login and email-request counters use atomic PostgreSQL upserts so concurrent requests cannot overwrite increments.
 - [x] **Bound multipart bodies before parsing.** Both file endpoints now count streamed request bytes before calling `formData()`, with regression coverage for chunked bodies lacking `Content-Length`.
-- [x] **Reduce sensitive error logging.** Production exception logging now omits raw messages/stacks and sign-in logs no longer emit SQL/parameters. Some SMTP logs still include bounded operational metadata only.
+- [x] **Reduce sensitive error logging.** Production exception logging omits raw messages/stacks; sign-in failures log only a processing stage and database error code, never email, password, or hash. Some SMTP logs still include bounded operational metadata only.
 - [ ] **Review paginated reads.** Several admin and student list queries return all matching records without pagination or a maximum result count.
 - [ ] **Add security audit events for privileged actions.** Admin role changes and sensitive admin changes are not consistently persisted to an append-only audit log.
 - [x] **Validate library upload signatures.** PDF, legacy Word, ZIP-based Office/EPUB, and UTF-8 text uploads are checked against their expected content signatures before storage. Request uploads intentionally accept broader document types and rely on private storage, forced download, and `nosniff`.
@@ -50,7 +50,7 @@ Audit scope: repository source, server functions and API routes, auth/session co
 
 - [x] Production and full dependency audit: 0 vulnerabilities after the esbuild override.
 - [x] Regression tests cover shared email-request responses, production-safe errors, bounded multipart parsing, library upload signatures, and admin/student session lifetimes.
-- [x] `npm test`: 75 tests passed.
+- [x] `npm test`: 76 tests passed.
 - [x] `npm run lint`: 0 errors; 7 pre-existing React Fast Refresh warnings remain.
 - [x] `npm run build`: passed with Vite 8.3.5.
 - [x] `npx tsc --noEmit`: passed.

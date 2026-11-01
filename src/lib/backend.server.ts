@@ -498,6 +498,7 @@ function isDuplicateKey(error: unknown): boolean {
 }
 
 async function authenticateAccount(input: { email: string; password: string }, adminOnly: boolean) {
+  let stage = "login throttle";
   try {
     const db = getDatabase();
     const email = input.email.trim().toLowerCase();
@@ -517,12 +518,15 @@ async function authenticateAccount(input: { email: string; password: string }, a
     if (attempt && attempt.attempts > MAX_LOGIN_ATTEMPTS) {
       throw new AuthError("Too many sign-in attempts. Please wait 15 minutes and try again.");
     }
+    stage = "account lookup";
     const [account] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    stage = "password verification";
     const valid = account ? await passwordMatches(input.password, account.passwordHash) : false;
     if (!account || !valid) throw new AuthError("Email or password is incorrect.");
     if (isEmailVerificationRequired() && !account.emailVerifiedAt) {
       throw new AuthError("Email verification is required before you can sign in.");
     }
+    stage = "role lookup";
     const roles = await db
       .select({ role: userRoles.role })
       .from(userRoles)
@@ -531,12 +535,15 @@ async function authenticateAccount(input: { email: string; password: string }, a
     if (adminOnly ? !canUseAdminPortal(accountRoles) : !canUseStudentPortal(accountRoles)) {
       throw new AuthError("Email or password is incorrect.");
     }
+    stage = "login attempt cleanup";
     await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
+    stage = "session creation";
     await createSession(account.id, adminOnly);
     return { id: account.id, email: account.email };
   } catch (error) {
     if (error instanceof AuthError) throw error;
     console.error("Sign-in failed.", {
+      stage,
       code: getDatabaseErrorCode(error) ?? "unknown error",
     });
     throw new AuthError("Sign-in is temporarily unavailable. Please try again.");
