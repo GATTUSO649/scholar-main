@@ -414,7 +414,7 @@ function StudentLibraryPage() {
         }}
       >
         {purchaseResource && (
-          <DialogContent>
+          <DialogContent className="w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg p-4 sm:w-full sm:p-6">
             <DialogHeader>
               <DialogTitle>Buy this resource</DialogTitle>
               <DialogDescription>
