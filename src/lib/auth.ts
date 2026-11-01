@@ -13,10 +13,17 @@ export function adminWorkspaceRedirectFor(
     pathname.startsWith("/admin") ||
     pathname.startsWith("/students") ||
     pathname.startsWith("/manage");
+  const isStudentPage =
+    pathname === "/dashboard" ||
+    pathname === "/submit" ||
+    pathname === "/requests" ||
+    pathname.startsWith("/request/") ||
+    pathname.startsWith("/portal/") ||
+    pathname === "/support";
 
   if (!isAdmin && isAdminPage) return "/admin/login";
   if (isAdmin && pathname === "/profile") return "/admin/profile";
-  if (isAdmin && !isAdminPage) return "/admin/dashboard";
+  if (isAdmin && !isAdminPage && isStudentPage) return "/admin/dashboard";
   return null;
 }
 

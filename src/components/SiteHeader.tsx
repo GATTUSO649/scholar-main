@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Menu, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { dashboardRouteFor, useIsAdmin, useUser } from "@/lib/auth";
+import { logoutFn } from "@/lib/backend";
+import { useIsAdmin, useUser } from "@/lib/auth";
 
 const navigation = [
   { to: "/how-it-works", label: "How it works" },
@@ -18,6 +21,25 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
   const { user } = useUser();
   const { data: isAdmin, isLoading: adminLoading, isError: adminStateError } = useIsAdmin(user?.id);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [switchingAccount, setSwitchingAccount] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  async function switchAccount() {
+    if (switchingAccount) return;
+    setSwitchingAccount(true);
+    try {
+      await queryClient.cancelQueries();
+      await logoutFn();
+      queryClient.clear();
+      await navigate({ to: "/auth", search: { mode: "login" }, replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not switch accounts.");
+    } finally {
+      setSwitchingAccount(false);
+    }
+  }
+
   return (
     <header
       className={
@@ -48,13 +70,21 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
                     : undefined
                 }
               >
-                {adminStateError ? "Dashboard unavailable" : "Loading dashboard…"}
+                {adminStateError ? "Account unavailable" : "Checking account…"}
+              </Button>
+            ) : isAdmin ? (
+              <Button
+                type="button"
+                variant="heroOutline"
+                size="sm"
+                disabled={switchingAccount}
+                onClick={() => void switchAccount()}
+              >
+                {switchingAccount ? "Signing out…" : "Switch account"}
               </Button>
             ) : (
               <Button asChild variant="hero" size="sm">
-                <Link to={dashboardRouteFor(isAdmin === true)}>
-                  {isAdmin ? "Admin dashboard" : "My dashboard"}
-                </Link>
+                <Link to="/dashboard">My dashboard</Link>
               </Button>
             )
           ) : (

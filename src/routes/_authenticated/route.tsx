@@ -7,7 +7,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -41,14 +41,14 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { user, isAdmin } = await getCurrentUserStateFn();
+    const { user, isAdmin, expiresAt } = await getCurrentUserStateFn();
     if (!user) {
       if (location.pathname.startsWith("/admin")) throw redirect({ to: "/admin/login" });
       throw redirect({ to: "/auth", search: { mode: "login" } });
     }
     const redirectTo = adminWorkspaceRedirectFor(isAdmin, location.pathname);
     if (redirectTo) throw redirect({ to: redirectTo });
-    return { user, isAdmin };
+    return { user, isAdmin, sessionExpiresAt: expiresAt };
   },
   component: Shell,
 });
@@ -78,7 +78,7 @@ const adminNav = [
 ] as const;
 
 function Shell() {
-  const { user, isAdmin } = Route.useRouteContext();
+  const { user, isAdmin, sessionExpiresAt } = Route.useRouteContext();
   const { data: profile } = useProfile(user.id);
   const [open, setOpen] = useState(false);
   const [leavingPortal, setLeavingPortal] = useState(false);
@@ -134,6 +134,46 @@ function Shell() {
       setLeavingPortal(false);
     }
   }
+
+  useEffect(() => {
+    if (!isAdmin || !sessionExpiresAt) return;
+    const expiresAt = Date.parse(sessionExpiresAt);
+    if (!Number.isFinite(expiresAt)) return;
+    let signedOut = false;
+    const signOutAtExpiry = async () => {
+      if (signedOut || Date.now() < expiresAt) return;
+      signedOut = true;
+      try {
+        await qc.cancelQueries();
+        await logoutFn();
+      } catch {
+        // The server also rejects this session after its stored expiration.
+      } finally {
+        qc.clear();
+        await navigate({ to: "/admin/login", replace: true });
+        toast.info("Your administrator session expired. Sign in again to continue.");
+      }
+    };
+    const warningDelay = Math.max(0, expiresAt - Date.now() - 5 * 60 * 1000);
+    const expiryDelay = Math.max(0, expiresAt - Date.now());
+    const warningTimer = window.setTimeout(() => {
+      if (Date.now() < expiresAt) {
+        toast.warning("Your administrator session expires in five minutes.");
+      } else {
+        void signOutAtExpiry();
+      }
+    }, warningDelay);
+    const expiryTimer = window.setTimeout(() => void signOutAtExpiry(), expiryDelay);
+    const checkOnFocus = () => {
+      if (document.visibilityState === "visible") void signOutAtExpiry();
+    };
+    document.addEventListener("visibilitychange", checkOnFocus);
+    return () => {
+      window.clearTimeout(warningTimer);
+      window.clearTimeout(expiryTimer);
+      document.removeEventListener("visibilitychange", checkOnFocus);
+    };
+  }, [isAdmin, navigate, qc, sessionExpiresAt]);
 
   function handlePublicNavigation(event: React.MouseEvent<HTMLAnchorElement>) {
     setOpen(false);

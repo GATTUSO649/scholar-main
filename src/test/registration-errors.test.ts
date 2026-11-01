@@ -3,6 +3,7 @@ import {
   canUseAdminPortal,
   canUseStudentPortal,
   getDatabaseErrorCode,
+  getSessionExpiration,
   isAdminSignupConfigured,
 } from "@/lib/backend.server";
 
@@ -33,6 +34,18 @@ describe("admin signup configuration", () => {
     expect(isAdminSignupConfigured(undefined)).toBe(false);
     expect(isAdminSignupConfigured("x".repeat(31))).toBe(false);
     expect(isAdminSignupConfigured("x".repeat(32))).toBe(true);
+  });
+});
+
+describe("session expiration policy", () => {
+  it("limits administrator sessions to eight hours", () => {
+    const now = 1_800_000_000_000;
+    expect(getSessionExpiration(true, now).getTime()).toBe(now + 8 * 60 * 60 * 1000);
+  });
+
+  it("keeps student sessions at fourteen days", () => {
+    const now = 1_800_000_000_000;
+    expect(getSessionExpiration(false, now).getTime()).toBe(now + 14 * 24 * 60 * 60 * 1000);
   });
 });
 

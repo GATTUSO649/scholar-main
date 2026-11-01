@@ -37,6 +37,7 @@ Audit scope: repository source, server functions and API routes, auth/session co
 - [ ] **Complete CSP policy.** Current headers set `frame-ancestors`, `base-uri`, and `object-src`, but no default/script/style directives. The chart component uses `dangerouslySetInnerHTML`; no application usages of `ChartContainer` were found in the source scan.
 - [x] Same-origin checks are present on mutation server functions and file/library mutation routes; CSRF middleware is enabled for server functions.
 - [x] Session cookies are HttpOnly, SameSite=Lax, Secure in production; session tokens are random and only hashes are stored.
+- [x] Administrator sessions expire after eight hours; the admin shell warns five minutes before expiry, signs out at the deadline, and rechecks on tab focus. The server deletes expired session rows and clears expired cookies when validating the session. Student sessions remain fourteen days.
 - [x] Core private request/file reads derive identity from the server session and check ownership/admin role. Paid library downloads check purchase ownership.
 - [x] Passwords use salted scrypt; reset and verification tokens are cryptographically random, hash-stored, expire, and are invalidated after use.
 - [x] SQL access is through Drizzle parameterization except fixed internal SQL expressions; upload storage keys are generated UUIDs and checked before filesystem access.
@@ -48,8 +49,8 @@ Audit scope: repository source, server functions and API routes, auth/session co
 ## Verification State
 
 - [x] Production and full dependency audit: 0 vulnerabilities after the esbuild override.
-- [x] Regression tests cover shared email-request responses, production-safe errors, bounded multipart parsing, and library upload signatures.
-- [x] `npm test`: 69 tests passed.
+- [x] Regression tests cover shared email-request responses, production-safe errors, bounded multipart parsing, library upload signatures, and admin/student session lifetimes.
+- [x] `npm test`: 75 tests passed.
 - [x] `npm run lint`: 0 errors; 7 pre-existing React Fast Refresh warnings remain.
 - [x] `npm run build`: passed with Vite 8.3.5.
 - [x] `npx tsc --noEmit`: passed.

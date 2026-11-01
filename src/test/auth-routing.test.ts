@@ -18,9 +18,15 @@ describe("dashboard routing", () => {
     expect(adminWorkspaceRedirectFor(true, "/profile")).toBe("/admin/profile");
   });
 
-  it("keeps admins in the admin workspace from public and student paths", () => {
-    expect(adminWorkspaceRedirectFor(true, "/pricing")).toBe("/admin/dashboard");
+  it("allows admins to browse public pages without mounting the admin workspace", () => {
+    expect(adminWorkspaceRedirectFor(true, "/pricing")).toBeNull();
+    expect(adminWorkspaceRedirectFor(true, "/services")).toBeNull();
+  });
+
+  it("keeps admins out of private student pages", () => {
     expect(adminWorkspaceRedirectFor(true, "/dashboard")).toBe("/admin/dashboard");
+    expect(adminWorkspaceRedirectFor(true, "/requests")).toBe("/admin/dashboard");
+    expect(adminWorkspaceRedirectFor(true, "/request/123")).toBe("/admin/dashboard");
   });
 
   it("allows admins to stay on admin profile and pricing paths", () => {

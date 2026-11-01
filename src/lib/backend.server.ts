@@ -57,6 +57,7 @@ function derivePassword(password: string, salt: Buffer) {
 }
 const SESSION_COOKIE = "scholar_desk_session";
 const SESSION_DAYS = 14;
+const ADMIN_SESSION_HOURS = 8;
 const RESET_MINUTES = 30;
 const EMAIL_VERIFICATION_MINUTES = 30;
 const EMAIL_REQUEST_WINDOW_MINUTES = 15;
@@ -140,13 +141,20 @@ function mapProfile(row: typeof profiles.$inferSelect): ProfileDto {
   };
 }
 
-function setSessionCookie(token: string) {
+export function getSessionExpiration(isAdmin: boolean, now = Date.now()) {
+  const duration = isAdmin
+    ? ADMIN_SESSION_HOURS * 60 * 60 * 1000
+    : SESSION_DAYS * 24 * 60 * 60 * 1000;
+  return new Date(now + duration);
+}
+
+function setSessionCookie(token: string, expiresAt: Date) {
   setCookie(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env["NODE_ENV"] === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
+    maxAge: Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000)),
   });
 }
 
@@ -154,42 +162,61 @@ export function clearSessionCookie() {
   deleteCookie(SESSION_COOKIE, { path: "/", httpOnly: true, sameSite: "lax" });
 }
 
-async function createSession(userId: string) {
+async function createSession(userId: string, isAdmin = false) {
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = getSessionExpiration(isAdmin);
   await getDatabase()
     .insert(sessions)
     .values({ tokenHash: tokenHash(token), userId, expiresAt });
-  setSessionCookie(token);
+  setSessionCookie(token, expiresAt);
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const token = getCookie(SESSION_COOKIE);
   if (!token) return null;
-  const [row] = await getDatabase()
-    .select({ id: users.id, email: users.email })
+  const db = getDatabase();
+  const [row] = await db
+    .select({ id: users.id, email: users.email, expiresAt: sessions.expiresAt })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, tokenHash(token)), gt(sessions.expiresAt, new Date())))
+    .where(eq(sessions.tokenHash, tokenHash(token)))
     .limit(1);
-  return row ?? null;
+  if (!row || row.expiresAt.getTime() <= Date.now()) {
+    if (row) await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash(token)));
+    clearSessionCookie();
+    return null;
+  }
+  return { id: row.id, email: row.email };
 }
 
 export async function getCurrentUserState() {
   const token = getCookie(SESSION_COOKIE);
-  if (!token) return { user: null, isAdmin: false };
+  if (!token) return { user: null, isAdmin: false, expiresAt: null };
 
-  const [row] = await getDatabase()
-    .select({ id: users.id, email: users.email, adminRoleId: userRoles.id })
+  const db = getDatabase();
+  const [row] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      expiresAt: sessions.expiresAt,
+      adminRoleId: userRoles.id,
+    })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
     .leftJoin(userRoles, and(eq(userRoles.userId, users.id), eq(userRoles.role, "admin")))
-    .where(and(eq(sessions.tokenHash, tokenHash(token)), gt(sessions.expiresAt, new Date())))
+    .where(eq(sessions.tokenHash, tokenHash(token)))
     .limit(1);
 
-  return row
-    ? { user: { id: row.id, email: row.email }, isAdmin: row.adminRoleId !== null }
-    : { user: null, isAdmin: false };
+  if (!row || row.expiresAt.getTime() <= Date.now()) {
+    if (row) await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash(token)));
+    clearSessionCookie();
+    return { user: null, isAdmin: false, expiresAt: null };
+  }
+  return {
+    user: { id: row.id, email: row.email },
+    isAdmin: row.adminRoleId !== null,
+    expiresAt: row.expiresAt.toISOString(),
+  };
 }
 
 async function requireUser() {
@@ -409,6 +436,7 @@ export async function registerAdmin(input: {
   const salt = randomBytes(16);
   const passwordHash = `${salt.toString("hex")}:${(await derivePassword(input.password, salt)).toString("hex")}`;
   const sessionToken = randomBytes(32).toString("base64url");
+  const sessionExpiresAt = getSessionExpiration(true);
   try {
     const db = getDatabase();
     await db.transaction(async (tx) => {
@@ -427,10 +455,10 @@ export async function registerAdmin(input: {
       await tx.insert(sessions).values({
         tokenHash: tokenHash(sessionToken),
         userId: id,
-        expiresAt: new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000),
+        expiresAt: sessionExpiresAt,
       });
     });
-    setSessionCookie(sessionToken);
+    setSessionCookie(sessionToken, sessionExpiresAt);
   } catch (error) {
     if (error instanceof AuthError) throw error;
     if (isDuplicateKey(error))
@@ -504,7 +532,7 @@ async function authenticateAccount(input: { email: string; password: string }, a
       throw new AuthError("Email or password is incorrect.");
     }
     await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
-    await createSession(account.id);
+    await createSession(account.id, adminOnly);
     return { id: account.id, email: account.email };
   } catch (error) {
     if (error instanceof AuthError) throw error;
@@ -525,11 +553,14 @@ export function loginAdminAccount(input: { email: string; password: string }) {
 
 export async function logoutAccount() {
   const token = getCookie(SESSION_COOKIE);
-  if (token)
-    await getDatabase()
-      .delete(sessions)
-      .where(eq(sessions.tokenHash, tokenHash(token)));
-  clearSessionCookie();
+  try {
+    if (token)
+      await getDatabase()
+        .delete(sessions)
+        .where(eq(sessions.tokenHash, tokenHash(token)));
+  } finally {
+    clearSessionCookie();
+  }
 }
 
 export async function requestPasswordReset(emailInput: string) {
