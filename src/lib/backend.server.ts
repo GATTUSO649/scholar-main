@@ -38,6 +38,7 @@ import {
   sendTransactionalEmail,
 } from "./email.server";
 import {
+  getMpesaDiagnosticCode,
   getMpesaConfig,
   initiateMpesaStkPush,
   mapMpesaResultCodeToPurchaseStatus,
@@ -1409,6 +1410,10 @@ async function syncLibraryPurchaseFromProvider(
     }
     return nextStatus;
   });
+  if (status === "failed" || status === "cancelled") {
+    const reason = verification.ResultDesc?.replace(/[\r\n]/g, " ").slice(0, 255);
+    return { status, reason: reason || "Safaricom did not confirm the payment." };
+  }
   return { status };
 }
 

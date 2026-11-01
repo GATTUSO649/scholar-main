@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { refreshStudentLibraryPurchaseStatus, startLibraryPurchase } from "@/lib/backend.server";
 import { requireSameOrigin } from "@/lib/backend";
+import { getMpesaDiagnosticCode } from "@/lib/mpesa.server";
 import {
   InvalidRequestBodyError,
   parseJsonRequestBody,
@@ -31,10 +32,10 @@ function errorResponse(error: unknown) {
                       message.includes("free")
                     ? 400
                     : 500;
-  if (status === 500) {
+  if (status >= 500) {
     console.error("Library checkout failed.", {
-      name: error instanceof Error ? error.name : "UnknownError",
-      message: error instanceof Error ? error.message : "Unknown checkout failure.",
+      diagnostic: getMpesaDiagnosticCode(error),
+      status,
     });
   }
   return Response.json(

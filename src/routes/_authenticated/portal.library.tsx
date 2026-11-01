@@ -71,6 +71,7 @@ function StudentLibraryPage() {
   const [purchasePhone, setPurchasePhone] = useState("");
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [paymentPhone, setPaymentPhone] = useState("");
+  const [purchaseFailureReason, setPurchaseFailureReason] = useState<string | null>(null);
   const [purchaseStatus, setPurchaseStatus] = useState<
     "idle" | "waiting" | "paid" | "failed" | "cancelled" | "pending" | "expired"
   >("idle");
@@ -118,6 +119,7 @@ function StudentLibraryPage() {
       const result = (await response.json().catch(() => null)) as {
         status?: "pending" | "paid" | "failed" | "cancelled" | "not_found";
         error?: string;
+        reason?: string;
       } | null;
       if (!response.ok) throw new Error(result?.error ?? "Could not check payment status.");
       await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
@@ -125,7 +127,7 @@ function StudentLibraryPage() {
       else if (result?.status === "cancelled")
         toast("Payment prompt cancelled. You can retry from the resource card.");
       else if (result?.status === "failed")
-        toast.error("Payment was not completed. You can try again.");
+        toast.error(result.reason ?? "Payment was not completed. You can try again.");
       else toast("Payment is still processing. Refresh this page in a moment.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not check payment status.");
@@ -138,6 +140,7 @@ function StudentLibraryPage() {
     event.preventDefault();
     if (!purchaseResource) return;
     setPurchaseBusy(true);
+    setPurchaseFailureReason(null);
     try {
       const phoneNumber = purchasePhone.replace(/[\s+()-]/g, "");
       const normalizedPhone = phoneNumber.startsWith("0")
@@ -190,10 +193,11 @@ function StudentLibraryPage() {
           if (state?.status === "failed" || state?.status === "not_found") {
             const expired = state.reason?.includes("expired") ?? false;
             setPurchaseStatus(expired ? "expired" : "failed");
+            setPurchaseFailureReason(state.reason ?? null);
             toast.error(
               expired
                 ? "Payment request expired after 60 seconds. You can retry."
-                : "Payment was not completed. You can try again.",
+                : (state.reason ?? "Payment was not completed. You can try again."),
             );
             return;
           }
@@ -209,7 +213,9 @@ function StudentLibraryPage() {
       }
     } catch (error) {
       setPurchaseStatus("failed");
-      toast.error(error instanceof Error ? error.message : "Could not start payment.");
+      const message = error instanceof Error ? error.message : "Could not start payment.";
+      setPurchaseFailureReason(message);
+      toast.error(message);
     } finally {
       setPurchaseBusy(false);
     }
@@ -509,7 +515,8 @@ function StudentLibraryPage() {
                       ? "Payment cancelled. The M-PESA prompt was cancelled, and you can safely retry."
                       : purchaseStatus === "expired"
                         ? "Payment request expired after 60 seconds. You can retry now."
-                        : "Payment was not confirmed. Check your M-PESA balance or number, then retry."}
+                        : (purchaseFailureReason ??
+                          "Payment was not confirmed. Check your M-PESA balance or number, then retry.")}
                   </p>
                 ) : null}
                 <form id="library-purchase" onSubmit={startPurchase} className="space-y-2">

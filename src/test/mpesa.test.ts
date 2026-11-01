@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  getMpesaDiagnosticCode,
   getMpesaConfig,
   initiateMpesaStkPush,
   mapMpesaResultCodeToPurchaseStatus,
@@ -241,6 +242,26 @@ describe("M-Pesa configuration", () => {
       CheckoutRequestID: "ws_CO_test",
     });
     fetchSpy.mockRestore();
+  });
+});
+
+describe("M-PESA diagnostic categories", () => {
+  it("maps configuration and provider failures to safe diagnostic codes", () => {
+    expect(getMpesaDiagnosticCode(new Error("MPESA_STK_QUERY_ENABLED must be true"))).toBe(
+      "STK_QUERY_DISABLED",
+    );
+    expect(getMpesaDiagnosticCode(new Error("M-Pesa authentication failed (401)."))).toBe(
+      "AUTH_HTTP_401",
+    );
+    expect(getMpesaDiagnosticCode(new Error("Safaricom did not accept the M-PESA prompt."))).toBe(
+      "STK_REJECTED",
+    );
+  });
+
+  it("does not return unexpected error text in its diagnostic", () => {
+    expect(getMpesaDiagnosticCode(new Error("sensitive value that should not be logged"))).toBe(
+      "Error",
+    );
   });
 });
 

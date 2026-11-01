@@ -9,6 +9,7 @@ import {
   parseJsonRequestBody,
   RequestBodyTooLargeError,
 } from "@/lib/form-data.server";
+import { getMpesaDiagnosticCode } from "@/lib/mpesa.server";
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Could not process request payment.";
@@ -34,11 +35,11 @@ function errorResponse(error: unknown) {
                         message.includes("payment is not available")
                       ? 400
                       : 500;
-  if (status === 500) {
-    console.error(
-      "Service request payment failed.",
-      error instanceof Error ? error.name : "unknown error",
-    );
+  if (status >= 500) {
+    console.error("Service request payment failed.", {
+      diagnostic: getMpesaDiagnosticCode(error),
+      status,
+    });
   }
   return Response.json(
     {

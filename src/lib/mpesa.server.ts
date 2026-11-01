@@ -28,6 +28,27 @@ export class MpesaUncertainOutcomeError extends Error {
   }
 }
 
+export function getMpesaDiagnosticCode(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("configuration is incomplete")) return "CONFIG_INCOMPLETE";
+  if (message.includes("MPESA_ENV")) return "ENVIRONMENT_INVALID";
+  if (message.includes("MPESA_TRANSACTION_TYPE")) return "TRANSACTION_TYPE_INVALID";
+  if (message.includes("MPESA_STK_QUERY_ENABLED")) return "STK_QUERY_DISABLED";
+  if (message.includes("MPESA_CALLBACK_URL")) return "CALLBACK_URL_INVALID";
+  if (message.includes("MPESA_SHORTCODE")) return "SHORTCODE_INVALID";
+  if (message.includes("payments are not configured")) return "NOT_CONFIGURED";
+  if (message.includes("did not return an access token")) return "ACCESS_TOKEN_MISSING";
+  if (message.includes("did not accept the M-PESA prompt")) return "STK_REJECTED";
+  const authStatus = message.match(/M-Pesa authentication failed \((\d{3})\)/);
+  if (authStatus) return `AUTH_HTTP_${authStatus[1]}`;
+  const pushStatus = message.match(/M-Pesa STK Push failed \((\d{3})\)/);
+  if (pushStatus) return `STK_HTTP_${pushStatus[1]}`;
+  const queryStatus = message.match(/M-Pesa payment verification failed \((\d{3})\)/);
+  if (queryStatus) return `QUERY_HTTP_${queryStatus[1]}`;
+  if (error instanceof MpesaUncertainOutcomeError) return "OUTCOME_UNCERTAIN";
+  return error instanceof Error ? error.name.replace(/[^A-Za-z0-9_]/g, "").slice(0, 40) : "UNKNOWN";
+}
+
 export function mapMpesaResultCodeToPurchaseStatus(
   resultCode: number | string,
 ): "paid" | "cancelled" | "failed" {
