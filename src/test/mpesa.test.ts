@@ -139,15 +139,13 @@ describe("M-Pesa configuration", () => {
       );
 
     await expect(
-      initiateMpesaStkPush(
-        {
-          phoneNumber: "254712345678",
-          amount: 500,
-          tillNumber: "123456",
-          accountReference: "LIB-123",
-          transactionDesc: "LIBRARY",
-        },
-      ),
+      initiateMpesaStkPush({
+        phoneNumber: "254712345678",
+        amount: 500,
+        tillNumber: "123456",
+        accountReference: "LIB-123",
+        transactionDesc: "LIBRARY",
+      }),
     ).resolves.toMatchObject({ CheckoutRequestID: "ws_CO_test" });
 
     expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(

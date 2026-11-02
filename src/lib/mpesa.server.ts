@@ -80,7 +80,9 @@ export function getMpesaConfig(shortcodeOverride?: string): MpesaConfig | null {
     throw new Error("MPESA_ENV must be production. Sandbox payments are not supported.");
   }
   if (transactionType !== "CustomerBuyGoodsOnline") {
-    throw new Error("MPESA_TRANSACTION_TYPE must be CustomerBuyGoodsOnline for a registered store.");
+    throw new Error(
+      "MPESA_TRANSACTION_TYPE must be CustomerBuyGoodsOnline for a registered store.",
+    );
   }
   if (!/^\d{5,7}$/.test(shortcode)) {
     throw new Error("MPESA_SHORTCODE must be the registered M-PESA Store Number.");
