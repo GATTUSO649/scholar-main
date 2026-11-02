@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  staleTime: 15_000,
   beforeLoad: async ({ location }) => {
     const { user, isAdmin, expiresAt } = await getCurrentUserStateFn();
     if (!user) {
@@ -187,7 +188,10 @@ function Shell() {
   const NavLinks = ({ admin = false }: { admin?: boolean }) => (
     <nav
       aria-label={admin ? "Admin navigation" : "Student navigation"}
-      className="flex flex-1 flex-col gap-1"
+      className={cn(
+        "flex flex-1 flex-col gap-1",
+        admin && "min-h-0 overflow-y-auto overscroll-contain pr-1",
+      )}
     >
       {!admin &&
         studentNav.map((n) => (
@@ -200,7 +204,7 @@ function Shell() {
         ))}
       {admin && (
         <>
-          <p className="mb-2 mt-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7d8b86]">
+          <p className="mb-2 mt-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9aacc1]">
             Student support
           </p>
           {adminNav.map((n) => (
@@ -225,7 +229,7 @@ function Shell() {
             target="_blank"
             rel="noreferrer"
             onClick={() => setOpen(false)}
-            className="mt-5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#60706a] transition-colors hover:bg-[#f1f6f3] hover:text-[#155b4c]"
+            className="mt-5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#c2cfdd] transition-colors hover:bg-white/10 hover:text-white"
           >
             <ExternalLink className="h-4 w-4" /> Public website
           </a>
@@ -237,7 +241,7 @@ function Shell() {
         className={cn(
           "mt-auto flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors disabled:cursor-wait disabled:opacity-60",
           admin
-            ? "text-[#60706a] hover:bg-[#fff1ee] hover:text-[#a64233]"
+            ? "text-[#c2cfdd] hover:bg-[#793d49]/50 hover:text-white"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
         )}
       >
@@ -248,14 +252,14 @@ function Shell() {
 
   if (inAdminArea) {
     const adminLinks = (
-      <div className="flex h-full flex-col bg-[#fbfcfa]">
-        <div className="border-b border-[#e4ebe6] px-5 py-5">
-          <Logo onClick={handlePublicNavigation} />
-          <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-[#6e8179]">
+      <div className="flex h-full min-h-0 flex-col bg-[#142742]">
+        <div className="shrink-0 border-b border-white/10 px-5 py-5">
+          <Logo light onClick={handlePublicNavigation} />
+          <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-[#b9c7d7]">
             <Sparkles className="h-3.5 w-3.5 text-[#b57c36]" /> Service workspace
           </div>
-          <div className="mt-5 flex items-center gap-3 rounded-lg border border-[#e4ebe6] bg-white p-3">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-[#e5f1eb] text-xs font-bold text-[#155b4c]">
+          <div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-3">
+            <span className="grid h-9 w-9 place-items-center rounded-md bg-white/10 text-xs font-bold text-[#f1c96b]">
               {profile?.full_name
                 ?.split(/\s+/)
                 .map((part) => part[0])
@@ -264,20 +268,20 @@ function Shell() {
                 .toUpperCase() ?? "AD"}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[#183c34]">
+              <span className="block truncate text-sm font-semibold text-white">
                 {profile?.full_name || "Administrator"}
               </span>
-              <span className="block truncate text-xs text-[#75847e]">Operations team</span>
+              <span className="block truncate text-xs text-[#b9c7d7]">Operations team</span>
             </span>
           </div>
         </div>
-        <div className="flex flex-1 flex-col px-3 py-3">
+        <div className="flex min-h-0 flex-1 flex-col px-3 py-3">
           <NavLinks admin />
-          <div className="mt-auto border-t border-[#e4ebe6] px-3 pt-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#426c5e]">
-              <span className="h-2 w-2 rounded-full bg-[#3b9b70]" /> Workspace active
+          <div className="mt-auto shrink-0 border-t border-white/10 px-3 pt-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#d3dfeb]">
+              <span className="h-2 w-2 rounded-full bg-[#62c49b]" /> Workspace active
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-[#7d8984]">
+            <p className="mt-2 text-[11px] leading-relaxed text-[#aebdd0]">
               Student records and files remain private.
             </p>
           </div>
@@ -286,26 +290,26 @@ function Shell() {
     );
     return (
       <div className="min-h-screen bg-[#f2f5f2] lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-screen flex-col border-r border-[#e4ebe6] bg-[#fbfcfa] lg:flex">
+        <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#263d5a] bg-[#142742] lg:flex">
           {adminLinks}
         </aside>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e4ebe6] bg-[#fbfcfa] px-4 py-3 lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#263d5a] bg-[#142742] px-4 py-3 text-white lg:hidden">
           <div>
-            <Logo onClick={handlePublicNavigation} />
-            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#71817a]">
+            <Logo light onClick={handlePublicNavigation} />
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#b9c7d7]">
               Service workspace
             </p>
           </div>
-          <div className="flex items-center gap-1 text-[#183c34]">
+          <div className="flex items-center gap-1 text-white">
             <NotificationBell />
             <ProfileShortcut
               name={profile?.full_name}
               to="/admin/profile"
-              className="text-[#183c34] hover:bg-[#eaf2ed]"
+              className="text-white hover:bg-white/10"
             />
             <button
               onClick={() => setOpen(!open)}
-              className="rounded-lg p-2 text-[#183c34] hover:bg-[#eaf2ed]"
+              className="rounded-lg p-2 text-white hover:bg-white/10"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
             >
@@ -314,7 +318,7 @@ function Shell() {
           </div>
         </header>
         {open && (
-          <div className="fixed inset-x-0 bottom-0 top-18 z-20 border-t border-[#e4ebe6] bg-[#fbfcfa] p-4 lg:hidden">
+          <div className="fixed inset-x-0 bottom-0 top-18 z-20 overflow-hidden border-t border-[#263d5a] bg-[#142742] p-4 lg:hidden">
             {adminLinks}
           </div>
         )}
@@ -459,10 +463,10 @@ function NavItem({
         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
         active
           ? admin
-            ? "bg-[#e5f1eb] font-semibold text-[#155b4c]"
+            ? "bg-[#29486b] font-semibold text-white shadow-[inset_3px_0_0_#f1c96b]"
             : "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
           : admin
-            ? "text-[#5f7069] hover:bg-[#f0f5f2] hover:text-[#183c34]"
+            ? "text-[#c2cfdd] hover:bg-white/10 hover:text-white"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
       )}
     >

@@ -113,8 +113,10 @@ export function RequestSummary({
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <section>
+      <div
+        className={`grid items-start gap-6 ${compact ? "md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]" : "lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)]"}`}
+      >
+        <section className="order-2">
           <h2 className="text-lg font-semibold">Files & deliverables</h2>
           <ul className="mt-3 space-y-2">
             {data.files.length === 0 && (
@@ -140,7 +142,7 @@ export function RequestSummary({
             ))}
           </ul>
         </section>
-        <section className="rounded-2xl border border-[#263a57] bg-[#17263c] p-5 text-white">
+        <section className="order-1 rounded-2xl border border-[#263a57] bg-[#17263c] p-5 text-white">
           <h2 className="text-lg font-semibold">Updates</h2>
           <ul className="mt-3 space-y-3">
             {data.updates.length === 0 && (
