@@ -30,7 +30,7 @@ function formatDate(value: Date | string | null) {
 function AdminPaymentsPage() {
   const [queryInput, setQueryInput] = useState("");
   const [search, setSearch] = useState("");
-  const [ledger, setLedger] = useState<"library" | "requests">("library");
+  const [ledger, setLedger] = useState<"library" | "requests">("requests");
   const [status, setStatus] = useState<PaymentFilter>("all");
   const [offset, setOffset] = useState(0);
   const libraryQuery = useQuery({
@@ -79,18 +79,6 @@ function AdminPaymentsPage() {
       >
         <button
           type="button"
-          aria-pressed={ledger === "library"}
-          onClick={() => {
-            setLedger("library");
-            setStatus("all");
-            setOffset(0);
-          }}
-          className={`rounded-md px-3 py-2 text-sm font-medium ${ledger === "library" ? "bg-[#185c4b] text-white" : "text-[#456057] hover:bg-[#f2f7f3]"}`}
-        >
-          Library
-        </button>
-        <button
-          type="button"
           aria-pressed={ledger === "requests"}
           onClick={() => {
             setLedger("requests");
@@ -101,7 +89,24 @@ function AdminPaymentsPage() {
         >
           Service requests
         </button>
+        <button
+          type="button"
+          aria-pressed={ledger === "library"}
+          onClick={() => {
+            setLedger("library");
+            setStatus("all");
+            setOffset(0);
+          }}
+          className={`rounded-md px-3 py-2 text-sm font-medium ${ledger === "library" ? "bg-[#185c4b] text-white" : "text-[#456057] hover:bg-[#f2f7f3]"}`}
+        >
+          Library
+        </button>
       </div>
+      <p className="-mt-5 text-xs text-[#718078]">
+        {ledger === "requests"
+          ? "Payments for student service quotes."
+          : "Purchases from the student library."}
+      </p>
 
       {isError ? (
         <section

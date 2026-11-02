@@ -1433,6 +1433,23 @@ async function syncLibraryPurchaseFromProvider(
         message: `Your payment for ${purchase.title} was confirmed. The resource is ready to download.`,
         href: "/portal/library",
       });
+      const adminUsers = await tx
+        .select({ userId: userRoles.userId })
+        .from(userRoles)
+        .where(eq(userRoles.role, "admin"));
+      if (adminUsers.length) {
+        await tx.insert(notifications).values(
+          adminUsers.map(({ userId }) => ({
+            id: randomUUID(),
+            userId,
+            requestId: null,
+            type: "library_payment",
+            title: "Library payment received",
+            message: `A student paid for library resource "${purchase.title}".`,
+            href: "/admin/payments",
+          })),
+        );
+      }
     }
     return nextStatus;
   });
@@ -1948,6 +1965,25 @@ async function syncServiceRequestPaymentFromProvider(
       message,
       href: `/request/${payment.requestId}`,
     });
+    if (nextStatus === "paid") {
+      const adminUsers = await tx
+        .select({ userId: userRoles.userId })
+        .from(userRoles)
+        .where(eq(userRoles.role, "admin"));
+      if (adminUsers.length) {
+        await tx.insert(notifications).values(
+          adminUsers.map(({ userId }) => ({
+            id: randomUUID(),
+            userId,
+            requestId: payment.requestId,
+            type: "request_payment_received",
+            title: "Service payment received",
+            message: `Payment received for request ${payment.requestRef}.`,
+            href: `/manage/${payment.requestId}`,
+          })),
+        );
+      }
+    }
     return { status: nextStatus };
   });
 }
