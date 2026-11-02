@@ -114,7 +114,12 @@ function RequestPaymentPanel({
       toast.success("Payment confirmed. Your request is moving forward.");
       return "paid";
     }
-    if (result?.status === "failed" || result?.status === "cancelled") {
+    if (result?.status === "cancelled") {
+      await refreshRequest();
+      toast("M-PESA prompt was cancelled. You can try again.");
+      return "cancelled";
+    }
+    if (result?.status === "failed") {
       await refreshRequest();
       toast.error(result.reason ?? "Payment was not completed. You can try again.");
       return result.status;
@@ -187,6 +192,11 @@ function RequestPaymentPanel({
             Pay through the M-PESA prompt. Delivery files unlock only after Safaricom confirms the
             payment.
           </p>
+          {latestPayment?.status === "cancelled" && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              The previous M-PESA prompt was cancelled. You can start a new payment.
+            </p>
+          )}
           {latestPayment?.receipt_number && (
             <p className="mt-2 text-xs text-muted-foreground">
               Receipt: {latestPayment.receipt_number}

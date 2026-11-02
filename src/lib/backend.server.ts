@@ -1242,15 +1242,13 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
   const { purchaseId } = purchase;
   let providerAccepted = false;
   try {
-    const checkout = await initiateMpesaStkPush(
-      {
-        phoneNumber,
-        amount: resource.price,
-        tillNumber,
-        accountReference: `L${purchaseId.replaceAll("-", "").slice(0, 11)}`,
-        transactionDesc: "LIBRARY",
-      },
-    );
+    const checkout = await initiateMpesaStkPush({
+      phoneNumber,
+      amount: resource.price,
+      tillNumber,
+      accountReference: `L${purchaseId.replaceAll("-", "").slice(0, 11)}`,
+      transactionDesc: "LIBRARY",
+    });
     providerAccepted = true;
     if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {
       throw new MpesaUncertainOutcomeError();
@@ -1302,6 +1300,7 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
 async function syncLibraryPurchaseFromProvider(
   purchaseId: string,
   callbackDetails?: { receiptNumber: string; transactionTimestamp: Date },
+  callbackCancellation?: { resultCode: number; resultDesc: string },
 ) {
   const db = getDatabase();
   const [purchase] = await db
@@ -1348,23 +1347,48 @@ async function syncLibraryPurchaseFromProvider(
   if (!purchase.checkoutRequestId) {
     return expired() ? expirePurchase() : { status: purchase.status };
   }
-  let verification;
+  let verification: Awaited<ReturnType<typeof queryMpesaStkPush>> | null;
   try {
     verification = await queryMpesaStkPush(
       purchase.checkoutRequestId,
       purchase.merchantShortcode ?? undefined,
     );
   } catch (error) {
-    if (expired()) return expirePurchase();
-    throw error;
+    if (callbackCancellation?.resultCode !== 1032) {
+      if (purchase.status === "cancelled") {
+        return {
+          status: "cancelled" as const,
+          reason: purchase.failureReason ?? "M-PESA prompt was cancelled.",
+        };
+      }
+      if (expired()) return expirePurchase();
+      throw error;
+    }
+    verification = null;
   }
   if (
+    !verification ||
     String(verification.ResponseCode) !== "0" ||
     verification.CheckoutRequestID !== purchase.checkoutRequestId ||
     verification.ResultCode == null
   ) {
-    if (expired()) return expirePurchase();
-    return { status: "pending" as const };
+    if (callbackCancellation?.resultCode === 1032) {
+      verification = {
+        ResponseCode: "0",
+        CheckoutRequestID: purchase.checkoutRequestId,
+        ResultCode: callbackCancellation.resultCode,
+        ResultDesc: callbackCancellation.resultDesc,
+      };
+    } else {
+      if (purchase.status === "cancelled") {
+        return {
+          status: "cancelled" as const,
+          reason: purchase.failureReason ?? "M-PESA prompt was cancelled.",
+        };
+      }
+      if (expired()) return expirePurchase();
+      return { status: "pending" as const };
+    }
   }
   const nextStatus = mapMpesaResultCodeToPurchaseStatus(verification.ResultCode);
 
@@ -1490,6 +1514,9 @@ export async function handleLibraryPurchaseCallback(input: {
           receiptNumber: input.receiptNumber,
           transactionTimestamp: input.transactionTimestamp,
         }
+      : undefined,
+    input.resultCode === 1032
+      ? { resultCode: input.resultCode, resultDesc: input.resultDesc }
       : undefined,
   );
 }
@@ -1632,15 +1659,13 @@ export async function startServiceRequestPayment(input: {
   if (payment.status !== "new") return payment;
   let providerAccepted = false;
   try {
-    const checkout = await initiateMpesaStkPush(
-      {
-        phoneNumber,
-        amount: payment.amount,
-        tillNumber,
-        accountReference: payment.accountReference,
-        transactionDesc: "SERVICE",
-      },
-    );
+    const checkout = await initiateMpesaStkPush({
+      phoneNumber,
+      amount: payment.amount,
+      tillNumber,
+      accountReference: payment.accountReference,
+      transactionDesc: "SERVICE",
+    });
     providerAccepted = true;
     if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {
       throw new MpesaUncertainOutcomeError();
@@ -1701,6 +1726,7 @@ export async function startServiceRequestPayment(input: {
 async function syncServiceRequestPaymentFromProvider(
   paymentId: string,
   callbackDetails?: { receiptNumber: string; transactionTimestamp: Date },
+  callbackCancellation?: { resultCode: number; resultDesc: string },
 ) {
   const db = getDatabase();
   const [payment] = await db
@@ -1710,6 +1736,7 @@ async function syncServiceRequestPaymentFromProvider(
       studentId: serviceRequestPayments.studentId,
       amount: serviceRequestPayments.amount,
       status: serviceRequestPayments.status,
+      failureReason: serviceRequestPayments.failureReason,
       checkoutRequestId: serviceRequestPayments.checkoutRequestId,
       merchantShortcode: serviceRequestPayments.merchantShortcode,
       expiresAt: serviceRequestPayments.expiresAt,
@@ -1745,49 +1772,82 @@ async function syncServiceRequestPaymentFromProvider(
     return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
   }
 
-  let verification;
+  let verification: Awaited<ReturnType<typeof queryMpesaStkPush>> | null;
   try {
     verification = await queryMpesaStkPush(
       payment.checkoutRequestId,
       payment.merchantShortcode ?? undefined,
     );
   } catch (error) {
-    if (!expired()) throw error;
-    await db
-      .update(serviceRequestPayments)
-      .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: new Date() })
-      .where(
-        and(
-          eq(serviceRequestPayments.id, payment.id),
-          eq(serviceRequestPayments.status, "pending"),
-        ),
-      );
-    await db
-      .update(requests)
-      .set({ paymentStatus: "unpaid", updatedAt: new Date() })
-      .where(and(eq(requests.id, payment.requestId), eq(requests.paymentStatus, "pending")));
-    return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+    if (callbackCancellation?.resultCode !== 1032) {
+      if (payment.status === "cancelled") {
+        return {
+          status: "cancelled" as const,
+          reason: payment.failureReason ?? "M-PESA prompt was cancelled.",
+        };
+      }
+      if (!expired()) throw error;
+      await db
+        .update(serviceRequestPayments)
+        .set({
+          status: "failed",
+          failureReason: MPESA_PAYMENT_EXPIRED_REASON,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(serviceRequestPayments.id, payment.id),
+            eq(serviceRequestPayments.status, "pending"),
+          ),
+        );
+      await db
+        .update(requests)
+        .set({ paymentStatus: "unpaid", updatedAt: new Date() })
+        .where(and(eq(requests.id, payment.requestId), eq(requests.paymentStatus, "pending")));
+      return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+    }
+    verification = null;
   }
   if (
+    !verification ||
     String(verification.ResponseCode) !== "0" ||
     verification.CheckoutRequestID !== payment.checkoutRequestId ||
     verification.ResultCode == null
   ) {
-    if (!expired()) return { status: "pending" as const };
-    await db
-      .update(serviceRequestPayments)
-      .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: new Date() })
-      .where(
-        and(
-          eq(serviceRequestPayments.id, payment.id),
-          eq(serviceRequestPayments.status, "pending"),
-        ),
-      );
-    await db
-      .update(requests)
-      .set({ paymentStatus: "unpaid", updatedAt: new Date() })
-      .where(and(eq(requests.id, payment.requestId), eq(requests.paymentStatus, "pending")));
-    return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+    if (callbackCancellation?.resultCode === 1032) {
+      verification = {
+        ResponseCode: "0",
+        CheckoutRequestID: payment.checkoutRequestId,
+        ResultCode: callbackCancellation.resultCode,
+        ResultDesc: callbackCancellation.resultDesc,
+      };
+    } else {
+      if (payment.status === "cancelled") {
+        return {
+          status: "cancelled" as const,
+          reason: payment.failureReason ?? "M-PESA prompt was cancelled.",
+        };
+      }
+      if (!expired()) return { status: "pending" as const };
+      await db
+        .update(serviceRequestPayments)
+        .set({
+          status: "failed",
+          failureReason: MPESA_PAYMENT_EXPIRED_REASON,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(serviceRequestPayments.id, payment.id),
+            eq(serviceRequestPayments.status, "pending"),
+          ),
+        );
+      await db
+        .update(requests)
+        .set({ paymentStatus: "unpaid", updatedAt: new Date() })
+        .where(and(eq(requests.id, payment.requestId), eq(requests.paymentStatus, "pending")));
+      return { status: "failed" as const, reason: MPESA_PAYMENT_EXPIRED_REASON };
+    }
   }
 
   const nextStatus = mapMpesaResultCodeToPurchaseStatus(verification.ResultCode);
@@ -1969,6 +2029,9 @@ export async function handleServiceRequestPaymentCallback(input: {
           receiptNumber: input.receiptNumber,
           transactionTimestamp: input.transactionTimestamp,
         }
+      : undefined,
+    input.resultCode === 1032
+      ? { resultCode: input.resultCode, resultDesc: input.resultDesc }
       : undefined,
   );
 }
