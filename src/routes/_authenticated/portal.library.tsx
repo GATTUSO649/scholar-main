@@ -178,7 +178,7 @@ function StudentLibraryPage() {
             method: "PATCH",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ purchaseId: result.purchaseId }),
-            signal: AbortSignal.timeout(Math.min(5000, requestTimeRemaining)),
+            signal: AbortSignal.timeout(Math.min(60_000, requestTimeRemaining)),
           });
           const state = (await check.json().catch(() => null)) as {
             status?: string;

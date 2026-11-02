@@ -88,7 +88,7 @@ function RequestPaymentPanel({
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ paymentId }),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(60_000),
     });
     const result = (await response.json().catch(() => null)) as {
       status?: "pending" | "paid" | "failed" | "cancelled" | "not_found";
