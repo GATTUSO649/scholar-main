@@ -107,7 +107,7 @@ function StudentRoster() {
 
       <section
         aria-label="Student totals"
-        className="grid grid-cols-3 border-y border-[#dfe8e3] bg-white"
+        className="grid grid-cols-1 border-y border-[#dfe8e3] bg-white min-[420px]:grid-cols-3"
       >
         <RosterStat label="Students" value={isLoading || isError ? "—" : students.length} />
         <RosterStat label="Institutions" value={isLoading || isError ? "—" : institutions.size} />
@@ -280,7 +280,7 @@ function StudentRoster() {
 
 function RosterStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="border-r border-[#e8eeea] px-4 py-3.5 last:border-r-0 sm:px-5">
+    <div className="border-b border-[#e8eeea] px-4 py-3.5 last:border-b-0 min-[420px]:border-b-0 min-[420px]:border-r min-[420px]:last:border-r-0 sm:px-5">
       <p className="text-[11px] font-medium text-[#718078]">{label}</p>
       <p className="mt-1.5 text-xl font-semibold tabular-nums text-[#183c34]">{value}</p>
     </div>

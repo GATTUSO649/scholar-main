@@ -61,7 +61,7 @@ function Dashboard() {
           </Link>
         </Button>
       </div>
-      <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="mt-8 grid grid-cols-1 gap-4 min-[360px]:grid-cols-2 md:grid-cols-5">
         {cards.map((c) => (
           <div key={c.label} className="rounded-2xl border bg-card p-5 shadow-soft">
             <c.icon className="h-5 w-5 text-accent" />

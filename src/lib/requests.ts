@@ -1,11 +1,27 @@
 import { toast } from "sonner";
 
 export async function openFile(path: string) {
-  const link = document.createElement("a");
-  link.href = `/api/files?key=${encodeURIComponent(path)}`;
-  link.rel = "noopener";
-  link.target = "_blank";
-  link.click();
+  try {
+    const response = await fetch(`/api/files?key=${encodeURIComponent(path)}`);
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      toast.error(result?.error ?? "File download failed.");
+      return;
+    }
+
+    const fileName =
+      response.headers.get("content-disposition")?.match(/filename="([^"]*)"/i)?.[1] ?? "download";
+    const objectUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch {
+    toast.error("File download failed. Check your connection and try again.");
+  }
 }
 
 export async function uploadFiles(

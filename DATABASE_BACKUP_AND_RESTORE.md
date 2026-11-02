@@ -28,16 +28,6 @@ pg_restore --dbname="$RESTORE_DATABASE_URL" --no-owner scholar-desk.dump
 
 Then run `npm run db:check`, verify representative counts and relationships, and test the application against the restored database before changing production configuration. Do not restore into a populated production database. A restore into an existing database can conflict with objects and records; use a new target and deliberate cutover instead.
 
-## MySQL source backup for migration
-
-Before migration, create a consistent source backup (for InnoDB tables) and test the file:
-
-```sh
-mysqldump --single-transaction --routines --triggers --events --databases scholar_desk > scholar-desk-mysql.sql
-```
-
-Avoid embedding a password in the command. Use the MySQL client option file or an interactive secure credential mechanism supported by your environment. Keep the backup until the PostgreSQL cutover is accepted. See [MYSQL_TO_POSTGRESQL_MIGRATION.md](MYSQL_TO_POSTGRESQL_MIGRATION.md) for the transfer procedure.
-
 ## Private upload backup
 
 Stop application writes or take a filesystem-consistent snapshot. Archive the configured `FILE_STORAGE_DIR` including its relative directory structure and file permissions, encrypt it, and record a checksum manifest. Restore it to persistent private storage at the same configured path, then verify every database-referenced storage key resolves to the expected file before enabling downloads. Never place uploads under `public/` or expose the archive over HTTP.

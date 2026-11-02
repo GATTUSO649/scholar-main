@@ -20,7 +20,6 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate-postgres.mjs",
     "db:check": "node --env-file-if-exists=.env scripts/check-db-connection.mjs",
     "db:promote-admin": "node --env-file=.env scripts/promote-admin.mjs",
-    "db:import-mysql": "node --env-file=.env scripts/import-mysql-to-postgres.mjs",
     "db:seed": "node --env-file=.env scripts/seed-postgres.mjs"
   },
   "overrides": {
@@ -69,7 +68,6 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
-    "mysql2": "^3.24.6",
     "nodemailer": "^10.2.1",
     "postgres": "^3.4.5",
     "react": "^19.2.0",

@@ -127,10 +127,8 @@ function Shell() {
   useEffect(
     () =>
       subscribeToAuthSessionChanges(() => {
-        void qc.cancelQueries().finally(() => {
-          qc.clear();
-          window.location.reload();
-        });
+        qc.clear();
+        window.location.reload();
       }),
     [qc],
   );
@@ -344,19 +342,32 @@ function Shell() {
               className="text-white hover:bg-white/10"
             />
             <button
+              type="button"
               onClick={() => setOpen(!open)}
               className="rounded-lg p-2 text-white hover:bg-white/10"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
+              aria-controls="mobile-admin-navigation"
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </header>
         {open && (
-          <div className="fixed inset-x-0 bottom-0 top-18 z-20 overflow-hidden border-t border-[#263d5a] bg-[#142742] p-4 lg:hidden">
-            {adminLinks}
-          </div>
+          <>
+            <button
+              type="button"
+              aria-label="Close navigation"
+              onClick={() => setOpen(false)}
+              className="fixed inset-0 top-14 z-10 bg-black/35 lg:hidden"
+            />
+            <div
+              id="mobile-admin-navigation"
+              className="fixed right-3 top-16 z-20 h-[min(40rem,calc(100dvh-5rem))] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#263d5a] bg-[#142742] shadow-2xl lg:hidden"
+            >
+              {adminLinks}
+            </div>
+          </>
         )}
         <main className="min-w-0">
           <div className="sticky top-0 z-10 hidden h-19 items-center justify-between border-b border-[#e4ebe6] bg-white/95 px-8 backdrop-blur lg:flex">
@@ -404,18 +415,32 @@ function Shell() {
             className="text-sidebar-foreground hover:bg-sidebar-accent"
           />
           <button
+            type="button"
             onClick={() => setOpen(!open)}
             className="rounded-lg p-2 hover:bg-sidebar-accent"
             aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="mobile-student-navigation"
           >
             {open ? <X /> : <Menu />}
           </button>
         </div>
       </header>
       {open && (
-        <div className="fixed inset-0 top-14 z-20 flex flex-col bg-sidebar p-5 text-sidebar-foreground lg:hidden">
-          <NavLinks />
-        </div>
+        <>
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 top-14 z-10 bg-black/35 lg:hidden"
+          />
+          <div
+            id="mobile-student-navigation"
+            className="fixed right-3 top-16 z-20 flex max-h-[calc(100dvh-5rem)] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl lg:hidden"
+          >
+            <NavLinks />
+          </div>
+        </>
       )}
 
       <main className="min-w-0">

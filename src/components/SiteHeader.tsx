@@ -33,10 +33,8 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
   useEffect(
     () =>
       subscribeToAuthSessionChanges(() => {
-        void queryClient.cancelQueries().finally(() => {
-          queryClient.clear();
-          window.location.reload();
-        });
+        queryClient.clear();
+        window.location.reload();
       }),
     [queryClient],
   );
@@ -67,7 +65,7 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <Logo light />
-        <nav className="hidden items-center gap-7 text-sm text-ink-foreground/80 md:flex">
+        <nav className="hidden items-center gap-7 text-sm text-ink-foreground/80 lg:flex">
           {navigation.map((item) => (
             <Link key={item.to} to={item.to} className="hover:text-ink-foreground">
               {item.label}
@@ -106,7 +104,7 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
             )
           ) : (
             <>
-              <Button asChild variant="heroOutline" size="sm" className="hidden sm:inline-flex">
+              <Button asChild variant="heroOutline" size="sm" className="hidden lg:inline-flex">
                 <Link to="/auth" search={{ mode: "login" }}>
                   Student login
                 </Link>
@@ -121,7 +119,7 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
           <button
             type="button"
             onClick={() => setMenuOpen(!menuOpen)}
-            className="rounded-lg p-2 text-ink-foreground hover:bg-white/10 md:hidden"
+            className="rounded-lg p-2 text-ink-foreground hover:bg-white/10 lg:hidden"
             aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={menuOpen}
           >

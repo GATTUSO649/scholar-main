@@ -7,11 +7,7 @@ import {
   normalizeMpesaPhoneNumber,
   queryMpesaStkPush,
 } from "@/lib/mpesa.server";
-import {
-  hasMpesaPaymentExpired,
-  isMpesaRetryWindowActive,
-  MPESA_PAYMENT_EXPIRY_MS,
-} from "@/lib/mpesa-timeout";
+import { hasMpesaPaymentExpired, MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
 const mpesaEnv = [
   "MPESA_ENV",
@@ -292,13 +288,5 @@ describe("M-PESA payment request expiry", () => {
     expect(hasMpesaPaymentExpired(expiresAt, startedAt + 59_999)).toBe(false);
     expect(hasMpesaPaymentExpired(expiresAt, startedAt + 60_000)).toBe(true);
     expect(hasMpesaPaymentExpired(null, startedAt + 60_000)).toBe(false);
-  });
-
-  it("keeps retries available only until the 60-second cancellation boundary", () => {
-    const cancelledAt = new Date(1_800_000_000_000);
-
-    expect(isMpesaRetryWindowActive(cancelledAt, cancelledAt.getTime() + 59_999)).toBe(true);
-    expect(isMpesaRetryWindowActive(cancelledAt, cancelledAt.getTime() + 60_000)).toBe(false);
-    expect(isMpesaRetryWindowActive(null, cancelledAt.getTime() + 60_000)).toBe(false);
   });
 });
