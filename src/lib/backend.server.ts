@@ -817,7 +817,7 @@ export async function getPublicPaymentDetails() {
     .limit(1);
   return {
     businessName: settings?.businessName ?? "ScholarDesk",
-    tillNumber: settings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "",
+    tillNumber: settings?.mpesaTillNumber ?? "",
     paymentMethod: "M-PESA" as const,
     currency: "KES" as const,
   };
@@ -835,7 +835,7 @@ export async function getAdminBusinessSettings() {
     .limit(1);
   return {
     businessName: settings?.businessName ?? "ScholarDesk",
-    mpesaTillNumber: settings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "",
+    mpesaTillNumber: settings?.mpesaTillNumber ?? "",
   };
 }
 
@@ -1123,9 +1123,11 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
     .from(siteSettings)
     .where(eq(siteSettings.id, 1))
     .limit(1);
-  const merchantShortcode =
-    businessSettings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "";
-  if (!getMpesaConfig(merchantShortcode)) throw new Error("M-Pesa payments are not configured.");
+  const tillNumber = businessSettings?.mpesaTillNumber?.trim() ?? "";
+  const mpesaConfig = getMpesaConfig();
+  if (!mpesaConfig) throw new Error("M-Pesa payments are not configured.");
+  if (!tillNumber) throw new Error("M-PESA Till Number is not configured in payment settings.");
+  const businessShortcode = mpesaConfig.shortcode;
   const [resource] = await db
     .select({
       id: libraryResources.id,
@@ -1230,7 +1232,7 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       status: "pending",
       phoneNumber,
       accountReference,
-      merchantShortcode,
+      merchantShortcode: businessShortcode,
       expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
     });
     return { purchaseId, status: "new" as const };
@@ -1244,10 +1246,10 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
       {
         phoneNumber,
         amount: resource.price,
+        tillNumber,
         accountReference: `L${purchaseId.replaceAll("-", "").slice(0, 11)}`,
         transactionDesc: "LIBRARY",
       },
-      merchantShortcode,
     );
     providerAccepted = true;
     if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {
@@ -1504,9 +1506,11 @@ export async function startServiceRequestPayment(input: {
     .from(siteSettings)
     .where(eq(siteSettings.id, 1))
     .limit(1);
-  const merchantShortcode =
-    businessSettings?.mpesaTillNumber ?? process.env["MPESA_SHORTCODE"]?.trim() ?? "";
-  if (!getMpesaConfig(merchantShortcode)) throw new Error("M-Pesa payments are not configured.");
+  const tillNumber = businessSettings?.mpesaTillNumber?.trim() ?? "";
+  const mpesaConfig = getMpesaConfig();
+  if (!mpesaConfig) throw new Error("M-Pesa payments are not configured.");
+  if (!tillNumber) throw new Error("M-PESA Till Number is not configured in payment settings.");
+  const businessShortcode = mpesaConfig.shortcode;
 
   const payment = await db.transaction(async (tx) => {
     const [request] = await tx
@@ -1609,7 +1613,7 @@ export async function startServiceRequestPayment(input: {
       status: "pending",
       phoneNumber,
       accountReference,
-      merchantShortcode,
+      merchantShortcode: businessShortcode,
       expiresAt: new Date(Date.now() + MPESA_PAYMENT_EXPIRY_MS),
     });
     await tx
@@ -1632,10 +1636,10 @@ export async function startServiceRequestPayment(input: {
       {
         phoneNumber,
         amount: payment.amount,
+        tillNumber,
         accountReference: payment.accountReference,
         transactionDesc: "SERVICE",
       },
-      merchantShortcode,
     );
     providerAccepted = true;
     if (!checkout.CheckoutRequestID || !checkout.MerchantRequestID) {

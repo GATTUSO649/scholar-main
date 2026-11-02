@@ -51,7 +51,7 @@ npm start
 
 Set `DATABASE_URL` to a reachable PostgreSQL connection string. On Render, use a Supabase session-pooler URL when the direct endpoint is not reachable; production connections use TLS. Optionally set `DATABASE_MIGRATION_URL` for a separate migration role. Review migrations and run `npm run db:migrate` before serving traffic. Set `APP_URL` to the public HTTPS URL. Set `ADMIN_SIGNUP_SECRET` to a private random value of at least 32 characters to enable administrator signups. Each signup requires this key; remove it from the server environment to disable further signups. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up separately from the database.
 
-Library purchases and quoted service requests use Safaricom Daraja production STK Push with a registered M-PESA Till. Add these values only in the hosting provider's server-side environment settings:
+Library purchases and quoted service requests use Safaricom Daraja production STK Push. Add these values only in the hosting provider's server-side environment settings:
 
 | Variable | Production value |
 | --- | --- |
@@ -59,12 +59,12 @@ Library purchases and quoted service requests use Safaricom Daraja production ST
 | `MPESA_TRANSACTION_TYPE` | `CustomerBuyGoodsOnline` |
 | `MPESA_CONSUMER_KEY` | Consumer Key from the approved Daraja production app |
 | `MPESA_CONSUMER_SECRET` | Consumer Secret from the approved Daraja production app |
-| `MPESA_SHORTCODE` | Registered M-PESA Till Number enabled for online checkout |
-| `MPESA_PASSKEY` | Production Lipa Na M-PESA Online passkey issued for the Till |
+| `MPESA_SHORTCODE` | Daraja production Store Number for the approved app |
+| `MPESA_PASSKEY` | Production Lipa Na M-PESA Online passkey issued for that Store Number |
 | `MPESA_CALLBACK_URL` | `https://your-public-domain/api/library/callback` |
 | `MPESA_STK_QUERY_ENABLED` | `true` |
 
-The production client calls `https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials`, `https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest`, and `https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query`. It uses the registered Till for both `BusinessShortCode` and `PartyB`, with `CustomerBuyGoodsOnline`; it does not support PayBill or silently fall back to sandbox. The callback must be publicly reachable over HTTPS and handles both library and service-request payments. Apply the reviewed active PostgreSQL migrations before accepting payments. Configure the merchant name and Till from **Admin → Business settings**; the passkey and production Daraja app must match that Till. Students see these details before initiating checkout. Unresolved STK prompts expire after 60 seconds and become retryable. Library resources remain free until an administrator sets a whole-KES price, up to KES 150,000. Service-request checkout is enabled only for an active quoted request in KES. Payment status is set by successful Safaricom STK Query verification, not by an admin form; service delivery files remain unavailable to students until the request is verified as paid.
+The production client calls `https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials`, `https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest`, and `https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query`. It uses `MPESA_SHORTCODE` as Daraja's `BusinessShortCode` and password shortcode, and the Till configured in **Admin → Business settings** as `PartyB`, with `CustomerBuyGoodsOnline`; it does not support PayBill or silently fall back to sandbox. The production Daraja app and passkey must match the Store Number, and Safaricom must enable the destination Till for STK Push. The callback must be publicly reachable over HTTPS and handles both library and service-request payments. Apply the reviewed active PostgreSQL migrations before accepting payments. Students see the destination Till before initiating checkout. Unresolved STK prompts expire after 60 seconds and become retryable. Library resources remain free until an administrator sets a whole-KES price, up to KES 150,000. Service-request checkout is enabled only for an active quoted request in KES. Payment status is set by successful Safaricom STK Query verification, not by an admin form; service delivery files remain unavailable to students until the request is verified as paid.
 
 Administrators manage public service offers and starting prices from **Admin → Public pricing**, then receive new requests in the request queue. They can set the request quote and status and post milestone notes; students see those milestones in the request timeline and receive notifications. A quote must be awaiting payment, in progress, or completed before M-PESA checkout is available.
 

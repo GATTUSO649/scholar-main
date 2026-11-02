@@ -10,6 +10,7 @@ type MpesaConfig = {
 type StkPushInput = {
   phoneNumber: string;
   amount: number;
+  tillNumber: string;
   accountReference: string;
   transactionDesc: string;
 };
@@ -58,10 +59,10 @@ export function mapMpesaResultCodeToPurchaseStatus(
   return "failed";
 }
 
-export function getMpesaConfig(merchantShortcode?: string): MpesaConfig | null {
+export function getMpesaConfig(shortcodeOverride?: string): MpesaConfig | null {
   const consumerKey = process.env["MPESA_CONSUMER_KEY"]?.trim() ?? "";
   const consumerSecret = process.env["MPESA_CONSUMER_SECRET"]?.trim() ?? "";
-  const shortcode = merchantShortcode?.trim() || process.env["MPESA_SHORTCODE"]?.trim() || "";
+  const shortcode = shortcodeOverride?.trim() || process.env["MPESA_SHORTCODE"]?.trim() || "";
   const passkey = process.env["MPESA_PASSKEY"]?.trim() ?? "";
   const callbackUrl = process.env["MPESA_CALLBACK_URL"]?.trim() ?? "";
   const environment = process.env["MPESA_ENV"]?.trim();
@@ -79,10 +80,10 @@ export function getMpesaConfig(merchantShortcode?: string): MpesaConfig | null {
     throw new Error("MPESA_ENV must be production. Sandbox payments are not supported.");
   }
   if (transactionType !== "CustomerBuyGoodsOnline") {
-    throw new Error("MPESA_TRANSACTION_TYPE must be CustomerBuyGoodsOnline for a registered till.");
+    throw new Error("MPESA_TRANSACTION_TYPE must be CustomerBuyGoodsOnline for a registered store.");
   }
   if (!/^\d{5,7}$/.test(shortcode)) {
-    throw new Error("MPESA_SHORTCODE must be the registered M-PESA Till Number.");
+    throw new Error("MPESA_SHORTCODE must be the registered M-PESA Store Number.");
   }
   if (queryEnabled !== "true") {
     throw new Error("MPESA_STK_QUERY_ENABLED must be true for production payments.");
@@ -134,9 +135,12 @@ function timestamp() {
   return `${values["year"]}${values["month"]}${values["day"]}${values["hour"]}${values["minute"]}${values["second"]}`;
 }
 
-export async function initiateMpesaStkPush(input: StkPushInput, merchantShortcode?: string) {
-  const config = getMpesaConfig(merchantShortcode);
+export async function initiateMpesaStkPush(input: StkPushInput) {
+  const config = getMpesaConfig();
   if (!config) throw new Error("M-Pesa payments are not configured.");
+  if (!/^\d{5,7}$/.test(input.tillNumber)) {
+    throw new Error("The M-PESA Till Number is not configured correctly.");
+  }
   if (!Number.isInteger(input.amount) || input.amount < 1 || input.amount > 150_000) {
     throw new Error("M-Pesa amount must be a whole number of KES between 1 and 150,000.");
   }
@@ -182,7 +186,7 @@ export async function initiateMpesaStkPush(input: StkPushInput, merchantShortcod
         TransactionType: config.transactionType,
         Amount: input.amount,
         PartyA: input.phoneNumber,
-        PartyB: config.shortcode,
+        PartyB: input.tillNumber,
         PhoneNumber: input.phoneNumber,
         CallBackURL: config.callbackUrl,
         AccountReference: input.accountReference,

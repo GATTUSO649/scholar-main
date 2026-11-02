@@ -93,6 +93,7 @@ describe("M-Pesa configuration", () => {
       initiateMpesaStkPush({
         phoneNumber: "0712345678",
         amount: 100,
+        tillNumber: "123456",
         accountReference: "SD-123",
         transactionDesc: "ScholarDesk",
       }),
@@ -108,6 +109,7 @@ describe("M-Pesa configuration", () => {
       initiateMpesaStkPush({
         phoneNumber: "254712345678",
         amount: 150_001,
+        tillNumber: "123456",
         accountReference: "LIB-123",
         transactionDesc: "LIBRARY",
       }),
@@ -141,10 +143,10 @@ describe("M-Pesa configuration", () => {
         {
           phoneNumber: "254712345678",
           amount: 500,
+          tillNumber: "123456",
           accountReference: "LIB-123",
           transactionDesc: "LIBRARY",
         },
-        "123456",
       ),
     ).resolves.toMatchObject({ CheckoutRequestID: "ws_CO_test" });
 
@@ -159,6 +161,8 @@ describe("M-Pesa configuration", () => {
     );
     const requestBody = JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body)) as {
       BusinessShortCode: string;
+      Password: string;
+      Timestamp: string;
       CallBackURL: string;
       Amount: number;
       PhoneNumber: string;
@@ -167,7 +171,7 @@ describe("M-Pesa configuration", () => {
       PartyB: string;
     };
     expect(requestBody).toMatchObject({
-      BusinessShortCode: "123456",
+      BusinessShortCode: "174379",
       CallBackURL: "https://example.com/api/library/callback",
       Amount: 500,
       PhoneNumber: "254712345678",
@@ -175,6 +179,9 @@ describe("M-Pesa configuration", () => {
       PartyB: "123456",
       TransactionType: "CustomerBuyGoodsOnline",
     });
+    expect(requestBody.Password).toBe(
+      Buffer.from(`174379passkey${requestBody.Timestamp}`).toString("base64"),
+    );
     fetchSpy.mockRestore();
   });
 
@@ -190,6 +197,7 @@ describe("M-Pesa configuration", () => {
       initiateMpesaStkPush({
         phoneNumber: "254712345678",
         amount: 500,
+        tillNumber: "123456",
         accountReference: "LIB-123",
         transactionDesc: "LIBRARY",
       }),
