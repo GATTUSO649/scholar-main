@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RequestSummary, useRequest } from "@/components/RequestDetail";
 import { money } from "@/lib/requests";
+import { MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
 export const Route = createFileRoute("/_authenticated/request/$id")({
   head: () => ({
@@ -63,6 +64,7 @@ type RequestPayment = {
   receipt_number: string | null;
   failure_reason: string | null;
   created_at: string;
+  updated_at: string;
   paid_at: string | null;
 };
 
@@ -82,6 +84,18 @@ function RequestPaymentPanel({
   const queryClient = useQueryClient();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const cancellationExpiresAt =
+    latestPayment?.status === "cancelled"
+      ? Date.parse(latestPayment.updated_at) + MPESA_PAYMENT_EXPIRY_MS
+      : 0;
+  const retryWindowActive = cancellationExpiresAt > now;
+
+  useEffect(() => {
+    if (!retryWindowActive) return;
+    const timer = window.setTimeout(() => setNow(Date.now()), cancellationExpiresAt - Date.now());
+    return () => window.clearTimeout(timer);
+  }, [cancellationExpiresAt, retryWindowActive]);
 
   async function checkPayment(paymentId: string) {
     const response = await fetch("/api/request-payment", {
@@ -116,7 +130,7 @@ function RequestPaymentPanel({
     }
     if (result?.status === "cancelled") {
       await refreshRequest();
-      toast("M-PESA prompt was cancelled. You can try again.");
+      toast("Payment cancelled. Retry whenever you’re ready.");
       return "cancelled";
     }
     if (result?.status === "failed") {
@@ -192,9 +206,9 @@ function RequestPaymentPanel({
             Pay through the M-PESA prompt. Delivery files unlock only after Safaricom confirms the
             payment.
           </p>
-          {latestPayment?.status === "cancelled" && (
+          {retryWindowActive && (
             <p className="mt-2 text-sm text-muted-foreground">
-              The previous M-PESA prompt was cancelled. You can start a new payment.
+              Payment cancelled. Retry whenever you’re ready.
             </p>
           )}
           {latestPayment?.receipt_number && (
@@ -231,7 +245,11 @@ function RequestPaymentPanel({
             className="bg-white sm:max-w-xs"
           />
           <Button type="submit" disabled={busy}>
-            {busy ? "Waiting for M-PESA…" : `Pay ${money(amount, currency)}`}
+            {busy
+              ? "Waiting for M-PESA…"
+              : retryWindowActive
+                ? "Retry"
+                : `Pay ${money(amount, currency)}`}
           </Button>
         </form>
       )}

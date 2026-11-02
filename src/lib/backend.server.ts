@@ -2223,6 +2223,7 @@ export async function getRequestBundle(id: string) {
         receiptNumber: serviceRequestPayments.receiptNumber,
         failureReason: serviceRequestPayments.failureReason,
         createdAt: serviceRequestPayments.createdAt,
+        updatedAt: serviceRequestPayments.updatedAt,
         paidAt: serviceRequestPayments.paidAt,
       })
       .from(serviceRequestPayments)
@@ -2260,6 +2261,7 @@ export async function getRequestBundle(id: string) {
       receipt_number: payment.receiptNumber,
       failure_reason: payment.failureReason,
       created_at: payment.createdAt.toISOString(),
+      updated_at: payment.updatedAt.toISOString(),
       paid_at: payment.paidAt?.toISOString() ?? null,
     })),
   };
