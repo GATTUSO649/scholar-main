@@ -172,7 +172,10 @@ function RequestPaymentPanel({
     setBusy(true);
     try {
       const result = await reconcilePayment(latestPayment.id);
-      if (result === "pending") toast("Safaricom has not confirmed this payment yet.");
+      if (result === "pending") {
+        await refreshRequest();
+        toast("Safaricom has not confirmed this payment yet. Check again before paying again.");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not check payment status.");
     } finally {
@@ -181,7 +184,9 @@ function RequestPaymentPanel({
   }
 
   const mpesaQuote = currency === "KES" && Number.isInteger(amount) && amount > 0;
-  const pending = paymentStatus === "pending" && latestPayment?.status === "pending";
+  const providerProcessing = latestPayment?.failure_reason?.toLowerCase().includes("processing");
+  const pending =
+    (paymentStatus === "pending" && latestPayment?.status === "pending") || providerProcessing;
 
   return (
     <section className="rounded-xl border border-accent bg-accent/10 p-5">
@@ -207,7 +212,9 @@ function RequestPaymentPanel({
       ) : pending ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <p className="flex-1 text-sm text-muted-foreground">
-            M-PESA payment is awaiting verification.
+            {providerProcessing
+              ? "Safaricom reports this payment is still processing. Check its status before paying again."
+              : "M-PESA payment is awaiting verification."}
           </p>
           <Button type="button" variant="outline" disabled={busy} onClick={checkLatestPayment}>
             {busy ? "Checking…" : "Check payment"}

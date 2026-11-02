@@ -41,6 +41,7 @@ import {
   getMpesaDiagnosticCode,
   getMpesaConfig,
   initiateMpesaStkPush,
+  isMpesaResultPending,
   mapMpesaResultCodeToPurchaseStatus,
   MpesaUncertainOutcomeError,
   normalizeMpesaPhoneNumber,
@@ -974,35 +975,27 @@ export async function getAdminLibraryResources() {
 export async function getStudentLibraryResources() {
   const student = await requireLibraryStudent();
   const db = getDatabase();
-  const now = new Date();
-  const pendingCutoff = new Date(now.getTime() - MPESA_PAYMENT_EXPIRY_MS);
-  await db
-    .update(libraryPurchases)
-    .set({ status: "failed", failureReason: MPESA_PAYMENT_EXPIRED_REASON, updatedAt: now })
-    .where(
-      and(
-        eq(libraryPurchases.studentId, student.id),
-        eq(libraryPurchases.status, "pending"),
-        or(
-          lt(libraryPurchases.expiresAt, now),
-          and(isNull(libraryPurchases.expiresAt), lt(libraryPurchases.createdAt, pendingCutoff)),
-        ),
-      ),
-    );
   const [resources, purchases] = await Promise.all([
     db.select().from(libraryResources).orderBy(desc(libraryResources.createdAt)),
     db
-      .select({ resourceId: libraryPurchases.resourceId, status: libraryPurchases.status })
+      .select({
+        resourceId: libraryPurchases.resourceId,
+        status: libraryPurchases.status,
+        failureReason: libraryPurchases.failureReason,
+      })
       .from(libraryPurchases)
       .where(eq(libraryPurchases.studentId, student.id))
       .orderBy(desc(libraryPurchases.createdAt)),
   ]);
   const purchaseState = new Map<string, "paid" | "pending" | "failed" | "cancelled">();
   for (const purchase of purchases) {
-    if (purchase.status === "paid") {
+    const status = isMpesaResultPending(purchase.status, purchase.failureReason)
+      ? "pending"
+      : purchase.status;
+    if (status === "paid") {
       purchaseState.set(purchase.resourceId, "paid");
     } else if (!purchaseState.has(purchase.resourceId)) {
-      purchaseState.set(purchase.resourceId, purchase.status);
+      purchaseState.set(purchase.resourceId, status);
     }
   }
   return resources.map((resource) => {
@@ -1174,32 +1167,19 @@ export async function startLibraryPurchase(input: { resourceId: string; phoneNum
         phoneNumber: libraryPurchases.phoneNumber,
         expiresAt: libraryPurchases.expiresAt,
         createdAt: libraryPurchases.createdAt,
+        status: libraryPurchases.status,
+        failureReason: libraryPurchases.failureReason,
       })
       .from(libraryPurchases)
       .where(
         and(
           eq(libraryPurchases.resourceId, resource.id),
           eq(libraryPurchases.studentId, student.id),
-          eq(libraryPurchases.status, "pending"),
         ),
       )
       .orderBy(desc(libraryPurchases.createdAt))
       .limit(1);
-    if (
-      pending &&
-      hasMpesaPaymentExpired(
-        pending.expiresAt ?? new Date(pending.createdAt.getTime() + MPESA_PAYMENT_EXPIRY_MS),
-      )
-    ) {
-      await tx
-        .update(libraryPurchases)
-        .set({
-          status: "failed",
-          failureReason: MPESA_PAYMENT_EXPIRED_REASON,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(libraryPurchases.id, pending.id), eq(libraryPurchases.status, "pending")));
-    } else if (pending) {
+    if (pending && isMpesaResultPending(pending.status, pending.failureReason)) {
       return {
         purchaseId: pending.id,
         status: "pending" as const,
@@ -1345,6 +1325,9 @@ async function syncLibraryPurchaseFromProvider(
     return { status: current?.status ?? ("not_found" as const) };
   };
   if (!purchase.checkoutRequestId) {
+    if (isMpesaResultPending(purchase.status, purchase.failureReason)) {
+      return { status: "pending" as const };
+    }
     return expired() ? expirePurchase() : { status: purchase.status };
   }
   let verification: Awaited<ReturnType<typeof queryMpesaStkPush>> | null;
@@ -1360,6 +1343,9 @@ async function syncLibraryPurchaseFromProvider(
           status: "cancelled" as const,
           reason: purchase.failureReason ?? "M-PESA prompt was cancelled.",
         };
+      }
+      if (isMpesaResultPending(purchase.status, purchase.failureReason)) {
+        return { status: "pending" as const };
       }
       if (expired()) return expirePurchase();
       throw error;
@@ -1386,11 +1372,18 @@ async function syncLibraryPurchaseFromProvider(
           reason: purchase.failureReason ?? "M-PESA prompt was cancelled.",
         };
       }
+      if (isMpesaResultPending(purchase.status, purchase.failureReason)) {
+        return { status: "pending" as const };
+      }
       if (expired()) return expirePurchase();
       return { status: "pending" as const };
     }
   }
-  const nextStatus = mapMpesaResultCodeToPurchaseStatus(verification.ResultCode);
+  if (!verification || verification.ResultCode == null) return { status: "pending" as const };
+  const nextStatus = mapMpesaResultCodeToPurchaseStatus(
+    verification.ResultCode,
+    verification.ResultDesc,
+  );
 
   const status = await db.transaction(async (tx) => {
     const [current] = await tx
@@ -1593,30 +1586,22 @@ export async function startServiceRequestPayment(input: {
         phoneNumber: serviceRequestPayments.phoneNumber,
         expiresAt: serviceRequestPayments.expiresAt,
         createdAt: serviceRequestPayments.createdAt,
+        status: serviceRequestPayments.status,
+        failureReason: serviceRequestPayments.failureReason,
       })
       .from(serviceRequestPayments)
-      .where(
-        and(
-          eq(serviceRequestPayments.requestId, request.id),
-          eq(serviceRequestPayments.status, "pending"),
-        ),
-      )
+      .where(eq(serviceRequestPayments.requestId, request.id))
       .orderBy(desc(serviceRequestPayments.createdAt))
       .limit(1)
       .for("update");
-    if (
-      pending &&
-      !hasMpesaPaymentExpired(
-        pending.expiresAt ?? new Date(pending.createdAt.getTime() + MPESA_PAYMENT_EXPIRY_MS),
-      )
-    ) {
+    if (pending && isMpesaResultPending(pending.status, pending.failureReason)) {
       return {
         paymentId: pending.id,
         status: "pending" as const,
         phoneNumber: pending.phoneNumber,
       };
     }
-    if (pending) {
+    if (pending?.status === "pending") {
       await tx
         .update(serviceRequestPayments)
         .set({
@@ -1772,6 +1757,9 @@ async function syncServiceRequestPaymentFromProvider(
       payment.expiresAt ?? new Date(payment.createdAt.getTime() + MPESA_PAYMENT_EXPIRY_MS),
     );
   if (!payment.checkoutRequestId) {
+    if (isMpesaResultPending(payment.status, payment.failureReason)) {
+      return { status: "pending" as const };
+    }
     if (!expired()) return { status: payment.status };
     await db
       .update(serviceRequestPayments)
@@ -1802,6 +1790,9 @@ async function syncServiceRequestPaymentFromProvider(
           status: "cancelled" as const,
           reason: payment.failureReason ?? "M-PESA prompt was cancelled.",
         };
+      }
+      if (isMpesaResultPending(payment.status, payment.failureReason)) {
+        return { status: "pending" as const };
       }
       if (!expired()) throw error;
       await db
@@ -1845,6 +1836,9 @@ async function syncServiceRequestPaymentFromProvider(
           reason: payment.failureReason ?? "M-PESA prompt was cancelled.",
         };
       }
+      if (isMpesaResultPending(payment.status, payment.failureReason)) {
+        return { status: "pending" as const };
+      }
       if (!expired()) return { status: "pending" as const };
       await db
         .update(serviceRequestPayments)
@@ -1867,7 +1861,11 @@ async function syncServiceRequestPaymentFromProvider(
     }
   }
 
-  const nextStatus = mapMpesaResultCodeToPurchaseStatus(verification.ResultCode);
+  if (!verification || verification.ResultCode == null) return { status: "pending" as const };
+  const nextStatus = mapMpesaResultCodeToPurchaseStatus(
+    verification.ResultCode,
+    verification.ResultDesc,
+  );
   return db.transaction(async (tx) => {
     const [current] = await tx
       .select({ status: serviceRequestPayments.status })
@@ -1930,6 +1928,8 @@ async function syncServiceRequestPaymentFromProvider(
         updatedAt: new Date(),
       })
       .where(eq(requests.id, payment.requestId));
+
+    if (nextStatus === "pending") return { status: "pending" as const };
 
     const deliveryFiles = await tx
       .select({ id: requestFiles.id })

@@ -277,6 +277,13 @@ describe("M-Pesa checkout result mapping", () => {
     expect(mapMpesaResultCodeToPurchaseStatus("0")).toBe("paid");
     expect(mapMpesaResultCodeToPurchaseStatus(1)).toBe("failed");
   });
+
+  it("keeps Safaricom processing responses pending instead of reporting failure", () => {
+    expect(mapMpesaResultCodeToPurchaseStatus("500.001.1001")).toBe("pending");
+    expect(mapMpesaResultCodeToPurchaseStatus(1, "The transaction is still under processing")).toBe(
+      "pending",
+    );
+  });
 });
 
 describe("M-PESA payment request expiry", () => {

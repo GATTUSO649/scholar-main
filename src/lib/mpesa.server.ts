@@ -52,11 +52,25 @@ export function getMpesaDiagnosticCode(error: unknown) {
 
 export function mapMpesaResultCodeToPurchaseStatus(
   resultCode: number | string,
-): "paid" | "cancelled" | "failed" {
+  resultDesc?: string | undefined,
+): "paid" | "cancelled" | "failed" | "pending" {
   const code = String(resultCode);
   if (code === "0") return "paid";
   if (code === "1032") return "cancelled";
+  if (isMpesaResultPending(code, resultDesc)) return "pending";
   return "failed";
+}
+
+export function isMpesaResultPending(
+  resultCode: number | string,
+  resultDesc?: string | null | undefined,
+) {
+  const code = String(resultCode);
+  return (
+    code === "pending" ||
+    code === "500.001.1001" ||
+    /under processing|still processing|in progress/i.test(resultDesc ?? "")
+  );
 }
 
 export function getMpesaConfig(shortcodeOverride?: string): MpesaConfig | null {
