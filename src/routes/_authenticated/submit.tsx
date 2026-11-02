@@ -114,34 +114,6 @@ const SERVICE_DETAILS: Record<string, { intro: string; fields: DetailField[] }> 
       },
     ],
   },
-  "Project Guidance": {
-    intro: "Tell us about your project and the guidance you need.",
-    fields: [
-      {
-        key: "project_type",
-        label: "What kind of project is it?",
-        type: "select",
-        options: [
-          "Individual project",
-          "Group project",
-          "Practical / field work",
-          "Software or code",
-          "Other",
-        ],
-      },
-      {
-        key: "deliverables",
-        label: "What must be submitted?",
-        placeholder: "e.g. report, slides, code, poster",
-      },
-      {
-        key: "progress",
-        label: "What have you done so far?",
-        placeholder: "e.g. proposal approved, nothing yet",
-      },
-      { key: "group_size", label: "Group size (if any)", type: "number", placeholder: "e.g. 5" },
-    ],
-  },
   Proofreading: {
     intro: "Tell us about the document to proofread.",
     fields: [
