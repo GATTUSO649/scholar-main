@@ -17,7 +17,12 @@ import {
   requestEmailVerificationFn,
   requestPasswordResetFn,
 } from "@/lib/backend";
-import { broadcastAuthSessionChange, dashboardRouteFor, getSafeReturnTo } from "@/lib/auth";
+import {
+  broadcastAuthSessionChange,
+  dashboardRouteFor,
+  getSafeReturnTo,
+  subscribeToAuthSessionChanges,
+} from "@/lib/auth";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -89,6 +94,15 @@ function AuthPage() {
   const [sent, setSent] = useState<string | null>(null);
   const [emailForLogin, setEmailForLogin] = useState("");
   const [turnDirection, setTurnDirection] = useState<"forward" | "back">("forward");
+
+  useEffect(
+    () =>
+      subscribeToAuthSessionChanges(() => {
+        queryClient.clear();
+        window.location.reload();
+      }),
+    [queryClient],
+  );
 
   useEffect(() => {
     getCurrentUserFn()

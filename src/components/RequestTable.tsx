@@ -132,7 +132,7 @@ export function RequestTable({ rows, admin = false }: { rows: Row[]; admin?: boo
                 </Link>
                 <p className="text-xs text-muted-foreground">Due {fmtDate(r.deadline)}</p>
                 <p className="text-sm font-medium">{money(r.price, r.currency)}</p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <StatusBadge status={r.status} />
                   <PayBadge status={r.payment_status} />
                 </div>

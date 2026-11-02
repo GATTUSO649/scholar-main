@@ -28,13 +28,13 @@ export function RequestSummary({
     <div className="space-y-6">
       {!compact && (
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-sm text-muted-foreground">
               {r.ref} · {r.services?.name}
             </p>
-            <h1 className="mt-1 text-3xl font-semibold">{r.title}</h1>
+            <h1 className="mt-1 break-words text-3xl font-semibold">{r.title}</h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <StatusBadge status={r.status} />
             <PayBadge status={r.payment_status} />
           </div>
@@ -73,7 +73,7 @@ export function RequestSummary({
         </div>
       )}
 
-      <div className="grid gap-4 rounded-2xl border bg-white p-5 text-sm shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:grid-cols-3">
+      <div className="grid min-w-0 gap-4 rounded-2xl border bg-white p-5 text-sm shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)] sm:grid-cols-3">
         {[
           ["Course / unit", r.course_unit],
           ["Lecturer", r.lecturer],
@@ -85,14 +85,14 @@ export function RequestSummary({
           ["Preferred date", fmtDate(r.preferred_date)],
           ["Submitted", fmtDate(r.created_at)],
         ].map(([k, v]) => (
-          <div key={k as string}>
+          <div key={k as string} className="min-w-0">
             <p className="text-xs text-muted-foreground">{k}</p>
-            <p className="font-medium">{v ?? "—"}</p>
+            <p className="break-words font-medium">{v ?? "—"}</p>
           </div>
         ))}
         <div className="sm:col-span-3">
           <p className="text-xs text-muted-foreground">Description</p>
-          <p className="mt-1 whitespace-pre-wrap">{r.description}</p>
+          <p className="mt-1 break-words whitespace-pre-wrap">{r.description}</p>
         </div>
       </div>
 
@@ -116,7 +116,7 @@ export function RequestSummary({
       <div
         className={`grid items-start gap-6 ${compact ? "md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]" : "lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)]"}`}
       >
-        <section className="order-2">
+        <section className="order-2 min-w-0">
           <h2 className="text-lg font-semibold">Files & deliverables</h2>
           <ul className="mt-3 space-y-2">
             {data.files.length === 0 && (
@@ -126,15 +126,15 @@ export function RequestSummary({
               <li key={f.id}>
                 <button
                   onClick={() => openFile(f.path)}
-                  className="flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-3 text-left text-sm hover:bg-muted"
+                  className="flex min-w-0 w-full items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left text-sm hover:bg-muted sm:px-4"
                 >
                   {f.kind === "delivery" ? (
-                    <Download className="h-4 w-4 text-success" />
+                    <Download className="h-4 w-4 shrink-0 text-success" />
                   ) : (
-                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                   )}
-                  <span className="flex-1 truncate">{f.name}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
                     {f.kind === "delivery" ? "Completed work" : "Your upload"}
                   </span>
                 </button>
@@ -142,7 +142,7 @@ export function RequestSummary({
             ))}
           </ul>
         </section>
-        <section className="order-1 rounded-2xl border border-[#263a57] bg-[#17263c] p-5 text-white">
+        <section className="order-1 min-w-0 rounded-2xl border border-[#263a57] bg-[#17263c] p-4 text-white sm:p-5">
           <h2 className="text-lg font-semibold">Updates</h2>
           <ul className="mt-3 space-y-3">
             {data.updates.length === 0 && (
@@ -155,13 +155,13 @@ export function RequestSummary({
                 key={u.id}
                 className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   {u.status ? <StatusBadge status={u.status} /> : <span />}
-                  <span className="text-xs text-white/55">
+                  <span className="shrink-0 text-xs text-white/55">
                     {new Date(u.created_at).toLocaleString()}
                   </span>
                 </div>
-                {u.note && <p className="mt-2 whitespace-pre-wrap">{u.note}</p>}
+                {u.note && <p className="mt-2 break-words whitespace-pre-wrap">{u.note}</p>}
               </li>
             ))}
           </ul>

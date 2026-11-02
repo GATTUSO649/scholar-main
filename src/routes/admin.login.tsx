@@ -14,7 +14,11 @@ import {
   getCurrentUserFn,
   registerAdminFn,
 } from "@/lib/backend";
-import { broadcastAuthSessionChange, getSafeReturnTo } from "@/lib/auth";
+import {
+  broadcastAuthSessionChange,
+  getSafeReturnTo,
+  subscribeToAuthSessionChanges,
+} from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/admin/login")({
@@ -71,6 +75,15 @@ function AdminLoginPage() {
     queryFn: () => getAdminSignupStateFn(),
   });
   const signupAvailable = signupState?.available === true;
+
+  useEffect(
+    () =>
+      subscribeToAuthSessionChanges(() => {
+        queryClient.clear();
+        window.location.reload();
+      }),
+    [queryClient],
+  );
 
   useEffect(() => {
     let active = true;

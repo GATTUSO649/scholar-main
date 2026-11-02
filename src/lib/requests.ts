@@ -1,10 +1,12 @@
 import { toast } from "sonner";
 
 export async function openFile(path: string) {
+  const toastId = toast.loading("Preparing download…");
   try {
     const response = await fetch(`/api/files?key=${encodeURIComponent(path)}`);
     if (!response.ok) {
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      toast.dismiss(toastId);
       toast.error(result?.error ?? "File download failed.");
       return;
     }
@@ -19,7 +21,9 @@ export async function openFile(path: string) {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    toast.dismiss(toastId);
   } catch {
+    toast.dismiss(toastId);
     toast.error("File download failed. Check your connection and try again.");
   }
 }
