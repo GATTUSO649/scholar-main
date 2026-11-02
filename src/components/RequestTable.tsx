@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, CalendarDays, FolderOpen } from "lucide-react";
+import { ArrowUpRight, CalendarDays, FolderOpen, Wallet } from "lucide-react";
 import { StatusBadge, PayBadge } from "@/components/StatusBadge";
 import { fmtDate, money } from "@/lib/requests";
 import type { RequestStatus, PaymentStatus } from "@/lib/status";
@@ -116,28 +116,43 @@ export function RequestTable({ rows, admin = false }: { rows: Row[]; admin?: boo
   return (
     <div className="overflow-hidden rounded-2xl border bg-white shadow-soft">
       <ul className="divide-y">
-        {rows.map((r) => (
-          <li key={r.id}>
-            <Link
-              to="/request/$id"
-              params={{ id: r.id }}
-              className="grid gap-2 px-5 py-4 transition-colors hover:bg-muted sm:grid-cols-[1fr_auto_auto_auto] sm:items-center sm:gap-6"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-semibold">{r.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {r.ref} · {r.services?.name ?? "General"}
-                </p>
+        {rows.map((r) => {
+          const canPay =
+            r.price != null &&
+            r.payment_status !== "paid" &&
+            (r.status === "awaiting_payment" ||
+              r.status === "in_progress" ||
+              r.status === "completed");
+          return (
+            <li key={r.id}>
+              <div className="grid gap-2 px-5 py-4 transition-colors hover:bg-muted sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:items-center sm:gap-6">
+                <Link to="/request/$id" params={{ id: r.id }} className="min-w-0">
+                  <p className="truncate font-semibold">{r.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {r.ref} · {r.services?.name ?? "General"}
+                  </p>
+                </Link>
+                <p className="text-xs text-muted-foreground">Due {fmtDate(r.deadline)}</p>
+                <p className="text-sm font-medium">{money(r.price, r.currency)}</p>
+                <div className="flex gap-2">
+                  <StatusBadge status={r.status} />
+                  <PayBadge status={r.payment_status} />
+                </div>
+                {canPay && (
+                  <Link
+                    to="/request/$id"
+                    params={{ id: r.id }}
+                    aria-label={`${r.payment_status === "pending" ? "Check payment for" : "Pay for"} ${r.title}`}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    {r.payment_status === "pending" ? "Check payment" : "Pay"}
+                  </Link>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">Due {fmtDate(r.deadline)}</p>
-              <p className="text-sm font-medium">{money(r.price, r.currency)}</p>
-              <div className="flex gap-2">
-                <StatusBadge status={r.status} />
-                <PayBadge status={r.payment_status} />
-              </div>
-            </Link>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
