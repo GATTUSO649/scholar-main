@@ -13,7 +13,7 @@ const services = [
   ],
   [
     "4e52ab27-521f-4e18-a6bd-0d567461b002",
-    "Proofreading & Editing",
+    "Proofreading",
     "Grammar, clarity, flow and style improvements to your own writing.",
     4,
     "KES",
@@ -23,8 +23,8 @@ const services = [
   ],
   [
     "4e52ab27-521f-4e18-a6bd-0d567461b003",
-    "Research Guidance",
-    "Help finding credible sources and structuring your research.",
+    "Research Proposal",
+    "Guidance on proposal structure, research questions, methods and feedback on your draft.",
     8,
     "KES",
     "per page",
@@ -73,8 +73,8 @@ const services = [
   ],
   [
     "4e52ab27-521f-4e18-a6bd-0d567461b008",
-    "Plagiarism Check & Removal",
-    "A similarity scan of your draft, then rewriting of flagged passages.",
+    "Originality & AI Policy Review",
+    "Review similarity reports, citation practices and institutional AI-use disclosure requirements.",
     3,
     "KES",
     "per page",
@@ -83,13 +83,23 @@ const services = [
   ],
   [
     "4e52ab27-521f-4e18-a6bd-0d567461b009",
-    "Project Task",
-    "Help planning and completing a project or group task.",
+    "Project Guidance",
+    "Guidance on project planning, milestones, requirements and reviewing your own work.",
     0,
     "KES",
     "price on request",
     true,
     9,
+  ],
+  [
+    "4e52ab27-521f-4e18-a6bd-0d567461b010",
+    "Practicum Typing",
+    "Accurate typing and formatting of your practicum report from your notes or draft.",
+    0,
+    "KES",
+    "price on request",
+    true,
+    10,
   ],
 ];
 

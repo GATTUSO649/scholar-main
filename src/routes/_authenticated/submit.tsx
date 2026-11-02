@@ -37,7 +37,7 @@ const schema = z.object({
 });
 
 const LEVELS = ["Certificate", "Diploma", "Undergraduate", "Masters", "PhD"];
-const SERVICES_WITHOUT_UPLOADS = new Set(["Assignment Typing", "Practicum Report Writing"]);
+const SERVICES_WITHOUT_UPLOADS = new Set(["Assignment Typing", "Practicum Typing"]);
 
 type DetailField = {
   key: string;
@@ -72,21 +72,50 @@ const SERVICE_DETAILS: Record<string, { intro: string; fields: DetailField[] }> 
       },
     ],
   },
-  "Plagiarism Check & Removal": {
-    intro: "Tell us about the draft you want checked.",
+  "Practicum Typing": {
+    intro: "Tell us about your practicum report and the material to be typed.",
+    fields: [
+      {
+        key: "source_format",
+        label: "What format are your notes or draft in?",
+        type: "select",
+        options: ["Handwritten notes", "Scanned pages / photos", "Digital draft", "Other"],
+      },
+      { key: "practicum_pages", label: "Approximate number of pages", type: "number" },
+      {
+        key: "output_format",
+        label: "Preferred output format",
+        type: "select",
+        options: ["Word (.docx)", "PDF", "Google Docs"],
+      },
+    ],
+  },
+  "Originality & AI Policy Review": {
+    intro:
+      "Get help understanding similarity results, citations, and your institution's AI-use policy.",
     fields: [
       { key: "similarity", label: "Current similarity score (if known)", placeholder: "e.g. 32%" },
       {
         key: "tool",
-        label: "Which checker does your school use?",
+        label: "Which similarity checker does your school use?",
         type: "select",
         options: ["Turnitin", "Grammarly", "Copyleaks", "Not sure", "Other"],
       },
-      { key: "target", label: "Target similarity score", placeholder: "e.g. under 10%" },
+      {
+        key: "policy",
+        label: "What would you like reviewed?",
+        type: "select",
+        options: [
+          "Citation and source use",
+          "Similarity report interpretation",
+          "AI-use policy and disclosure",
+          "All of the above",
+        ],
+      },
     ],
   },
-  "Project Task": {
-    intro: "Tell us about the project you need help with.",
+  "Project Guidance": {
+    intro: "Tell us about your project and the guidance you need.",
     fields: [
       {
         key: "project_type",
@@ -113,7 +142,7 @@ const SERVICE_DETAILS: Record<string, { intro: string; fields: DetailField[] }> 
       { key: "group_size", label: "Group size (if any)", type: "number", placeholder: "e.g. 5" },
     ],
   },
-  "Proofreading & Editing": {
+  Proofreading: {
     intro: "Tell us about the document to proofread.",
     fields: [
       {
@@ -129,8 +158,8 @@ const SERVICE_DETAILS: Record<string, { intro: string; fields: DetailField[] }> 
       },
     ],
   },
-  "Research Guidance": {
-    intro: "Tell us about your research.",
+  "Research Proposal": {
+    intro: "Tell us about your proposal and where you would like guidance.",
     fields: [
       {
         key: "topic",
@@ -142,12 +171,11 @@ const SERVICE_DETAILS: Record<string, { intro: string; fields: DetailField[] }> 
         label: "Where are you in the process?",
         type: "select",
         options: [
-          "Choosing a topic",
-          "Proposal",
+          "Topic and research question",
           "Literature review",
-          "Methodology",
-          "Data analysis",
-          "Writing up",
+          "Research design and methodology",
+          "Review of my proposal draft",
+          "Institutional requirements",
         ],
       },
     ],
