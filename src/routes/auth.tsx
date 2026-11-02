@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowRight, BookOpen, ShieldCheck, Sparkles } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -93,7 +93,7 @@ function AuthPage() {
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
   const [emailForLogin, setEmailForLogin] = useState("");
-  const [turnDirection, setTurnDirection] = useState<"forward" | "back">("forward");
+  const [dayGreeting, setDayGreeting] = useState("Welcome");
 
   useEffect(
     () =>
@@ -103,6 +103,11 @@ function AuthPage() {
       }),
     [queryClient],
   );
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    setDayGreeting(hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening");
+  }, []);
 
   useEffect(() => {
     getCurrentUserFn()
@@ -118,7 +123,6 @@ function AuthPage() {
   }, [navigate, queryClient, returnTo]);
 
   const setMode = (m: Mode) => {
-    setTurnDirection(m === "login" ? "back" : "forward");
     setErrors({});
     setFormError(null);
     setFormSuccess(null);
@@ -218,84 +222,56 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[radial-gradient(ellipse_at_top_right,oklch(0.95_0.03_75/0.48),transparent_55%)] px-4 py-6 sm:px-8 sm:py-10">
+    <div className="flex min-h-screen flex-col bg-[#f3f6f4] px-4 py-5 sm:px-6 sm:py-7">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
         <Logo />
-        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 text-primary" />
+        <span className="inline-flex items-center gap-2 rounded-md border border-[#dce5df] bg-white px-3 py-2 text-xs font-medium text-[#52645c]">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
           Secure student portal
         </span>
       </div>
-      <main className="flex flex-1 items-center justify-center py-8">
+      <main className="flex flex-1 items-center justify-center py-7 sm:py-10">
         <section
-          className={`auth-book-spread auth-book-spread-${turnDirection} grid w-full max-w-5xl overflow-hidden rounded-[1.75rem] border bg-card shadow-[0_24px_80px_-32px_rgba(23,38,60,0.3)] md:grid-cols-2`}
+          className={`w-full ${mode === "register" ? "max-w-2xl" : "max-w-lg"} overflow-hidden rounded-xl border border-[#dce5df] bg-white shadow-[0_18px_50px_-32px_rgba(23,38,60,0.28)]`}
         >
-          <aside className="auth-book-story relative flex min-h-64 flex-col justify-between overflow-hidden bg-hero p-7 text-ink-foreground sm:p-10 md:min-h-[580px] md:p-9 lg:min-h-[620px] lg:p-12">
-            <div className="pointer-events-none absolute -right-24 top-1/4 h-80 w-80 rounded-full border border-white/10" />
-            <div className="pointer-events-none absolute -right-12 top-[30%] h-56 w-56 rounded-full border border-accent/20" />
-            <div className="relative">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-xs font-semibold text-ink-foreground/80">
-                {mode === "register" ? (
-                  <Sparkles className="h-4 w-4 text-accent" />
-                ) : (
-                  <BookOpen className="h-4 w-4 text-accent" />
-                )}
-                {mode === "register" ? "Start your ScholarDesk journey" : "Welcome back"}
+          <div className="border-b border-[#e6ece8] bg-[#f8faf8] px-5 py-5 sm:px-8 sm:py-6">
+            <p className="text-xs font-semibold text-[#547064]">{dayGreeting}</p>
+            <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h1 className="font-display text-2xl font-semibold tracking-tight text-[#183c34] sm:text-3xl">
+                  {mode === "register"
+                    ? "Create your account"
+                    : mode === "forgot"
+                      ? "Reset your password"
+                      : "Sign in"}
+                </h1>
+                <p className="mt-1.5 max-w-lg text-sm leading-5 text-muted-foreground">
+                  {mode === "register"
+                    ? "Set up a private workspace for your requests and documents."
+                    : mode === "forgot"
+                      ? "We’ll email you a secure password reset link."
+                      : "Sign in to manage your requests and continue your work."}
+                </p>
               </div>
-              <h2 className="mt-7 font-display text-3xl font-semibold leading-tight sm:text-4xl">
-                {mode === "register"
-                  ? "A little support can take you a long way."
-                  : mode === "forgot"
-                    ? "Let’s get you back to your account."
-                    : "Your next step starts here."}
-              </h2>
-              <p className="mt-4 max-w-md text-sm leading-6 text-ink-foreground/70 sm:text-base sm:leading-7">
-                {mode === "register"
-                  ? "Create your student account to organise requests, follow progress, and explore helpful resources."
-                  : mode === "forgot"
-                    ? "Request a secure password-reset link and continue where you left off."
-                    : "Sign in to follow your requests, get updates, and keep your academic support together."}
-              </p>
-            </div>
-            <div className="relative mt-8 border-t border-white/15 pt-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-foreground/55">
-                {mode === "register" ? "Already have an account?" : "New to ScholarDesk?"}
-              </p>
               <button
                 type="button"
                 onClick={() => setMode(mode === "register" ? "login" : "register")}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="shrink-0 rounded-md px-2 py-1 text-sm font-semibold text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {mode === "register" ? "Log in" : "Create an account"}
-                <ArrowRight className="h-4 w-4" />
+                {mode === "register" ? "Sign in" : "Create account"}
               </button>
             </div>
-          </aside>
+          </div>
 
-          <div className="auth-book-form relative flex flex-col justify-center p-7 sm:p-10 lg:p-12">
-            <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-              {mode === "register"
-                ? "Create your account"
-                : mode === "forgot"
-                  ? "Reset your password"
-                  : "Sign in"}
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              {mode === "register"
-                ? "Enter your details to get started."
-                : mode === "forgot"
-                  ? "We’ll email you a secure reset link."
-                  : "Enter your student account details to continue."}
-            </p>
-
+          <div className="p-5 sm:p-8">
             {formError && (
-              <Alert variant="destructive" className="mt-6">
+              <Alert variant="destructive" className="mb-4">
                 <AlertTitle>Request not completed</AlertTitle>
                 <AlertDescription>{formError}</AlertDescription>
               </Alert>
             )}
             {formSuccess && (
-              <Alert className="mt-6 border-success/30 bg-success/10">
+              <Alert className="mb-4 border-success/30 bg-success/10">
                 <AlertTitle>Account created</AlertTitle>
                 <AlertDescription>{formSuccess}</AlertDescription>
               </Alert>
@@ -303,7 +279,7 @@ function AuthPage() {
             {sent ? (
               <div
                 role="status"
-                className="mt-8 rounded-xl border border-success/30 bg-success/10 p-5 text-sm"
+                className="rounded-lg border border-success/30 bg-success/10 p-4 text-sm"
               >
                 <p>{sent}</p>
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -316,10 +292,10 @@ function AuthPage() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
+              <form onSubmit={submit} className="space-y-4" noValidate>
                 {mode === "register" ? (
                   <>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
                       {FIELDS.map(([name, label, type]) => (
                         <div
                           key={name}
@@ -341,7 +317,7 @@ function AuthPage() {
                                     ? "tel"
                                     : "name"
                             }
-                            className="mt-1.5 h-11 rounded-xl"
+                            className="mt-1 h-10 rounded-md"
                           />
                           {errors[name] && (
                             <p className="mt-1 text-xs text-destructive">{errors[name]}</p>
@@ -349,7 +325,7 @@ function AuthPage() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs leading-5 text-muted-foreground">
+                    <p className="text-xs leading-5 text-muted-foreground sm:col-span-2">
                       Use 8+ characters with uppercase, lowercase, a number, and a symbol.
                     </p>
                   </>
@@ -364,7 +340,7 @@ function AuthPage() {
                         required
                         autoComplete="email"
                         defaultValue={emailForLogin}
-                        className="mt-1.5 h-11 rounded-xl"
+                        className="mt-1 h-10 rounded-md"
                       />
                       {mode === "forgot" && errors["email"] && (
                         <p className="mt-1 text-xs text-destructive">{errors["email"]}</p>
@@ -388,13 +364,13 @@ function AuthPage() {
                           type="password"
                           required
                           autoComplete="current-password"
-                          className="mt-1.5 h-11 rounded-xl"
+                          className="mt-1 h-10 rounded-md"
                         />
                       </div>
                     )}
                   </>
                 )}
-                <Button type="submit" className="mt-2 w-full rounded-xl" size="lg" disabled={busy}>
+                <Button type="submit" className="mt-2 h-11 w-full rounded-md" disabled={busy}>
                   {busy
                     ? "Please wait…"
                     : mode === "register"
@@ -415,7 +391,7 @@ function AuthPage() {
               </form>
             )}
 
-            <p className="mt-7 text-center text-xs">
+            <p className="mt-5 border-t border-[#e6ece8] pt-4 text-center text-xs">
               <Link to="/" className="text-muted-foreground hover:underline">
                 ← Back to home
               </Link>
