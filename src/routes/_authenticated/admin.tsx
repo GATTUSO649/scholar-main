@@ -275,9 +275,16 @@ function Admin() {
           ))}
         </div>
         {isLoading ? (
-          <div className="mt-3 space-y-2" aria-label="Loading requests" aria-busy="true">
+          <div
+            className="mt-3 grid gap-3 md:grid-cols-2"
+            aria-label="Loading requests"
+            aria-busy="true"
+          >
             {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="h-16 animate-pulse rounded-md bg-white" />
+              <div
+                key={index}
+                className="h-40 animate-pulse rounded-lg border border-[#dfe8e3] bg-white"
+              />
             ))}
           </div>
         ) : isError ? (

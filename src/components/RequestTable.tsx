@@ -42,75 +42,73 @@ export function RequestTable({ rows, admin = false }: { rows: Row[]; admin?: boo
     );
   if (admin)
     return (
-      <div className="overflow-hidden border-y border-[#e0e8e3] bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-210 text-left text-sm">
-            <thead className="border-b border-[#e4ebe6] bg-[#f7f9f7] text-[10px] font-bold uppercase tracking-[0.12em] text-[#718078]">
-              <tr>
-                <th className="px-5 py-4">Request</th>
-                <th className="px-4 py-4">Student</th>
-                <th className="px-4 py-4">Deadline</th>
-                <th className="px-4 py-4">Quote</th>
-                <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4">Payment</th>
-                <th className="px-4 py-4">
-                  <span className="sr-only">Open request</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e8eeea]">
-              {rows.map((row) => (
-                <tr key={row.id} className="group transition-colors hover:bg-[#f7faf7]">
-                  <td className="px-5 py-4">
-                    <Link
-                      to="/manage/$id"
-                      params={{ id: row.id }}
-                      className="block max-w-75 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className="block truncate font-semibold text-[#24473b] group-hover:text-[#17634f]">
-                        {row.title}
-                      </span>
-                      <span className="mt-1 block truncate text-xs text-[#77847e]">
-                        {row.ref} <span className="px-1">·</span>{" "}
-                        {row.services?.name ?? "General service"}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="block max-w-40 truncate font-medium text-[#52645c]">
-                      {row.profiles?.full_name ?? "—"}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-4 text-xs text-[#718078]">
-                    <span className="inline-flex items-center gap-1.5">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {fmtDate(row.deadline)}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-4 font-semibold text-[#31574b]">
-                    {money(row.price, row.currency)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-4">
-                    <StatusBadge status={row.status} />
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-4">
-                    <PayBadge status={row.payment_status} />
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <Link
-                      to="/manage/$id"
-                      params={{ id: row.id }}
-                      aria-label={`Manage ${row.title}`}
-                      className="inline-grid h-8 w-8 place-items-center rounded-md text-[#718078] transition-colors hover:bg-[#e5f1eb] hover:text-[#155b4c]"
-                    >
-                      <ArrowUpRight className="h-4 w-4" />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {rows.map((row) => (
+          <article
+            key={row.id}
+            className="min-w-0 rounded-lg border border-[#dfe8e3] bg-white p-4 transition-colors hover:border-[#bfd2c8]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-[#718078]">
+                  {row.ref} <span className="px-1">·</span>
+                  {row.services?.name ?? "General service"}
+                </p>
+                <Link
+                  to="/manage/$id"
+                  params={{ id: row.id }}
+                  className="mt-1 block rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <h3 className="line-clamp-2 font-semibold leading-snug text-[#24473b] hover:text-[#17634f]">
+                    {row.title}
+                  </h3>
+                </Link>
+              </div>
+              <Link
+                to="/manage/$id"
+                params={{ id: row.id }}
+                aria-label={`Open ${row.title}`}
+                className="inline-grid h-8 w-8 shrink-0 place-items-center rounded-md text-[#718078] transition-colors hover:bg-[#e5f1eb] hover:text-[#155b4c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <StatusBadge status={row.status} />
+              <PayBadge status={row.payment_status} />
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[#e8eeea] pt-3">
+              <div className="min-w-0">
+                <dt className="text-[11px] text-[#788780]">Student</dt>
+                <dd className="mt-0.5 truncate text-sm font-medium text-[#334c42]">
+                  {row.profiles?.full_name ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-[#788780]">Deadline</dt>
+                <dd className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-medium text-[#334c42]">
+                  <CalendarDays className="h-3.5 w-3.5 text-[#718078]" />
+                  {fmtDate(row.deadline)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-[#788780]">Quote</dt>
+                <dd className="mt-0.5 text-sm font-semibold text-[#31574b]">
+                  {money(row.price, row.currency)}
+                </dd>
+              </div>
+              <div className="flex items-end justify-end">
+                <Link
+                  to="/manage/$id"
+                  params={{ id: row.id }}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[#d4e1da] px-3 text-xs font-semibold text-[#31574b] transition-colors hover:bg-[#f2f7f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Open workspace <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </dl>
+          </article>
+        ))}
       </div>
     );
   return (
