@@ -234,7 +234,7 @@ function AuthPage() {
         >
           <div className="border-b border-[#e6ece8] bg-[#f8faf8] px-5 py-5 sm:px-8 sm:py-6">
             <p className="text-xs font-semibold text-[#547064]">{dayGreeting}</p>
-            <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+            <div className="mt-2">
               <div>
                 <h1 className="font-display text-2xl font-semibold tracking-tight text-[#183c34] sm:text-3xl">
                   {mode === "register"
@@ -251,13 +251,6 @@ function AuthPage() {
                       : "Sign in to manage your requests and continue your work."}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setMode(mode === "register" ? "login" : "register")}
-                className="shrink-0 rounded-md px-2 py-1 text-sm font-semibold text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {mode === "register" ? "Sign in" : "Create account"}
-              </button>
             </div>
           </div>
 
@@ -346,16 +339,7 @@ function AuthPage() {
                     </div>
                     {mode === "login" && (
                       <div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="password">Password</Label>
-                          <button
-                            type="button"
-                            onClick={() => setMode("forgot")}
-                            className="text-xs font-medium text-primary hover:underline"
-                          >
-                            Forgot password?
-                          </button>
-                        </div>
+                        <Label htmlFor="password">Password</Label>
                         <Input
                           id="password"
                           name="password"
@@ -377,15 +361,37 @@ function AuthPage() {
                         ? "Send reset link"
                         : "Log in"}
                 </Button>
-                {mode === "forgot" && (
-                  <button
-                    type="button"
-                    onClick={() => setMode("login")}
-                    className="w-full py-2 text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    Back to sign in
-                  </button>
-                )}
+                <div className="flex flex-col items-center gap-2 border-t border-[#e6ece8] pt-4 text-sm">
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => setMode("forgot")}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                  {mode === "forgot" ? (
+                    <button
+                      type="button"
+                      onClick={() => setMode("login")}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Back to sign in
+                    </button>
+                  ) : (
+                    <p className="text-center text-muted-foreground">
+                      {mode === "register" ? "Already have an account?" : "New to ScholarDesk?"}{" "}
+                      <button
+                        type="button"
+                        onClick={() => setMode(mode === "register" ? "login" : "register")}
+                        className="font-semibold text-primary hover:underline"
+                      >
+                        {mode === "register" ? "Sign in" : "Create account"}
+                      </button>
+                    </p>
+                  )}
+                </div>
               </form>
             )}
 
