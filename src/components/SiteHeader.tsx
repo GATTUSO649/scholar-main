@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Menu, X } from "lucide-react";
@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { logoutFn } from "@/lib/backend";
-import { useIsAdmin, useUser } from "@/lib/auth";
+import {
+  broadcastAuthSessionChange,
+  subscribeToAuthSessionChanges,
+  useIsAdmin,
+  useUser,
+} from "@/lib/auth";
 
 const navigation = [
   { to: "/how-it-works", label: "How it works" },
@@ -25,6 +30,17 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  useEffect(
+    () =>
+      subscribeToAuthSessionChanges(() => {
+        void queryClient.cancelQueries().finally(() => {
+          queryClient.clear();
+          window.location.reload();
+        });
+      }),
+    [queryClient],
+  );
+
   async function switchAccount() {
     if (switchingAccount) return;
     setSwitchingAccount(true);
@@ -32,6 +48,7 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
       await queryClient.cancelQueries();
       await logoutFn();
       queryClient.clear();
+      broadcastAuthSessionChange();
       await navigate({ to: "/auth", search: { mode: "login" }, replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not switch accounts.");

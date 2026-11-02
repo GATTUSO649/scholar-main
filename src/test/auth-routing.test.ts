@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { adminWorkspaceRedirectFor, dashboardRouteFor } from "@/lib/auth";
+import { adminWorkspaceRedirectFor, dashboardRouteFor, getSafeReturnTo } from "@/lib/auth";
+
+describe("post-login routing", () => {
+  it("preserves an internal request destination and its query", () => {
+    expect(getSafeReturnTo("/request/request-1?tab=files", "/dashboard")).toBe(
+      "/request/request-1?tab=files",
+    );
+  });
+
+  it("rejects external destinations and authentication loops", () => {
+    expect(getSafeReturnTo("https://attacker.example/", "/dashboard")).toBe("/dashboard");
+    expect(getSafeReturnTo("//attacker.example/", "/dashboard")).toBe("/dashboard");
+    expect(getSafeReturnTo("/auth?mode=login", "/dashboard")).toBe("/dashboard");
+  });
+});
 
 describe("dashboard routing", () => {
   it("sends administrators to the admin workspace", () => {

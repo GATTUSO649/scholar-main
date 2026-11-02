@@ -31,29 +31,30 @@ function storagePath(key: string) {
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "File operation failed.";
-  const status =
-    error instanceof UploadBodyTooLargeError
-      ? 413
-      : error instanceof InvalidUploadBodyError
-        ? 400
-        : message.includes("signed in")
-          ? 401
-          : message.includes("Administrator access") || message.includes("cannot upload")
-            ? 403
-            : message.includes("not found")
-              ? 404
-              : message.includes("allowed") ||
-                  message.includes("file") ||
-                  message.includes("upload")
-                ? 400
-                : 500;
+  const missingStorageFile = error instanceof Error && "code" in error && error.code === "ENOENT";
+  let status: number;
+  if (missingStorageFile) status = 404;
+  else if (error instanceof UploadBodyTooLargeError) status = 413;
+  else if (error instanceof InvalidUploadBodyError) status = 400;
+  else if (message.includes("signed in")) status = 401;
+  else if (message.includes("Administrator access") || message.includes("cannot upload")) {
+    status = 403;
+  } else if (message.includes("not found")) status = 404;
+  else if (message.includes("allowed") || message.includes("file") || message.includes("upload")) {
+    status = 400;
+  } else status = 500;
   if (status === 500) {
     console.error(
       "File operation failed.",
       getDatabaseErrorCode(error) ?? (error instanceof Error ? error.name : "unknown error"),
     );
   }
-  return Response.json({ error: status === 500 ? "File operation failed." : message }, { status });
+  const responseMessage = missingStorageFile
+    ? "File is unavailable. Please contact support to have it restored."
+    : status === 500
+      ? "File operation failed."
+      : message;
+  return Response.json({ error: responseMessage }, { status });
 }
 
 export const Route = createFileRoute("/api/files")({

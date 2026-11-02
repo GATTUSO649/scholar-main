@@ -17,13 +17,14 @@ import {
   requestEmailVerificationFn,
   requestPasswordResetFn,
 } from "@/lib/backend";
-import { dashboardRouteFor } from "@/lib/auth";
+import { broadcastAuthSessionChange, dashboardRouteFor, getSafeReturnTo } from "@/lib/auth";
 
 type Mode = "login" | "register" | "forgot";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>): { mode?: Mode } => ({
+  validateSearch: (s: Record<string, unknown>): { mode?: Mode; returnTo?: string } => ({
     mode: s["mode"] === "login" || s["mode"] === "forgot" ? (s["mode"] as Mode) : "register",
+    ...(typeof s["returnTo"] === "string" ? { returnTo: s["returnTo"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -78,7 +79,7 @@ const FIELDS: [keyof z.infer<typeof registerSchema>, string, string?][] = [
 ];
 
 function AuthPage() {
-  const { mode = "login" } = Route.useSearch();
+  const { mode = "login", returnTo } = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -95,12 +96,12 @@ function AuthPage() {
         if (!user) return;
         const isAdmin = await getAdminStateFn();
         queryClient.setQueryData(["is-admin", user.id], isAdmin);
-        await navigate({ to: dashboardRouteFor(isAdmin), replace: true });
+        window.location.replace(getSafeReturnTo(returnTo, dashboardRouteFor(isAdmin)));
       })
       .catch((error: unknown) =>
         console.error("Could not check the current sign-in session.", error),
       );
-  }, [navigate, queryClient]);
+  }, [navigate, queryClient, returnTo]);
 
   const setMode = (m: Mode) => {
     setTurnDirection(m === "login" ? "back" : "forward");
@@ -108,7 +109,11 @@ function AuthPage() {
     setFormError(null);
     setFormSuccess(null);
     setSent(null);
-    navigate({ to: "/auth", search: { mode: m }, replace: true });
+    navigate({
+      to: "/auth",
+      search: { mode: m, ...(returnTo ? { returnTo } : {}) },
+      replace: true,
+    });
   };
 
   async function onRegister(fd: FormData) {
@@ -135,10 +140,13 @@ function AuthPage() {
         password: String(fd.get("password")),
       },
     });
+    await queryClient.cancelQueries();
+    queryClient.clear();
     queryClient.setQueryData(["current-user"], user);
     const isAdmin = await getAdminStateFn();
     queryClient.setQueryData(["is-admin", user.id], isAdmin);
-    await navigate({ to: dashboardRouteFor(isAdmin), replace: true });
+    broadcastAuthSessionChange();
+    window.location.replace(getSafeReturnTo(returnTo, dashboardRouteFor(isAdmin)));
   }
 
   async function onForgot(fd: FormData) {

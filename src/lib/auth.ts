@@ -1,6 +1,68 @@
 import { useQuery } from "@tanstack/react-query";
 import { getAdminStateFn, getCurrentUserFn, getProfileFn } from "@/lib/backend";
 
+const SESSION_CHANNEL_NAME = "scholardesk-auth-session";
+const SESSION_STORAGE_KEY = "scholardesk-auth-session-change";
+
+export function getSafeReturnTo(value: unknown, fallback: string) {
+  if (typeof value !== "string" || value.length > 2048) return fallback;
+  const origin =
+    typeof window === "undefined" ? "https://scholardesk.invalid" : window.location.origin;
+  try {
+    const target = new URL(value, origin);
+    if (
+      target.origin !== origin ||
+      (value.startsWith("/") && value.startsWith("//")) ||
+      target.pathname === "/auth" ||
+      target.pathname === "/admin/login"
+    ) {
+      return fallback;
+    }
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
+export function broadcastAuthSessionChange() {
+  if (typeof window === "undefined") return;
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      const channel = new BroadcastChannel(SESSION_CHANNEL_NAME);
+      channel.postMessage("session-changed");
+      channel.close();
+      return;
+    }
+  } catch {
+    // Fall back to the storage event when BroadcastChannel is unavailable.
+  }
+  try {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, `${Date.now()}-${Math.random()}`);
+  } catch {
+    // Storage may be disabled; the current tab still clears its own cache.
+  }
+}
+
+export function subscribeToAuthSessionChanges(onChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      const channel = new BroadcastChannel(SESSION_CHANNEL_NAME);
+      channel.onmessage = (event: MessageEvent<unknown>) => {
+        if (event.data === "session-changed") onChange();
+      };
+      return () => channel.close();
+    }
+  } catch {
+    // Fall back to the storage event when BroadcastChannel is unavailable.
+  }
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === SESSION_STORAGE_KEY) onChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  return () => window.removeEventListener("storage", handleStorage);
+}
+
 export function dashboardRouteFor(isAdmin: boolean) {
   return isAdmin ? "/admin/dashboard" : "/dashboard";
 }

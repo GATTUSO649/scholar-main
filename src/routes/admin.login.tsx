@@ -14,11 +14,15 @@ import {
   getCurrentUserFn,
   registerAdminFn,
 } from "@/lib/backend";
+import { broadcastAuthSessionChange, getSafeReturnTo } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/admin/login")({
-  validateSearch: (search: Record<string, unknown>): { mode?: "login" | "register" } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { mode?: "login" | "register"; returnTo?: string } => ({
     mode: search["mode"] === "register" ? "register" : "login",
+    ...(typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {}),
   }),
   head: () => ({
     meta: [
@@ -50,7 +54,7 @@ const signupSchema = z
   });
 
 function AdminLoginPage() {
-  const { mode = "login" } = Route.useSearch();
+  const { mode = "login", returnTo } = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -76,7 +80,7 @@ function AdminLoginPage() {
         const isAdmin = await getAdminStateFn();
         if (!active) return;
         if (isAdmin && mode !== "register") {
-          await navigate({ to: "/admin/dashboard", replace: true });
+          window.location.replace(getSafeReturnTo(returnTo, "/admin/dashboard"));
         } else if (!isAdmin) {
           setSignedInAsStudent(true);
         }
@@ -87,13 +91,17 @@ function AdminLoginPage() {
     return () => {
       active = false;
     };
-  }, [mode, navigate]);
+  }, [mode, navigate, returnTo]);
 
   function setMode(nextMode: "login" | "register") {
     setTurnDirection(nextMode === "login" ? "back" : "forward");
     setFormError(null);
     setFieldErrors({});
-    navigate({ to: "/admin/login", search: { mode: nextMode }, replace: true });
+    navigate({
+      to: "/admin/login",
+      search: { mode: nextMode, ...(returnTo ? { returnTo } : {}) },
+      replace: true,
+    });
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -131,7 +139,8 @@ function AdminLoginPage() {
       await queryClient.cancelQueries();
       queryClient.clear();
       queryClient.setQueryData(["current-user"], user);
-      await navigate({ to: "/admin/dashboard", replace: true });
+      broadcastAuthSessionChange();
+      window.location.replace(getSafeReturnTo(returnTo, "/admin/dashboard"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const safeMessages = new Set([

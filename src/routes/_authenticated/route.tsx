@@ -32,7 +32,13 @@ import {
   Building2,
 } from "lucide-react";
 import { getCurrentUserStateFn, logoutFn } from "@/lib/backend";
-import { adminWorkspaceRedirectFor, useProfile } from "@/lib/auth";
+import {
+  adminWorkspaceRedirectFor,
+  broadcastAuthSessionChange,
+  getSafeReturnTo,
+  subscribeToAuthSessionChanges,
+  useProfile,
+} from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { PortalFooter } from "@/components/PublicPage";
@@ -43,9 +49,12 @@ export const Route = createFileRoute("/_authenticated")({
   staleTime: 15_000,
   beforeLoad: async ({ location }) => {
     const { user, isAdmin, expiresAt } = await getCurrentUserStateFn();
+    const returnTo = getSafeReturnTo(location.href, location.pathname);
     if (!user) {
-      if (location.pathname.startsWith("/admin")) throw redirect({ to: "/admin/login" });
-      throw redirect({ to: "/auth", search: { mode: "login" } });
+      if (location.pathname.startsWith("/admin")) {
+        throw redirect({ to: "/admin/login", search: { mode: "login", returnTo } });
+      }
+      throw redirect({ to: "/auth", search: { mode: "login", returnTo } });
     }
     const redirectTo = adminWorkspaceRedirectFor(isAdmin, location.pathname);
     if (redirectTo) throw redirect({ to: redirectTo });
@@ -115,6 +124,17 @@ function Shell() {
                           ? "Request workspace"
                           : "Service requests";
 
+  useEffect(
+    () =>
+      subscribeToAuthSessionChanges(() => {
+        void qc.cancelQueries().finally(() => {
+          qc.clear();
+          window.location.reload();
+        });
+      }),
+    [qc],
+  );
+
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
     setLeavingPortal(true);
@@ -123,6 +143,7 @@ function Shell() {
       await logoutFn();
       qc.clear();
       qc.setQueryData(["current-user"], null);
+      broadcastAuthSessionChange();
       if (to === "/auth") {
         await navigate({ to, search: { mode: "login" }, replace: true });
       } else {
@@ -137,7 +158,7 @@ function Shell() {
   }
 
   useEffect(() => {
-    if (!isAdmin || !sessionExpiresAt) return;
+    if (!sessionExpiresAt) return;
     const expiresAt = Date.parse(sessionExpiresAt);
     if (!Number.isFinite(expiresAt)) return;
     let signedOut = false;
@@ -151,15 +172,30 @@ function Shell() {
         // The server also rejects this session after its stored expiration.
       } finally {
         qc.clear();
-        await navigate({ to: "/admin/login", replace: true });
-        toast.info("Your administrator session expired. Sign in again to continue.");
+        broadcastAuthSessionChange();
+        const returnTo = getSafeReturnTo(
+          window.location.href,
+          isAdmin ? "/admin/dashboard" : "/dashboard",
+        );
+        if (isAdmin) {
+          await navigate({
+            to: "/admin/login",
+            search: { mode: "login", returnTo },
+            replace: true,
+          });
+        } else {
+          await navigate({ to: "/auth", search: { mode: "login", returnTo }, replace: true });
+        }
+        toast.info("Your session expired. Sign in again to continue.");
       }
     };
     const warningDelay = Math.max(0, expiresAt - Date.now() - 5 * 60 * 1000);
     const expiryDelay = Math.max(0, expiresAt - Date.now());
     const warningTimer = window.setTimeout(() => {
       if (Date.now() < expiresAt) {
-        toast.warning("Your administrator session expires in five minutes.");
+        toast.warning(
+          "Your session expires in five minutes. Save any work before signing in again.",
+        );
       } else {
         void signOutAtExpiry();
       }
