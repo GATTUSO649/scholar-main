@@ -46,7 +46,7 @@ export const registerFn = createServerFn({ method: "POST" })
         .string()
         .trim()
         .regex(/^\+?[0-9 ]{9,16}$/),
-      country: z.string().trim().min(2).max(60),
+      country: z.string().trim().max(60).optional().default(""),
     }),
   )
   .handler(async ({ data }) => {

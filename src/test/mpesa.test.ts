@@ -274,7 +274,8 @@ describe("M-PESA diagnostic categories", () => {
 describe("M-Pesa checkout result mapping", () => {
   it("reports user-cancelled prompts separately from failed payments", () => {
     expect(mapMpesaResultCodeToPurchaseStatus(1032)).toBe("cancelled");
-    expect(mapMpesaResultCodeToPurchaseStatus("0")).toBe("paid");
+    expect(mapMpesaResultCodeToPurchaseStatus("0")).toBe("pending");
+    expect(mapMpesaResultCodeToPurchaseStatus("0", undefined, true)).toBe("paid");
     expect(mapMpesaResultCodeToPurchaseStatus(1)).toBe("failed");
   });
 

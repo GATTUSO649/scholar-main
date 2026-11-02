@@ -74,9 +74,9 @@ function ServicesPage() {
                   <Link
                     to="/submit"
                     search={{ service: service.id }}
-                    className="mt-6 text-sm font-semibold text-primary hover:underline"
+                    className="mt-6 inline-flex min-h-10 w-full items-center justify-between rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    Request this service →
+                    Request this service <ArrowRight className="h-4 w-4" />
                   </Link>
                 </article>
               );

@@ -65,7 +65,6 @@ const registerSchema = z
       .string()
       .trim()
       .regex(/^\+?[0-9 ]{9,16}$/, "Enter a valid phone number, e.g. +254712345678"),
-    country: z.string().trim().min(2, "Enter your country").max(60),
     password,
     confirm: z.string(),
   })
@@ -78,7 +77,6 @@ const FIELDS: [keyof z.infer<typeof registerSchema>, string, string?][] = [
   ["full_name", "Full name"],
   ["email", "Email", "email"],
   ["phone", "Phone number", "tel"],
-  ["country", "Country"],
   ["password", "Password", "password"],
   ["confirm", "Confirm password", "password"],
 ];

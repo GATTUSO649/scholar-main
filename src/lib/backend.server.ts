@@ -1383,6 +1383,7 @@ async function syncLibraryPurchaseFromProvider(
   const nextStatus = mapMpesaResultCodeToPurchaseStatus(
     verification.ResultCode,
     verification.ResultDesc,
+    callbackDetails !== undefined,
   );
 
   const status = await db.transaction(async (tx) => {
@@ -1501,6 +1502,7 @@ export async function handleLibraryPurchaseCallback(input: {
     (input.amount !== purchase.amount ||
       input.customerPhone !== purchase.phoneNumber ||
       !input.receiptNumber ||
+      !/^[A-Z0-9]{8,12}$/i.test(input.receiptNumber.trim()) ||
       !input.transactionTimestamp ||
       !Number.isFinite(input.transactionTimestamp.getTime()));
   await db
@@ -1521,7 +1523,7 @@ export async function handleLibraryPurchaseCallback(input: {
     purchase.id,
     input.resultCode === 0 && input.receiptNumber && input.transactionTimestamp
       ? {
-          receiptNumber: input.receiptNumber,
+          receiptNumber: input.receiptNumber.trim(),
           transactionTimestamp: input.transactionTimestamp,
         }
       : undefined,
@@ -1865,6 +1867,7 @@ async function syncServiceRequestPaymentFromProvider(
   const nextStatus = mapMpesaResultCodeToPurchaseStatus(
     verification.ResultCode,
     verification.ResultDesc,
+    callbackDetails !== undefined,
   );
   return db.transaction(async (tx) => {
     const [current] = await tx
@@ -2041,6 +2044,7 @@ export async function handleServiceRequestPaymentCallback(input: {
     (input.amount !== payment.amount ||
       input.customerPhone !== payment.phoneNumber ||
       !input.receiptNumber ||
+      !/^[A-Z0-9]{8,12}$/i.test(input.receiptNumber.trim()) ||
       !input.transactionTimestamp ||
       !Number.isFinite(input.transactionTimestamp.getTime()));
   await db
@@ -2062,7 +2066,7 @@ export async function handleServiceRequestPaymentCallback(input: {
     payment.id,
     input.resultCode === 0 && input.receiptNumber && input.transactionTimestamp
       ? {
-          receiptNumber: input.receiptNumber,
+          receiptNumber: input.receiptNumber.trim(),
           transactionTimestamp: input.transactionTimestamp,
         }
       : undefined,

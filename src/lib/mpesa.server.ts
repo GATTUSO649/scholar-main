@@ -53,9 +53,10 @@ export function getMpesaDiagnosticCode(error: unknown) {
 export function mapMpesaResultCodeToPurchaseStatus(
   resultCode: number | string,
   resultDesc?: string | undefined,
+  hasVerifiedReceipt = false,
 ): "paid" | "cancelled" | "failed" | "pending" {
   const code = String(resultCode);
-  if (code === "0") return "paid";
+  if (code === "0") return hasVerifiedReceipt ? "paid" : "pending";
   if (code === "1032") return "cancelled";
   if (isMpesaResultPending(code, resultDesc)) return "pending";
   return "failed";
