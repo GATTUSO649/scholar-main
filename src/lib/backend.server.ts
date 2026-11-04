@@ -2198,7 +2198,16 @@ export async function getRequestBundle(id: string) {
   const user = await requireUser();
   const db = getDatabase();
   const [joined] = await db
-    .select({ request: requests, serviceName: services.name })
+    .select({
+      request: requests,
+      serviceName: services.name,
+      hasPaidPayment: sql<boolean>`EXISTS (
+        SELECT 1 FROM service_request_payments
+        WHERE request_id = ${requests.id}
+          AND student_id = ${user.id}
+          AND status = 'paid'
+      )`,
+    })
     .from(requests)
     .leftJoin(services, eq(requests.serviceId, services.id))
     .where(eq(requests.id, id))
@@ -2237,7 +2246,12 @@ export async function getRequestBundle(id: string) {
   ]);
   const visibleFiles = isAdmin
     ? files
-    : files.filter((file) => file.kind !== "delivery" || joined.request.paymentStatus === "paid");
+    : files.filter(
+        (file) =>
+          file.kind !== "delivery" ||
+          joined.request.paymentStatus === "paid" ||
+          joined.hasPaidPayment,
+      );
   return {
     req: mapRequest(joined.request, joined.serviceName, isAdmin),
     files: visibleFiles.map((file) => ({
@@ -2690,7 +2704,16 @@ export async function getAuthorizedFile(storageKey: string) {
         or(
           and(
             eq(requests.studentId, user.id),
-            or(ne(requestFiles.kind, "delivery"), eq(requests.paymentStatus, "paid")),
+            or(
+              ne(requestFiles.kind, "delivery"),
+              eq(requests.paymentStatus, "paid"),
+              sql`EXISTS (
+                SELECT 1 FROM service_request_payments
+                WHERE request_id = ${requests.id}
+                  AND student_id = ${user.id}
+                  AND status = 'paid'
+              )`,
+            ),
           ),
           sql`EXISTS (
             SELECT 1 FROM user_roles WHERE user_id = ${user.id} AND role = 'admin'
