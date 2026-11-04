@@ -303,13 +303,13 @@ function Shell() {
 
   if (inAdminArea) {
     const adminLinks = (
-      <div className="flex h-full min-h-0 flex-col bg-[#142742]">
+      <div className="flex h-full min-h-0 flex-col bg-[#17263c]">
         <div className="shrink-0 border-b border-white/10 px-5 py-5">
           <Logo light onClick={handlePublicNavigation} />
           <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-[#b9c7d7]">
             <Sparkles className="h-3.5 w-3.5 text-[#b57c36]" /> Service workspace
           </div>
-          <div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-3">
+          <div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-white/6 p-3">
             <span className="grid h-9 w-9 place-items-center rounded-md bg-white/10 text-xs font-bold text-[#f1c96b]">
               {profile?.full_name
                 ?.split(/\s+/)
@@ -340,11 +340,11 @@ function Shell() {
       </div>
     );
     return (
-      <div className="admin-workspace-shell min-h-screen bg-[#eef3ef] lg:grid lg:grid-cols-[270px_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#263d5a] bg-[#142742] lg:flex">
+      <div className="admin-workspace-shell min-h-screen bg-[#f2f4f6] lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#2b3c53] bg-[#17263c] lg:flex">
           {adminLinks}
         </aside>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#263d5a] bg-[#142742] px-4 py-3 text-white lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#2b3c53] bg-[#17263c] px-4 py-3 text-white lg:hidden">
           <div>
             <Logo light onClick={handlePublicNavigation} />
             <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#b9c7d7]">
@@ -381,26 +381,26 @@ function Shell() {
             />
             <div
               id="mobile-admin-navigation"
-              className="fixed right-3 top-16 z-20 h-[min(40rem,calc(100dvh-5rem))] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#263d5a] bg-[#142742] shadow-2xl lg:hidden"
+              className="fixed right-3 top-16 z-20 h-[min(40rem,calc(100dvh-5rem))] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#2b3c53] bg-[#17263c] shadow-2xl lg:hidden"
             >
               {adminLinks}
             </div>
           </>
         )}
         <main className="admin-workspace-main min-w-0">
-          <div className="sticky top-0 z-10 hidden h-19 items-center justify-between border-b border-[#e4ebe6] bg-white/95 px-8 backdrop-blur lg:flex">
+          <div className="sticky top-0 z-10 hidden h-17 items-center justify-between border-b border-[#e1e6eb] bg-white/95 px-8 backdrop-blur lg:flex">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7c8983]">
-                ScholarDesk <ChevronRight className="mx-1 inline h-3 w-3" /> Operations
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#778394]">
+                ScholarDesk <ChevronRight className="mx-1 inline h-3 w-3" /> Admin workspace
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#183c34]">{pageTitle}</p>
+              <p className="mt-1 text-sm font-semibold text-[#1b2b40]">{pageTitle}</p>
             </div>
             <div className="flex items-center gap-3">
               <NotificationBell />
               <ProfileShortcut
                 name={profile?.full_name}
                 to="/admin/profile"
-                className="text-[#183c34] hover:bg-[#eaf2ed]"
+                className="text-[#1b2b40] hover:bg-[#edf1f5]"
               />
               <span className="inline-flex items-center gap-2 border-l border-[#e4ebe6] pl-3 text-xs font-medium text-[#71817a]">
                 <ShieldCheck className="h-3.5 w-3.5 text-[#398b68]" /> Secure admin
@@ -538,6 +538,7 @@ function NavItem({
     <Link
       to={to}
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
         active

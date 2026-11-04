@@ -413,10 +413,10 @@
 }
 
 .admin-workspace-shell {
-  --admin-line: #dce6df;
-  --admin-ink: #173c33;
-  --admin-muted: #687a72;
-  background: #eef3ef;
+  --admin-line: #dfe4ea;
+  --admin-ink: #1b2b40;
+  --admin-muted: #687789;
+  background: #f2f4f6;
 }
 
 .admin-workspace-main {
@@ -432,7 +432,7 @@
   border: 1px solid var(--admin-line);
   border-radius: 0.5rem;
   background: #fff;
-  box-shadow: 0 2px 8px rgb(23 60 51 / 4%);
+  box-shadow: 0 2px 8px rgb(27 43 64 / 4%);
 }
 
 .admin-page-wrap > :first-child > header h1 {
@@ -446,7 +446,7 @@
   border: 1px solid var(--admin-line);
   border-radius: 0.5rem;
   background: #fff;
-  box-shadow: 0 2px 8px rgb(23 60 51 / 4%);
+  box-shadow: 0 2px 8px rgb(27 43 64 / 4%);
 }
 
 .admin-page-wrap > :first-child section form {
@@ -462,7 +462,7 @@
   border: 1px solid var(--admin-line);
   border-radius: 0.5rem;
   background: #fff;
-  box-shadow: 0 2px 8px rgb(23 60 51 / 4%);
+  box-shadow: 0 2px 8px rgb(27 43 64 / 4%);
 }
 
 .admin-page-wrap > :first-child > ul {

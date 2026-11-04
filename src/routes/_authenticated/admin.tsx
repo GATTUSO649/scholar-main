@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Download, Eye, EyeOff, Search, Settings2 } from "lucide-react";
+import { ArrowRight, Download, Eye, EyeOff, RefreshCw, Search, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -96,7 +96,7 @@ type QueueFilter =
 function Admin() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QueueFilter>("all");
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["admin-requests"],
     queryFn: () => getAdminRequestsFn(),
   });
@@ -240,6 +240,17 @@ function Admin() {
                 className="h-10 rounded-lg border-[#d7e2dc] bg-white pl-9"
               />
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              aria-label="Refresh request queue"
+              title="Refresh request queue"
+              className="border-[#d4e1da] text-[#31574b] hover:bg-[#f2f7f3]"
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
             <Button
               type="button"
               variant="outline"

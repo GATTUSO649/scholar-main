@@ -175,10 +175,9 @@ function AdminLoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen bg-[#f5f7fa] lg:grid-cols-[0.92fr_1.08fr]">
+    <div className="grid min-h-svh bg-[#f5f7fa] lg:grid-cols-[0.92fr_1.08fr]">
       <aside className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[#17263c] p-10 text-white lg:flex xl:p-14">
         <div className="pointer-events-none absolute -right-24 top-1/4 h-80 w-80 rounded-full border-38 border-white/4" />
-        <div className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-[#d5ac57]/10 blur-3xl" />
         <Logo light />
         <div className="relative max-w-xl">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">
@@ -197,14 +196,14 @@ function AdminLoginPage() {
           SCHOLARDESK <span className="px-2">·</span> ADMIN ACCESS
         </p>
       </aside>
-      <main className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+      <main className="flex min-h-svh items-center justify-center px-5 py-6 sm:px-8 sm:py-8">
         <div className="w-full max-w-120">
           <div className="mb-8 lg:hidden">
             <Logo />
           </div>
           <section
             key={mode}
-            className={`auth-book-page auth-book-page-${turnDirection} relative overflow-hidden rounded-[26px] border bg-white p-6 shadow-[0_24px_70px_-42px_rgba(23,38,60,0.3)] sm:p-9`}
+            className={`auth-book-page auth-book-page-${turnDirection} relative overflow-hidden rounded-2xl border bg-white p-6 shadow-[0_24px_70px_-42px_rgba(23,38,60,0.3)] sm:p-8`}
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#74839a]">
               Secure administrator portal
@@ -232,7 +231,7 @@ function AdminLoginPage() {
               </Alert>
             )}
 
-            <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
+            <form onSubmit={submit} className="mt-6 space-y-3" noValidate>
               {mode === "register" ? (
                 <>
                   {signupStateLoading ? (
@@ -271,15 +270,15 @@ function AdminLoginPage() {
                         type={type}
                         required
                         autoComplete={
-                          name === "password"
-                            ? "new-password"
-                            : name === "confirm"
-                              ? "new-password"
-                              : name === "email"
-                                ? "email"
-                                : undefined
+                          name === "email"
+                            ? "email"
+                            : name === "full_name"
+                              ? "name"
+                              : name === "signup_secret"
+                                ? "off"
+                                : "new-password"
                         }
-                        className="mt-1.5 h-11 rounded-xl"
+                        className="mt-1.5 h-10 rounded-lg"
                       />
                       {fieldErrors[name] && (
                         <p className="mt-1 text-xs text-destructive">{fieldErrors[name]}</p>
@@ -307,7 +306,8 @@ function AdminLoginPage() {
                       name="email"
                       type="email"
                       required
-                      className="mt-1.5 h-11 rounded-xl"
+                      autoComplete="username"
+                      className="mt-1.5 h-10 rounded-lg"
                     />
                   </div>
                   <div>
@@ -317,7 +317,8 @@ function AdminLoginPage() {
                       name="password"
                       type="password"
                       required
-                      className="mt-1.5 h-11 rounded-xl"
+                      autoComplete="current-password"
+                      className="mt-1.5 h-10 rounded-lg"
                     />
                   </div>
                   <Button

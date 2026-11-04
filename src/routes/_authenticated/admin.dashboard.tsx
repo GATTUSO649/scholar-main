@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock3,
   FilePlus2,
+  RefreshCw,
   Users,
 } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
@@ -41,6 +42,7 @@ function AdminOperations() {
   const {
     data: requests = [],
     isLoading: requestsLoading,
+    isFetching: requestsFetching,
     isError: requestsError,
     error: requestError,
     refetch: refetchRequests,
@@ -52,6 +54,8 @@ function AdminOperations() {
     data: studentCount,
     isLoading: studentsLoading,
     isError: studentsError,
+    isFetching: studentsFetching,
+    refetch: refetchStudents,
   } = useQuery({
     queryKey: ["admin-student-count"],
     queryFn: () => getAdminStudentCountFn(),
@@ -93,6 +97,7 @@ function AdminOperations() {
   const paidByCurrency = Object.entries(paidTotals).sort(([left], [right]) =>
     left.localeCompare(right),
   );
+  const refreshing = requestsFetching || studentsFetching;
   const todayLabel = new Intl.DateTimeFormat(undefined, {
     weekday: "long",
     month: "long",
@@ -114,6 +119,17 @@ function AdminOperations() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void Promise.all([refetchRequests(), refetchStudents()])}
+            disabled={refreshing}
+            aria-label="Refresh operations overview"
+            title="Refresh operations overview"
+            className="border-[#d4e1da] text-[#31574b] hover:bg-[#f2f7f3]"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          </Button>
           <Link
             to="/students"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d4e1da] bg-white px-3.5 text-sm font-semibold text-[#31574b] transition-colors hover:bg-[#f2f7f3]"
