@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Wallet } from "lucide-react";
+import { Upload, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RequestSummary, useRequest } from "@/components/RequestDetail";
-import { money } from "@/lib/requests";
+import { money, SERVICES_WITHOUT_UPLOADS, uploadFiles, validateUploadFiles } from "@/lib/requests";
 
 export const Route = createFileRoute("/_authenticated/request/$id")({
   head: () => ({
@@ -20,7 +20,30 @@ export const Route = createFileRoute("/_authenticated/request/$id")({
 
 function Detail() {
   const { id } = Route.useParams();
+  const queryClient = useQueryClient();
   const { data, isLoading } = useRequest(id);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  async function addAttachments() {
+    const validationError = validateUploadFiles(files);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    setUploading(true);
+    try {
+      if (!(await uploadFiles(id, files, "submission"))) return;
+      setFiles([]);
+      await queryClient.invalidateQueries({ queryKey: ["request", id] });
+      toast.success("Files uploaded to your request.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not upload files.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
   if (!data?.req)
     return (
@@ -32,6 +55,10 @@ function Detail() {
       </p>
     );
   const r = data.req;
+  const canUpload =
+    !SERVICES_WITHOUT_UPLOADS.has(r.services?.name ?? "") &&
+    r.status !== "cancelled" &&
+    r.status !== "declined";
   return (
     <div className="space-y-6">
       <Link to="/requests" className="text-sm text-muted-foreground hover:underline">
@@ -50,6 +77,59 @@ function Detail() {
             latestPayment={data.payments[0]}
           />
         )}
+      {canUpload && (
+        <section className="rounded-xl border bg-card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Add files to this request</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Upload up to 10 files, 20 MB each, with a 50 MB total limit.
+              </p>
+            </div>
+            <Button type="button" onClick={addAttachments} disabled={uploading || !files.length}>
+              <Upload className="mr-2 h-4 w-4" />
+              {uploading ? "Uploading…" : "Upload files"}
+            </Button>
+          </div>
+          <label
+            htmlFor="request-attachments"
+            className="mt-4 flex cursor-pointer items-center gap-3 rounded-md border border-dashed px-4 py-3 text-sm text-muted-foreground hover:bg-muted"
+          >
+            <Upload className="h-4 w-4 shrink-0" />
+            Choose additional files
+            <input
+              id="request-attachments"
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={(event) => {
+                setFiles([...files, ...Array.from(event.currentTarget.files ?? [])]);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          {files.length > 0 && (
+            <ul className="mt-3 space-y-1 text-sm">
+              {files.map((file, index) => (
+                <li
+                  key={`${file.name}-${file.lastModified}-${index}`}
+                  className="flex items-center justify-between gap-3 rounded-md bg-muted px-3 py-2"
+                >
+                  <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFiles(files.filter((_, fileIndex) => fileIndex !== index))}
+                    aria-label={`Remove ${file.name}`}
+                    className="shrink-0 rounded p-1 hover:bg-background"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       <RequestSummary data={data} />
     </div>
   );

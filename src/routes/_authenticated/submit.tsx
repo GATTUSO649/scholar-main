@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createRequestFn, getPublicDataFn } from "@/lib/backend";
-import { uploadFiles } from "@/lib/requests";
+import { SERVICES_WITHOUT_UPLOADS, uploadFiles, validateUploadFiles } from "@/lib/requests";
 
 export const Route = createFileRoute("/_authenticated/submit")({
   validateSearch: (s: Record<string, unknown>): { service?: string } =>
@@ -37,8 +37,6 @@ const schema = z.object({
 });
 
 const LEVELS = ["Certificate", "Diploma", "Undergraduate", "Masters", "PhD"];
-const SERVICES_WITHOUT_UPLOADS = new Set(["Assignment Typing", "Practicum Typing"]);
-
 function Submit() {
   const { user } = Route.useRouteContext();
   const { service: preselected } = Route.useSearch();
@@ -73,6 +71,11 @@ function Submit() {
     const requestService = services.find((service) => service.id === p.data.service_id);
     const requestAllowsUploads =
       !requestService || !SERVICES_WITHOUT_UPLOADS.has(requestService.name);
+    const uploadError = requestAllowsUploads ? validateUploadFiles(files) : null;
+    if (uploadError) {
+      toast.error(uploadError);
+      return;
+    }
     setErrors({});
     setBusy(true);
     try {
@@ -216,13 +219,10 @@ function Submit() {
                 type="file"
                 multiple
                 className="hidden"
-                onChange={(e) =>
-                  setFiles(
-                    [...files, ...Array.from(e.target.files ?? [])].filter(
-                      (f) => f.size <= 20 * 1024 * 1024,
-                    ),
-                  )
-                }
+                onChange={(e) => {
+                  setFiles([...files, ...Array.from(e.target.files ?? [])]);
+                  e.currentTarget.value = "";
+                }}
               />
             </label>
             {files.length > 0 && (

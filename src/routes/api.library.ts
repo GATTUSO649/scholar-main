@@ -10,6 +10,7 @@ import {
   getDatabaseErrorCode,
 } from "@/lib/backend.server";
 import { hasSupportedLibraryFileSignature } from "@/lib/file-signature.server";
+import { getPrivateFilePath } from "@/lib/file-storage.server";
 import { requireSameOrigin } from "@/lib/backend";
 import {
   InvalidUploadBodyError,
@@ -23,16 +24,6 @@ const CATEGORIES = new Set(["novel", "business_plan", "article"]);
 
 function isCategory(value: string): value is "novel" | "business_plan" | "article" {
   return CATEGORIES.has(value);
-}
-
-function storagePath(key: string) {
-  if (!/^[0-9a-f-]{36}$/i.test(key)) throw new Error("Invalid file key.");
-  return path.join(
-    process.env["FILE_STORAGE_DIR"] ?? path.join(process.cwd(), "data", "uploads"),
-    "library",
-    key.slice(0, 2),
-    key,
-  );
 }
 
 function errorResponse(error: unknown) {
@@ -124,7 +115,7 @@ export const Route = createFileRoute("/api/library")({
 
           const storageKey = crypto.randomUUID();
           const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "download";
-          destination = storagePath(storageKey);
+          destination = getPrivateFilePath(storageKey, "library");
           await mkdir(path.dirname(destination), { recursive: true });
           await writeFile(destination, content, {
             flag: "wx",
@@ -154,7 +145,7 @@ export const Route = createFileRoute("/api/library")({
           }
           const resource = await deleteLibraryResource(id);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
-          await rm(storagePath(resource.storageKey), { force: true });
+          await rm(getPrivateFilePath(resource.storageKey, "library"), { force: true });
           return Response.json({ success: true });
         } catch (error) {
           return errorResponse(error);
@@ -209,7 +200,7 @@ export const Route = createFileRoute("/api/library")({
           }
           const resource = await getLibraryResourceForDownload(id);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
-          const content = await readFile(storagePath(resource.storageKey));
+          const content = await readFile(getPrivateFilePath(resource.storageKey, "library"));
           const asciiName = resource.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           return new Response(content, {
             headers: {

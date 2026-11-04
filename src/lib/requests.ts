@@ -1,9 +1,27 @@
 import { toast } from "sonner";
 
+export const MAX_REQUEST_FILES = 10;
+export const MAX_REQUEST_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_REQUEST_UPLOAD_BYTES = 50 * 1024 * 1024;
+export const SERVICES_WITHOUT_UPLOADS = new Set(["Assignment Typing", "Practicum Typing"]);
+
+export function validateUploadFiles(files: File[]) {
+  if (files.length > MAX_REQUEST_FILES) return "Choose no more than 10 files.";
+  if (files.some((file) => file.size === 0 || file.size > MAX_REQUEST_FILE_BYTES)) {
+    return "Each file must be non-empty and no larger than 20 MB.";
+  }
+  if (files.reduce((total, file) => total + file.size, 0) > MAX_REQUEST_UPLOAD_BYTES) {
+    return "The combined upload must be no larger than 50 MB.";
+  }
+  return null;
+}
+
 export async function openFile(path: string) {
   const toastId = toast.loading("Preparing download…");
   try {
-    const response = await fetch(`/api/files?key=${encodeURIComponent(path)}`);
+    const response = await fetch(`/api/files?key=${encodeURIComponent(path)}`, {
+      credentials: "same-origin",
+    });
     if (!response.ok) {
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
       toast.dismiss(toastId);
@@ -34,11 +52,26 @@ export async function uploadFiles(
   kind: "submission" | "delivery",
 ) {
   if (!files.length) return true;
+  const validationError = validateUploadFiles(files);
+  if (validationError) {
+    toast.error(validationError);
+    return false;
+  }
   const form = new FormData();
   form.set("request_id", requestId);
   form.set("kind", kind);
   files.forEach((file) => form.append("files", file));
-  const response = await fetch("/api/files", { method: "POST", body: form });
+  let response: Response;
+  try {
+    response = await fetch("/api/files", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+    });
+  } catch {
+    toast.error("File upload failed. Check your connection and try again.");
+    return false;
+  }
   if (!response.ok) {
     const result = (await response.json().catch(() => null)) as { error?: string } | null;
     toast.error(result?.error ?? "File upload failed");

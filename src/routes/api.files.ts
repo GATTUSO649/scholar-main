@@ -10,6 +10,7 @@ import {
   getDatabaseErrorCode,
   notifyAdminsOfStudentUpload,
 } from "@/lib/backend.server";
+import { getPrivateFilePath } from "@/lib/file-storage.server";
 import { requireSameOrigin } from "@/lib/backend";
 import {
   InvalidUploadBodyError,
@@ -19,15 +20,6 @@ import {
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 50 * 1024 * 1024;
-
-function storagePath(key: string) {
-  if (!/^[0-9a-f-]{36}$/i.test(key)) throw new Error("Invalid file key.");
-  return path.join(
-    process.env["FILE_STORAGE_DIR"] ?? path.join(process.cwd(), "data", "uploads"),
-    key.slice(0, 2),
-    key,
-  );
-}
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "File operation failed.";
@@ -94,7 +86,7 @@ export const Route = createFileRoute("/api/files")({
             for (const file of files) {
               const storageKey = crypto.randomUUID();
               const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "file";
-              const destination = storagePath(storageKey);
+              const destination = getPrivateFilePath(storageKey);
               await mkdir(path.dirname(destination), { recursive: true });
               await writeFile(destination, Buffer.from(await file.arrayBuffer()), {
                 flag: "wx",
@@ -116,7 +108,7 @@ export const Route = createFileRoute("/api/files")({
           } catch (error) {
             await Promise.all(
               uploaded.flatMap((key) => [
-                rm(storagePath(key), { force: true }),
+                rm(getPrivateFilePath(key), { force: true }),
                 deleteRequestFile(key),
               ]),
             );
@@ -132,7 +124,7 @@ export const Route = createFileRoute("/api/files")({
           const key = new URL(request.url).searchParams.get("key") ?? "";
           const file = await getAuthorizedFile(key);
           if (!file) return Response.json({ error: "File not found." }, { status: 404 });
-          const content = await readFile(storagePath(file.storageKey));
+          const content = await readFile(getPrivateFilePath(file.storageKey));
           const asciiName = file.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           return new Response(content, {
             headers: {
