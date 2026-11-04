@@ -20,7 +20,8 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate-postgres.mjs",
     "db:check": "node --env-file-if-exists=.env scripts/check-db-connection.mjs",
     "db:promote-admin": "node --env-file=.env scripts/promote-admin.mjs",
-    "db:seed": "node --env-file=.env scripts/seed-postgres.mjs"
+    "db:seed": "node --env-file=.env scripts/seed-postgres.mjs",
+    "files:migrate-to-object-storage": "node --env-file-if-exists=.env --experimental-strip-types ./scripts/migrate-files-to-object-storage.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1",

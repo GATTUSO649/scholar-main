@@ -515,3 +515,27 @@
     border-radius: 0.5rem;
   }
 }
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible !important;
+  }
+
+  .receipt-print {
+    position: absolute;
+    inset: 0;
+    display: block !important;
+    width: 100%;
+    color: #111 !important;
+    background: #fff !important;
+  }
+}

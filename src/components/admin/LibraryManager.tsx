@@ -4,6 +4,8 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Download,
+  Eye,
+  FileUp,
   FileText,
   HardDrive,
   Pencil,
@@ -36,6 +38,7 @@ type LibraryResource = {
   description: string;
   category: ResourceCategory;
   name: string;
+  mime_type: string;
   size: number;
   price: number;
   currency: string;
@@ -81,6 +84,7 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [replacingId, setReplacingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [editingResource, setEditingResource] = useState<LibraryResource | null>(null);
 
@@ -117,15 +121,35 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
     setBusy(true);
     try {
       const response = await fetch("/api/library", { method: "POST", body });
-      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      const result = (await response.json().catch(() => null)) as
+        | { error?: string; uploaded?: number }
+        | null;
       if (!response.ok) throw new Error(result?.error ?? "Could not upload the resource.");
       form.reset();
       await refreshLibrary();
-      toast.success("Resource published to the student library.");
+      toast.success(`${result?.uploaded ?? 1} document(s) added to the library.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not upload the resource.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function replaceFile(resource: LibraryResource, file: File) {
+    setReplacingId(resource.id);
+    const formData = new FormData();
+    formData.set("id", resource.id);
+    formData.set("file", file);
+    try {
+      const response = await fetch("/api/library", { method: "PUT", body: formData });
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Could not replace the document.");
+      await refreshLibrary();
+      toast.success("Document replaced. Existing purchases remain linked.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not replace the document.");
+    } finally {
+      setReplacingId(null);
     }
   }
 
@@ -244,8 +268,8 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
             Upload to {section.label.toLowerCase()}
           </h2>
           <p className="mt-1 text-sm text-[#718078]">
-            Supported formats: PDF, EPUB, Word, or text up to 25 MB. Set a whole-KES price from 0 to
-            150,000; 0 makes the resource free.
+            Select multiple PDF, Word, Excel, PowerPoint, or TXT documents. A blank title uses each
+            filename; a title becomes a prefix for the batch.
           </p>
         </div>
         <form onSubmit={upload} className="grid gap-4 sm:grid-cols-2">
@@ -254,9 +278,8 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
             <Input
               id="resource-title"
               name="title"
-              required
-              minLength={2}
               maxLength={200}
+              placeholder="Optional title or batch prefix"
               className="mt-1.5"
             />
           </div>
@@ -311,9 +334,10 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
             <Label htmlFor="resource-file">Document</Label>
             <Input
               id="resource-file"
-              name="file"
+              name="files"
               type="file"
-              accept=".pdf,.epub,.doc,.docx,.txt"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+              multiple
               required
               className="mt-1.5 h-11 border-[#d7e2dc] bg-white file:mr-3 file:rounded file:border-0 file:bg-[#e5f1eb] file:px-3 file:py-1 file:text-xs file:font-semibold file:text-[#155b4c]"
             />
@@ -432,11 +456,44 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 sm:pl-4">
+                  {resource.mime_type === "application/pdf" && (
+                    <Button asChild variant="outline" size="icon">
+                      <a
+                        href={`/api/library?id=${encodeURIComponent(resource.id)}&preview=1`}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Preview ${resource.title}`}
+                        title="Preview PDF"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
                   <Button asChild variant="outline" size="sm">
                     <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
                       <Download className="mr-2 h-4 w-4" /> Download
                     </a>
                   </Button>
+                  <label
+                    htmlFor={`replace-${resource.id}`}
+                    title={replacingId === resource.id ? "Replacing document" : "Replace document"}
+                    className={`grid h-9 w-9 cursor-pointer place-items-center rounded-md border text-[#31574b] hover:bg-[#f2f7f3] ${replacingId === resource.id ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    <FileUp className="h-4 w-4" />
+                    <span className="sr-only">Replace {resource.title}</span>
+                    <input
+                      id={`replace-${resource.id}`}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                      className="sr-only"
+                      disabled={replacingId === resource.id}
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        if (file) void replaceFile(resource, file);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
                   <Button
                     type="button"
                     variant="outline"

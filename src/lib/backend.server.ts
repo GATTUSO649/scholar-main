@@ -1028,6 +1028,7 @@ function mapLibraryResource(row: typeof libraryResources.$inferSelect) {
     description: row.description,
     category: row.category,
     name: row.name,
+    mime_type: row.mimeType,
     size: row.size,
     price: row.price,
     currency: row.currency,
@@ -1092,30 +1093,52 @@ export async function createLibraryResource(input: {
   price: number;
   storageKey: string;
   name: string;
+  mimeType?: string;
   size: number;
 }) {
+  await createLibraryResources([input]);
+  return { success: true };
+}
+
+export async function createLibraryResources(
+  inputs: Array<{
+    title: string;
+    description: string;
+    category: "novel" | "business_plan" | "article";
+    price: number;
+    storageKey: string;
+    name: string;
+    mimeType: string;
+    size: number;
+  }>,
+) {
   const user = await requireAdmin();
-  const id = randomUUID();
+  const resources = inputs.map((input) => ({ id: randomUUID(), ...input }));
   await getDatabase().transaction(async (tx) => {
-    await tx.insert(libraryResources).values({
-      id,
-      title: input.title,
-      description: input.description,
-      category: input.category,
-      price: input.price,
-      currency: "KES",
-      storageKey: input.storageKey,
-      name: input.name,
-      size: input.size,
-      uploadedBy: user.id,
-    });
+    await tx.insert(libraryResources).values(
+      resources.map((resource) => ({
+        id: resource.id,
+        title: resource.title,
+        description: resource.description,
+        category: resource.category,
+        price: resource.price,
+        currency: "KES",
+        storageKey: resource.storageKey,
+        name: resource.name,
+        mimeType: resource.mimeType,
+        size: resource.size,
+        uploadedBy: user.id,
+      })),
+    );
     await tx.insert(adminAuditEvents).values(
-      makeAdminAuditEvent(user, "library.resource_created", "library_resource", id, {
-        category: input.category,
-      }),
+      resources.map((resource) =>
+        makeAdminAuditEvent(user, "library.resource_created", "library_resource", resource.id, {
+          category: resource.category,
+        }),
+      ),
     );
   });
-  return { success: true };
+  return { success: true, ids: resources.map((resource) => resource.id) };
 }
 
 export async function updateLibraryResource(
@@ -1157,6 +1180,35 @@ export async function updateLibraryResource(
   return { success: true };
 }
 
+export async function replaceLibraryResourceFile(
+  id: string,
+  input: { storageKey: string; name: string; mimeType: string; size: number },
+) {
+  const actor = await requireAdmin();
+  return getDatabase().transaction(async (tx) => {
+    const [resource] = await tx
+      .select({ storageKey: libraryResources.storageKey })
+      .from(libraryResources)
+      .where(eq(libraryResources.id, id))
+      .limit(1);
+    if (!resource) return null;
+
+    await tx
+      .update(libraryResources)
+      .set({
+        storageKey: input.storageKey,
+        name: input.name,
+        mimeType: input.mimeType,
+        size: input.size,
+      })
+      .where(eq(libraryResources.id, id));
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "library.resource_file_replaced", "library_resource", id),
+    );
+    return { previousStorageKey: resource.storageKey };
+  });
+}
+
 export async function getLibraryResourceForDownload(id: string) {
   const db = getDatabase();
   const [resource] = await getDatabase()
@@ -1164,6 +1216,7 @@ export async function getLibraryResourceForDownload(id: string) {
       id: libraryResources.id,
       storageKey: libraryResources.storageKey,
       name: libraryResources.name,
+      mimeType: libraryResources.mimeType,
       price: libraryResources.price,
     })
     .from(libraryResources)

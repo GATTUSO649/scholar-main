@@ -275,6 +275,7 @@ export const libraryResources = pgTable(
     category: libraryCategoryEnum("category").notNull(),
     storageKey: varchar("storage_key", { length: 36 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
+    mimeType: varchar("mime_type", { length: 120 }).notNull().default("application/octet-stream"),
     size: integer("size").notNull(),
     price: decimal("price", { precision: 10, scale: 2, mode: "number" }).notNull().default(0),
     currency: varchar("currency", { length: 3 }).notNull().default("KES"),

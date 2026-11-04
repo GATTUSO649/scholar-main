@@ -1,3 +1,4 @@
+import { File as NodeFile } from "node:buffer";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -39,37 +40,37 @@ if (!get) throw new Error("The file download GET handler is not registered.");
 
 let storageRoot = "";
 
-class TestUploadFile {
-  readonly name = "assignment.txt";
-  readonly size = 18;
-  readonly type = "text/plain";
-
-  async arrayBuffer() {
-    const bytes = new TextEncoder().encode("student attachment");
-    return bytes.buffer as ArrayBuffer;
+class TestUploadFile extends NodeFile {
+  constructor(
+    name = "assignment.txt",
+    type = "text/plain",
+    content: string | Uint8Array = "student attachment",
+  ) {
+    super([typeof content === "string" ? content : Buffer.from(content)], name, { type });
   }
+}
+
+function uploadForm(files: TestUploadFile[]) {
+  return {
+    get: (name: string) =>
+      name === "request_id"
+        ? "9f94f2dc-4970-44d3-ae58-2a54e3811f2c"
+        : name === "kind"
+          ? "submission"
+          : null,
+    getAll: (name: string) => (name === "files" ? files : []),
+  } as unknown as FormData;
 }
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  vi.stubGlobal("File", TestUploadFile);
   storageRoot = await mkdtemp(path.join(tmpdir(), "scholardesk-file-api-"));
   vi.stubEnv("NODE_ENV", "test");
   vi.stubEnv("FILE_STORAGE_DIR", storageRoot);
   mocks.authorizedUploadTarget.mockResolvedValue({ userId: "student-id" });
   mocks.getAuthorizedFile.mockResolvedValue(null);
   mocks.addRequestFile.mockResolvedValue(undefined);
-  mocks.parseMultipartFormData.mockImplementation(async () => {
-    return {
-      get: (name: string) =>
-        name === "request_id"
-          ? "9f94f2dc-4970-44d3-ae58-2a54e3811f2c"
-          : name === "kind"
-            ? "submission"
-            : null,
-      getAll: (name: string) => (name === "files" ? [new TestUploadFile()] : []),
-    } as unknown as FormData;
-  });
+  mocks.parseMultipartFormData.mockImplementation(async () => uploadForm([new TestUploadFile()]));
   mocks.notifyAdminsOfStudentUpload.mockRejectedValue(new Error("notification database reset"));
   mocks.getDatabaseErrorCode.mockReturnValue("ECONNRESET");
 });
@@ -100,6 +101,54 @@ describe("private request file uploads", () => {
     await expect(readFile(getPrivateFilePath(stored!.storageKey), "utf8")).resolves.toBe(
       "student attachment",
     );
+  });
+
+  it.each([
+    ["PDF", new TestUploadFile("assignment.pdf", "application/pdf", "%PDF-1.7 test")],
+    [
+      "Word",
+      new TestUploadFile("assignment.doc", "application/msword", new Uint8Array([
+        0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
+      ])),
+    ],
+  ])("accepts a content-validated %s upload", async (_format, file) => {
+    mocks.parseMultipartFormData.mockImplementationOnce(async () => uploadForm([file]));
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(mocks.addRequestFile.mock.calls[0]?.[0]).toMatchObject({ name: file.name });
+  });
+
+  it("stores multiple documents from one upload request", async () => {
+    mocks.parseMultipartFormData.mockImplementationOnce(async () =>
+      uploadForm([
+        new TestUploadFile("first.txt", "text/plain", "first file"),
+        new TestUploadFile("second.txt", "text/plain", "second file"),
+      ]),
+    );
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ uploaded: 2 });
+    expect(mocks.addRequestFile).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects an upload when the server denies request ownership", async () => {
+    mocks.getDatabaseErrorCode.mockReturnValueOnce(undefined);
+    mocks.authorizedUploadTarget.mockRejectedValueOnce(new Error("You cannot upload to this request."));
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.addRequestFile).not.toHaveBeenCalled();
   });
 
   it("streams an authorized stored file as a private attachment", async () => {

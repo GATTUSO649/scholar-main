@@ -4,11 +4,35 @@ export const MAX_REQUEST_FILES = 10;
 export const MAX_REQUEST_FILE_BYTES = 20 * 1024 * 1024;
 export const MAX_REQUEST_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const SERVICES_WITHOUT_UPLOADS = new Set(["Assignment Typing", "Practicum Typing"]);
+const DOCUMENT_MIME_TYPES: Record<string, string> = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  txt: "text/plain",
+};
 
 export function validateUploadFiles(files: File[]) {
   if (files.length > MAX_REQUEST_FILES) return "Choose no more than 10 files.";
   if (files.some((file) => file.size === 0 || file.size > MAX_REQUEST_FILE_BYTES)) {
     return "Each file must be non-empty and no larger than 20 MB.";
+  }
+  for (const file of files) {
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const expectedMimeType = DOCUMENT_MIME_TYPES[extension];
+    const mimeType = file.type.toLowerCase();
+    if (!expectedMimeType) return "Supported formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, and TXT.";
+    if (
+      mimeType &&
+      mimeType !== expectedMimeType &&
+      mimeType !== "application/octet-stream" &&
+      !(mimeType === "application/zip" && ["docx", "xlsx", "pptx"].includes(extension))
+    ) {
+      return `The file type does not match ${file.name}.`;
+    }
   }
   if (files.reduce((total, file) => total + file.size, 0) > MAX_REQUEST_UPLOAD_BYTES) {
     return "The combined upload must be no larger than 50 MB.";

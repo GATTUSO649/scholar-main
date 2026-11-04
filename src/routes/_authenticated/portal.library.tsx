@@ -5,6 +5,7 @@ import {
   BriefcaseBusiness,
   CheckCircle2,
   Download,
+  Eye,
   FileText,
   LoaderCircle,
   Search,
@@ -34,6 +35,7 @@ type StudentResource = {
   description: string;
   category: Exclude<LibraryCategory, "all">;
   name: string;
+  mime_type: string;
   size: number;
   price: number;
   currency: string;
@@ -357,18 +359,31 @@ function StudentLibraryPage() {
                 </p>
               )}
               {resource.purchase_status === "free" || resource.purchase_status === "paid" ? (
-                <Button asChild className="mt-5 w-full">
-                  <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
-                    {resource.purchase_status === "paid" ? (
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
-                    {resource.purchase_status === "paid"
-                      ? "Owned · Download"
-                      : "Download free resource"}
-                  </a>
-                </Button>
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {resource.mime_type === "application/pdf" && (
+                    <Button asChild variant="outline" className="w-full">
+                      <a
+                        href={`/api/library?id=${encodeURIComponent(resource.id)}&preview=1`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Eye className="mr-2 h-4 w-4" /> Preview PDF
+                      </a>
+                    </Button>
+                  )}
+                  <Button asChild className="w-full">
+                    <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
+                      {resource.purchase_status === "paid" ? (
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
+                      {resource.purchase_status === "paid"
+                        ? "Owned · Download"
+                        : "Download free resource"}
+                    </a>
+                  </Button>
+                </div>
               ) : resource.purchase_status === "pending" ? (
                 <Button
                   type="button"

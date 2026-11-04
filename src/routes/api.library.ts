@@ -1,16 +1,22 @@
+import { File as NodeFile } from "node:buffer";
 import { createFileRoute } from "@tanstack/react-router";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  createLibraryResource,
+  createLibraryResources,
   deleteLibraryResource,
   getLibraryResourceForDownload,
   requireLibraryAdmin,
+  replaceLibraryResourceFile,
   updateLibraryResource,
   getDatabaseErrorCode,
 } from "@/lib/backend.server";
-import { hasSupportedLibraryFileSignature } from "@/lib/file-signature.server";
-import { getPrivateFilePath } from "@/lib/file-storage.server";
+import { getDocumentMimeType, validateDocumentFile } from "@/lib/file-signature.server";
+import {
+  deletePrivateFile,
+  getConfiguredFileLimit,
+  readPrivateFile,
+  writePrivateFile,
+} from "@/lib/file-storage.server";
 import { requireSameOrigin } from "@/lib/backend";
 import {
   InvalidUploadBodyError,
@@ -21,8 +27,9 @@ import {
   UploadBodyTooLargeError,
 } from "@/lib/form-data.server";
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = new Set([".pdf", ".epub", ".doc", ".docx", ".txt"]);
+const MAX_FILE_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_FILE_BYTES", 25 * 1024 * 1024);
+const MAX_REQUEST_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_TOTAL_BYTES", 50 * 1024 * 1024);
+const MAX_FILES = 10;
 const CATEGORIES = new Set(["novel", "business_plan", "article"]);
 
 function isCategory(value: string): value is "novel" | "business_plan" | "article" {
@@ -67,22 +74,18 @@ export const Route = createFileRoute("/api/library")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let destination: string | undefined;
+        const storedKeys: string[] = [];
         try {
           requireSameOrigin(request);
           await requireLibraryAdmin();
-          const form = await parseMultipartFormData(request, MAX_FILE_BYTES + 64 * 1024);
-          const title = String(form.get("title") ?? "").trim();
+          const form = await parseMultipartFormData(
+            request,
+            MAX_REQUEST_BYTES + MAX_FILES * 64 * 1024,
+          );
+          const titlePrefix = String(form.get("title") ?? "").trim();
           const description = String(form.get("description") ?? "").trim();
           const category = String(form.get("category") ?? "");
           const price = Number(form.get("price") ?? 0);
-          const file = form.get("file");
-          if (title.length < 2 || title.length > 200) {
-            return Response.json(
-              { error: "Title must be between 2 and 200 characters." },
-              { status: 400 },
-            );
-          }
           if (description.length > 2000) {
             return Response.json(
               { error: "Description must be 2,000 characters or fewer." },
@@ -98,44 +101,129 @@ export const Route = createFileRoute("/api/library")({
               { status: 400 },
             );
           }
-          if (!(file instanceof File) || file.size === 0 || file.size > MAX_FILE_BYTES) {
-            return Response.json({ error: "Choose a file up to 25 MB." }, { status: 413 });
+          const files = form
+            .getAll("files")
+            .filter((entry): entry is File => entry instanceof NodeFile);
+          if (!files.length) {
+            const legacyFile = form.get("file");
+            if (legacyFile instanceof NodeFile) files.push(legacyFile);
           }
-          const extension = path.extname(file.name).toLowerCase();
-          if (!ALLOWED_EXTENSIONS.has(extension)) {
-            return Response.json(
-              { error: "Only PDF, EPUB, Word, and plain-text files are supported." },
-              { status: 400 },
-            );
+          if (!files.length || files.length > MAX_FILES) {
+            return Response.json({ error: `Choose between 1 and ${MAX_FILES} documents.` }, { status: 400 });
           }
-          const content = Buffer.from(await file.arrayBuffer());
-          if (!hasSupportedLibraryFileSignature(extension, content)) {
+          if (
+            files.some((file) => file.size === 0 || file.size > MAX_FILE_BYTES) ||
+            files.reduce((total, file) => total + file.size, 0) > MAX_REQUEST_BYTES
+          ) {
             return Response.json(
-              { error: "The file contents do not match the selected document type." },
-              { status: 400 },
+              {
+                error: `Each document must be non-empty and no larger than ${Math.floor(MAX_FILE_BYTES / (1024 * 1024))} MB; the total upload limit is ${Math.floor(MAX_REQUEST_BYTES / (1024 * 1024))} MB.`,
+              },
+              { status: 413 },
             );
           }
 
-          const storageKey = crypto.randomUUID();
-          const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "download";
-          destination = getPrivateFilePath(storageKey, "library");
-          await mkdir(path.dirname(destination), { recursive: true });
-          await writeFile(destination, content, {
-            flag: "wx",
-            mode: 0o600,
-          });
-          await createLibraryResource({
-            title,
-            description,
-            category,
-            price,
-            storageKey,
-            name: safeName,
+          const documents: Array<{
+            title: string;
+            description: string;
+            category: "novel" | "business_plan" | "article";
+            price: number;
+            storageKey: string;
+            name: string;
+            mimeType: string;
+            size: number;
+            content: Buffer;
+          }> = [];
+          for (const file of files) {
+            const content = Buffer.from(await file.arrayBuffer());
+            const validation = validateDocumentFile(file.name, file.type, content);
+            if ("error" in validation) {
+              return Response.json({ error: validation.error }, { status: 400 });
+            }
+            const originalName =
+              file.name.replace(/[\\/\x00-\x1f\x7f]/g, "_").slice(0, 255) || "document";
+            const filenameTitle = path.parse(originalName).name.trim() || "Document";
+            const title =
+              files.length === 1
+                ? titlePrefix || filenameTitle
+                : titlePrefix
+                  ? `${titlePrefix} - ${filenameTitle}`
+                  : filenameTitle;
+            if (title.length < 2 || title.length > 200) {
+              return Response.json(
+                { error: "Document titles must be between 2 and 200 characters." },
+                { status: 400 },
+              );
+            }
+            documents.push({
+              title,
+              description,
+              category,
+              price,
+              storageKey: crypto.randomUUID(),
+              name: originalName,
+              mimeType: validation.mimeType,
+              size: file.size,
+              content,
+            });
+          }
+
+          try {
+            for (const document of documents) {
+              await writePrivateFile(document.storageKey, document.content, "library");
+              storedKeys.push(document.storageKey);
+            }
+            await createLibraryResources(
+              documents.map(({ content: _content, ...metadata }) => metadata),
+            );
+          } catch (error) {
+            await Promise.allSettled(storedKeys.map((key) => deletePrivateFile(key, "library")));
+            throw error;
+          }
+          return Response.json({ success: true, uploaded: documents.length }, { status: 201 });
+        } catch (error) {
+          return errorResponse(error);
+        }
+      },
+      PUT: async ({ request }) => {
+        let newStorageKey: string | undefined;
+        try {
+          requireSameOrigin(request);
+          await requireLibraryAdmin();
+          const form = await parseMultipartFormData(request, MAX_FILE_BYTES + 64 * 1024);
+          const id = String(form.get("id") ?? "");
+          const file = form.get("file");
+          if (!/^[0-9a-f-]{36}$/i.test(id)) {
+            return Response.json({ error: "Invalid resource." }, { status: 400 });
+          }
+          if (!(file instanceof NodeFile) || file.size === 0 || file.size > MAX_FILE_BYTES) {
+            return Response.json({ error: "Choose a non-empty document within the file-size limit." }, { status: 413 });
+          }
+          const content = Buffer.from(await file.arrayBuffer());
+          const validation = validateDocumentFile(file.name, file.type, content);
+          if ("error" in validation) return Response.json({ error: validation.error }, { status: 400 });
+          const originalName = file.name.replace(/[\\/\x00-\x1f\x7f]/g, "_").slice(0, 255) || "document";
+          newStorageKey = crypto.randomUUID();
+          await writePrivateFile(newStorageKey, content, "library");
+          const result = await replaceLibraryResourceFile(id, {
+            storageKey: newStorageKey,
+            name: originalName,
+            mimeType: validation.mimeType,
             size: file.size,
           });
-          return Response.json({ success: true }, { status: 201 });
+          if (!result) {
+            await deletePrivateFile(newStorageKey, "library");
+            return Response.json({ error: "Resource not found." }, { status: 404 });
+          }
+          await deletePrivateFile(result.previousStorageKey, "library").catch((error: unknown) =>
+            console.error("Replaced library file cleanup failed.", {
+              code: getDatabaseErrorCode(error),
+              errorName: error instanceof Error ? error.name : "unknown",
+            }),
+          );
+          return Response.json({ success: true });
         } catch (error) {
-          if (destination) await rm(destination, { force: true });
+          if (newStorageKey) await deletePrivateFile(newStorageKey, "library").catch(() => {});
           return errorResponse(error);
         }
       },
@@ -148,7 +236,7 @@ export const Route = createFileRoute("/api/library")({
           }
           const resource = await deleteLibraryResource(id);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
-          await rm(getPrivateFilePath(resource.storageKey, "library"), { force: true });
+          await deletePrivateFile(resource.storageKey, "library");
           return Response.json({ success: true });
         } catch (error) {
           return errorResponse(error);
@@ -206,13 +294,16 @@ export const Route = createFileRoute("/api/library")({
           }
           const resource = await getLibraryResourceForDownload(id);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
-          const content = await readFile(getPrivateFilePath(resource.storageKey, "library"));
+          const content = await readPrivateFile(resource.storageKey, "library");
           const asciiName = resource.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
+          const preview =
+            new URL(request.url).searchParams.get("preview") === "1" &&
+            resource.mimeType === "application/pdf";
           return new Response(content, {
             headers: {
-              "content-type": "application/octet-stream",
+              "content-type": resource.mimeType || getDocumentMimeType(path.extname(resource.name)) || "application/octet-stream",
               "content-length": String(content.byteLength),
-              "content-disposition": `attachment; filename="${asciiName}"`,
+              "content-disposition": `${preview ? "inline" : "attachment"}; filename="${asciiName}"`,
               "cache-control": "private, no-store",
               "x-content-type-options": "nosniff",
             },

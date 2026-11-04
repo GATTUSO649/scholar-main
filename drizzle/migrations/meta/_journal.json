@@ -43,6 +43,13 @@
       "when": 1793800673858,
       "tag": "0005_ordinary_lila_cheney",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793831914808,
+      "tag": "0006_boring_demogoblin",
+      "breakpoints": true
     }
   ]
 }

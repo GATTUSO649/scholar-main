@@ -6,12 +6,11 @@ import { ArrowLeft, Mail, Phone, Save, Upload, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { getAdminStudentFn, updateRequestFn } from "@/lib/backend";
 import { AdminGate } from "@/components/AdminGate";
 import { RequestSummary, useRequest } from "@/components/RequestDetail";
 import { PayBadge, StatusBadge } from "@/components/StatusBadge";
-import { ALL_STATUSES, STATUS_LABEL, type PaymentStatus, type RequestStatus } from "@/lib/status";
+import { ALL_STATUSES, STATUS_LABEL, type RequestStatus } from "@/lib/status";
 import { fmtDate, money, uploadFiles } from "@/lib/requests";
 
 export const Route = createFileRoute("/_authenticated/manage/$id")({
@@ -96,17 +95,6 @@ function Manage() {
       toast.error("Enter a valid non-negative quote.");
       return;
     }
-    const note = String(formData.get("note") ?? "")
-      .trim()
-      .slice(0, 2000);
-    const grade =
-      String(formData.get("grade") ?? "")
-        .trim()
-        .slice(0, 20) || null;
-    const admin_feedback =
-      String(formData.get("admin_feedback") ?? "")
-        .trim()
-        .slice(0, 4000) || null;
     setBusy(true);
     try {
       const hasDeliveryFiles = files.length > 0;
@@ -121,18 +109,16 @@ function Manage() {
           status: hasDeliveryFiles ? "completed" : status,
           price,
           currency: String(formData.get("currency")) as "USD" | "KES" | "GBP" | "EUR",
-          admin_notes: String(formData.get("admin_notes") ?? ""),
-          grade,
-          admin_feedback,
-          note: note || null,
+          admin_notes: r.admin_notes ?? "",
+          grade: r.grade ?? null,
+          admin_feedback: r.admin_feedback ?? null,
+          note: null,
         },
       });
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["request", id] }),
         qc.invalidateQueries({ queryKey: ["admin-requests"] }),
       ]);
-      const noteField = form.querySelector<HTMLTextAreaElement>("#note");
-      if (noteField) noteField.value = "";
       toast.success("Request updated successfully.");
     } catch (saveError) {
       toast.error(saveError instanceof Error ? saveError.message : "Could not update the request.");
@@ -302,55 +288,6 @@ function Manage() {
                   </p>
                 </div>
               </div>
-              <p className="rounded-md bg-[#f7faf8] px-3 py-2 text-sm text-[#60746b]">
-                Payment status updates automatically after M-PESA verifies the transaction.
-              </p>
-              <div className="border-t pt-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Feedback & delivery
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="grade">Grade / result</Label>
-                <Input
-                  id="grade"
-                  name="grade"
-                  maxLength={20}
-                  placeholder="e.g. A, 78/100"
-                  defaultValue={r.grade ?? ""}
-                  className="mt-1.5 h-10 rounded-md"
-                />
-              </div>
-              <div>
-                <Label htmlFor="admin_feedback">Feedback to student</Label>
-                <Textarea
-                  id="admin_feedback"
-                  name="admin_feedback"
-                  rows={3}
-                  defaultValue={r.admin_feedback ?? ""}
-                  className="mt-1.5 resize-y rounded-md"
-                />
-              </div>
-              <div>
-                <Label htmlFor="note">Student update message</Label>
-                <Textarea
-                  id="note"
-                  name="note"
-                  rows={2}
-                  placeholder="Optional message included in the request timeline"
-                  className="mt-1.5 resize-y rounded-md"
-                />
-              </div>
-              <div>
-                <Label htmlFor="admin_notes">Internal notes</Label>
-                <Textarea
-                  id="admin_notes"
-                  name="admin_notes"
-                  rows={2}
-                  defaultValue={r.admin_notes ?? ""}
-                  className="mt-1.5 resize-y rounded-md"
-                />
-              </div>
               <div>
                 <Label htmlFor="delivery-files">Completed work files</Label>
                 <label
@@ -365,13 +302,14 @@ function Manage() {
                       {files.length ? `${files.length} file(s) selected` : "Choose delivery files"}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      Uploading marks the request complete and notifies the student
+                      PDF, Word, Excel, PowerPoint, or text files; uploading marks the request complete
                     </span>
                   </span>
                   <input
                     id="delivery-files"
                     type="file"
                     multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                     className="sr-only"
                     onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
                   />

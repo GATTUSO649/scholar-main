@@ -83,7 +83,7 @@ function Detail() {
             <div>
               <h2 className="font-semibold">Add files to this request</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Upload up to 10 files, 20 MB each, with a 50 MB total limit.
+                PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, or TXT. Up to 10 files, 20 MB each, and 50 MB total.
               </p>
             </div>
             <Button type="button" onClick={addAttachments} disabled={uploading || !files.length}>
@@ -101,6 +101,7 @@ function Detail() {
               id="request-attachments"
               type="file"
               multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
               className="sr-only"
               onChange={(event) => {
                 setFiles([...files, ...Array.from(event.currentTarget.files ?? [])]);

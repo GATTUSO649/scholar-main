@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Building2, Landmark, Save, ShieldCheck } from "lucide-react";
+import { Building2, Landmark, Save } from "lucide-react";
 import { AdminGate } from "@/components/AdminGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,19 +127,6 @@ function BusinessSettingsPage() {
                   Digits only. This Till is used as both BusinessShortCode and PartyB.
                 </p>
               </div>
-            </div>
-          </section>
-
-          <section className="flex items-start gap-3 border border-[#dce8df] bg-[#f5faf6] px-4 py-4">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#297351]" />
-            <div>
-              <h2 className="text-sm font-semibold text-[#24473b]">Credential security</h2>
-              <p className="mt-1 text-sm leading-6 text-[#61746a]">
-                Daraja consumer key, consumer secret, and passkey remain in the hosting provider's
-                environment variables. The passkey and production app must be provisioned for this
-                Till. New checkouts use this setting; existing transactions retain their original
-                Till for verification.
-              </p>
             </div>
           </section>
 

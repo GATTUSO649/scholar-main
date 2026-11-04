@@ -1,6 +1,5 @@
+import { File as NodeFile } from "node:buffer";
 import { createFileRoute } from "@tanstack/react-router";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 import {
   getAuthorizedFile,
   authorizedUploadTarget,
@@ -10,7 +9,13 @@ import {
   getDatabaseErrorCode,
   notifyAdminsOfStudentUpload,
 } from "@/lib/backend.server";
-import { getPrivateFilePath } from "@/lib/file-storage.server";
+import {
+  deletePrivateFile,
+  getConfiguredFileLimit,
+  readPrivateFile,
+  writePrivateFile,
+} from "@/lib/file-storage.server";
+import { validateDocumentFile } from "@/lib/file-signature.server";
 import { requireSameOrigin } from "@/lib/backend";
 import {
   InvalidUploadBodyError,
@@ -18,8 +23,8 @@ import {
   UploadBodyTooLargeError,
 } from "@/lib/form-data.server";
 
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
-const MAX_REQUEST_BYTES = 50 * 1024 * 1024;
+const MAX_FILE_BYTES = getConfiguredFileLimit("REQUEST_MAX_FILE_BYTES", 20 * 1024 * 1024);
+const MAX_REQUEST_BYTES = getConfiguredFileLimit("REQUEST_MAX_TOTAL_BYTES", 50 * 1024 * 1024);
 const RETRYABLE_DATABASE_CONNECTION_CODES = new Set([
   "ECONNRESET",
   "ECONNREFUSED",
@@ -101,7 +106,7 @@ export const Route = createFileRoute("/api/files")({
           stage = "upload validation";
           const files = form
             .getAll("files")
-            .filter((entry): entry is File => entry instanceof File);
+            .filter((entry): entry is File => entry instanceof NodeFile);
           if (!files.length || files.length > 10) {
             return Response.json({ error: "Choose between 1 and 10 files." }, { status: 400 });
           }
@@ -115,18 +120,26 @@ export const Route = createFileRoute("/api/files")({
             );
           }
 
+          const preparedFiles = await Promise.all(
+            files.map(async (file) => {
+              const content = Buffer.from(await file.arrayBuffer());
+              const validation = validateDocumentFile(file.name, file.type, content);
+              return { file, content, validation };
+            }),
+          );
+          const invalidFile = preparedFiles.find(({ validation }) => "error" in validation);
+          if (invalidFile && "error" in invalidFile.validation) {
+            return Response.json({ error: invalidFile.validation.error }, { status: 400 });
+          }
+
           const uploaded: string[] = [];
           try {
-            for (const file of files) {
+            for (const { file, content, validation } of preparedFiles) {
+              if (!("mimeType" in validation)) throw new Error("Document validation failed.");
               const storageKey = crypto.randomUUID();
               const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "file";
               stage = "private storage write";
-              const destination = getPrivateFilePath(storageKey);
-              await mkdir(path.dirname(destination), { recursive: true });
-              await writeFile(destination, Buffer.from(await file.arrayBuffer()), {
-                flag: "wx",
-                mode: 0o600,
-              });
+              await writePrivateFile(storageKey, content);
               uploaded.push(storageKey);
               stage = "file metadata insert";
               await retryTransientDatabaseOperation(stage, () =>
@@ -135,7 +148,7 @@ export const Route = createFileRoute("/api/files")({
                   uploadedBy: userId,
                   storageKey,
                   name: safeName,
-                  mimeType: file.type.slice(0, 120) || "application/octet-stream",
+                  mimeType: validation.mimeType,
                   size: file.size,
                   kind,
                 }),
@@ -157,10 +170,7 @@ export const Route = createFileRoute("/api/files")({
             }
           } catch (error) {
             const cleanupResults = await Promise.allSettled(
-              uploaded.flatMap((key) => [
-                rm(getPrivateFilePath(key), { force: true }),
-                deleteRequestFile(key),
-              ]),
+              uploaded.flatMap((key) => [deletePrivateFile(key), deleteRequestFile(key)]),
             );
             const cleanupFailures = cleanupResults.flatMap((result) =>
               result.status === "rejected"
@@ -187,7 +197,7 @@ export const Route = createFileRoute("/api/files")({
           const file = await retryTransientDatabaseOperation(stage, () => getAuthorizedFile(key));
           if (!file) return Response.json({ error: "File not found." }, { status: 404 });
           stage = "private storage read";
-          const content = await readFile(getPrivateFilePath(file.storageKey));
+          const content = await readPrivateFile(file.storageKey);
           const asciiName = file.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           return new Response(content, {
             headers: {

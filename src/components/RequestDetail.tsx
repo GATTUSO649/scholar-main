@@ -29,10 +29,10 @@ export function RequestSummary({
       {!compact && (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="break-words text-sm text-muted-foreground">
+            <p className="wrap-break-word text-sm text-muted-foreground">
               {r.ref} · {r.services?.name}
             </p>
-            <h1 className="mt-1 break-words text-3xl font-semibold">{r.title}</h1>
+            <h1 className="mt-1 wrap-break-word text-3xl font-semibold">{r.title}</h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={r.status} />
@@ -87,36 +87,16 @@ export function RequestSummary({
         ].map(([k, v]) => (
           <div key={k as string} className="min-w-0">
             <p className="text-xs text-muted-foreground">{k}</p>
-            <p className="break-words font-medium">{v ?? "—"}</p>
+            <p className="wrap-break-word font-medium">{v ?? "—"}</p>
           </div>
         ))}
         <div className="sm:col-span-3">
           <p className="text-xs text-muted-foreground">Description</p>
-          <p className="mt-1 break-words whitespace-pre-wrap">{r.description}</p>
+          <p className="mt-1 wrap-break-word whitespace-pre-wrap">{r.description}</p>
         </div>
       </div>
 
-      {(r.grade || r.admin_feedback) && (
-        <div className="rounded-2xl border bg-white p-5 text-sm shadow-[0_8px_32px_-24px_rgba(23,38,60,0.35)]">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Grade & feedback</h2>
-            {r.grade && (
-              <span className="rounded-full bg-accent px-3 py-1 text-sm font-bold text-accent-foreground">
-                {r.grade}
-              </span>
-            )}
-          </div>
-          {r.admin_feedback && <p className="mt-3 whitespace-pre-wrap">{r.admin_feedback}</p>}
-          {r.graded_at && (
-            <p className="mt-2 text-xs text-muted-foreground">Graded {fmtDate(r.graded_at)}</p>
-          )}
-        </div>
-      )}
-
-      <div
-        className={`grid items-start gap-6 ${compact ? "md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]" : "lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)]"}`}
-      >
-        <section className="order-2 min-w-0">
+      <section className="min-w-0">
           <h2 className="text-lg font-semibold">Files & deliverables</h2>
           <ul className="mt-3 space-y-2">
             {data.files.length === 0 && (
@@ -141,32 +121,7 @@ export function RequestSummary({
               </li>
             ))}
           </ul>
-        </section>
-        <section className="order-1 min-w-0 rounded-2xl border border-[#263a57] bg-[#17263c] p-4 text-white sm:p-5">
-          <h2 className="text-lg font-semibold">Updates</h2>
-          <ul className="mt-3 space-y-3">
-            {data.updates.length === 0 && (
-              <li className="text-sm text-white/60">
-                No updates yet — we'll post here as your request moves along.
-              </li>
-            )}
-            {data.updates.map((u) => (
-              <li
-                key={u.id}
-                className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  {u.status ? <StatusBadge status={u.status} /> : <span />}
-                  <span className="shrink-0 text-xs text-white/55">
-                    {new Date(u.created_at).toLocaleString()}
-                  </span>
-                </div>
-                {u.note && <p className="mt-2 break-words whitespace-pre-wrap">{u.note}</p>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+      </section>
     </div>
   );
 }

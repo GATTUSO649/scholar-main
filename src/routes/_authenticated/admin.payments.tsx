@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Printer, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAdminMpesaPurchasesFn, getAdminServiceRequestPaymentsFn } from "@/lib/backend";
@@ -22,6 +22,22 @@ const statusLabels = {
   refunded: "Refunded",
 } as const;
 type PaymentFilter = "all" | "pending" | "paid" | "failed" | "cancelled";
+type ReceiptPayment = {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  phoneNumber: string;
+  accountReference: string | null;
+  receiptNumber: string | null;
+  checkoutRequestId: string | null;
+  transactionTimestamp: Date | string | null;
+  createdAt: Date | string;
+  paidAt: Date | string | null;
+  resourceTitle: string;
+  studentName: string | null;
+  requestRef?: string | null;
+};
 
 function formatDate(value: Date | string | null) {
   return value ? new Date(value).toLocaleString() : "Not confirmed";
@@ -33,6 +49,7 @@ function AdminPaymentsPage() {
   const [ledger, setLedger] = useState<"library" | "requests">("requests");
   const [status, setStatus] = useState<PaymentFilter>("all");
   const [offset, setOffset] = useState(0);
+  const [receiptToPrint, setReceiptToPrint] = useState<ReceiptPayment | null>(null);
   const libraryQuery = useQuery({
     queryKey: ["admin-mpesa-payments", search, status, offset],
     queryFn: () => getAdminMpesaPurchasesFn({ data: { search, status, offset } }),
@@ -49,6 +66,17 @@ function AdminPaymentsPage() {
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  useEffect(() => {
+    if (!receiptToPrint) return;
+    const clearReceipt = () => setReceiptToPrint(null);
+    const printTimer = window.setTimeout(() => window.print(), 100);
+    window.addEventListener("afterprint", clearReceipt, { once: true });
+    return () => {
+      window.clearTimeout(printTimer);
+      window.removeEventListener("afterprint", clearReceipt);
+    };
+  }, [receiptToPrint]);
+
   function applySearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSearch(queryInput.trim());
@@ -61,7 +89,8 @@ function AdminPaymentsPage() {
   }
 
   return (
-    <div className="space-y-7">
+    <>
+    <div className={receiptToPrint ? "hidden print:hidden" : "space-y-7"}>
       <header className="border-b border-[#dfe8e3] pb-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b8177]">
           Student service desk <span className="px-1 text-[#bd8a48]">/</span> Finance
@@ -250,7 +279,20 @@ function AdminPaymentsPage() {
                       ) : null}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-[#31574b]">
-                      {payment.receiptNumber ?? "—"}
+                      <div className="flex items-center gap-2">
+                        <span>{payment.receiptNumber ?? "—"}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label={`Print receipt ${payment.receiptNumber ?? "unconfirmed payment"}`}
+                          title="Print verified receipt"
+                          disabled={payment.status !== "paid" || !payment.receiptNumber}
+                          onClick={() => setReceiptToPrint(payment)}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-[#61746a]">
                       {formatDate(
@@ -302,5 +344,61 @@ function AdminPaymentsPage() {
         </footer>
       </section>
     </div>
+    {receiptToPrint && (
+      <article className="receipt-print hidden print:block">
+        <header className="border-b-2 border-black pb-5">
+          <p className="text-xs font-semibold uppercase">ScholarDesk · Payment receipt</p>
+          <h1 className="mt-4 text-3xl font-bold">M-PESA payment receipt</h1>
+          <p className="mt-2 text-sm">Receipt number</p>
+          <p className="mt-1 font-mono text-3xl font-bold">{receiptToPrint.receiptNumber}</p>
+        </header>
+        <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+          <div>
+            <dt className="text-xs text-gray-600">Payment status</dt>
+            <dd className="mt-1 font-semibold">Successful · Verified</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-600">Amount paid</dt>
+            <dd className="mt-1 font-semibold">
+              {money(Number(receiptToPrint.amount), receiptToPrint.currency)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-600">Payer</dt>
+            <dd className="mt-1 font-semibold">{receiptToPrint.studentName ?? "Student"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-600">M-PESA phone</dt>
+            <dd className="mt-1 font-semibold">{receiptToPrint.phoneNumber}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-600">For</dt>
+            <dd className="mt-1 font-semibold">{receiptToPrint.resourceTitle}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-600">Request reference</dt>
+            <dd className="mt-1 font-semibold">
+              {receiptToPrint.requestRef ?? receiptToPrint.accountReference ?? "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-600">Transaction date</dt>
+            <dd className="mt-1 font-semibold">
+              {formatDate(receiptToPrint.transactionTimestamp ?? receiptToPrint.paidAt ?? receiptToPrint.createdAt)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-gray-600">Checkout reference</dt>
+            <dd className="mt-1 break-all font-mono text-xs">
+              {receiptToPrint.checkoutRequestId ?? "—"}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-8 border-t pt-4 text-xs text-gray-600">
+          This receipt reflects a payment verified from the M-PESA transaction record.
+        </p>
+      </article>
+    )}
+    </>
   );
 }

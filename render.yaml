@@ -43,6 +43,14 @@ services:
         sync: false
       - key: FILE_STORAGE_DIR
         value: /var/data/uploads
+      - key: REQUEST_MAX_FILE_BYTES
+        value: "20971520"
+      - key: REQUEST_MAX_TOTAL_BYTES
+        value: "52428800"
+      - key: DOCUMENT_MAX_FILE_BYTES
+        value: "26214400"
+      - key: DOCUMENT_MAX_TOTAL_BYTES
+        value: "52428800"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

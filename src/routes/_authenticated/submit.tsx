@@ -211,13 +211,14 @@ function Submit() {
         </div>
         {uploadsAllowed && (
           <div className="sm:col-span-2">
-            <Label>Files (PDF, Word, images — up to 20MB each)</Label>
+            <Label>Documents (PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT; up to 20 MB each)</Label>
             <label className="mt-1.5 flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-muted-foreground hover:bg-muted">
               <Upload className="h-6 w-6" />
               <span className="mt-2">Tap to choose files</span>
               <input
                 type="file"
                 multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                 className="hidden"
                 onChange={(e) => {
                   setFiles([...files, ...Array.from(e.target.files ?? [])]);
