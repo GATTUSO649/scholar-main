@@ -151,6 +151,22 @@ describe("private request file uploads", () => {
     expect(mocks.addRequestFile).not.toHaveBeenCalled();
   });
 
+  it("surfaces a storage configuration error instead of masking it as a generic failure", async () => {
+    mocks.parseMultipartFormData.mockImplementationOnce(async () => uploadForm([new TestUploadFile()]));
+    mocks.authorizedUploadTarget.mockResolvedValueOnce({ userId: "student-id" });
+    const writeError = new Error("FILE_STORAGE_DIR must be an absolute path to persistent private storage.");
+    vi.spyOn(await import("@/lib/file-storage.server"), "writePrivateFile").mockRejectedValueOnce(writeError);
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "FILE_STORAGE_DIR must be an absolute path to persistent private storage.",
+    });
+  });
+
   it("streams an authorized stored file as a private attachment", async () => {
     const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
     const filePath = getPrivateFilePath(storageKey);

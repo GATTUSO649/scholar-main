@@ -20,30 +20,31 @@ const fileKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
 const filesOfSize = (...sizes: number[]) =>
   sizes.map((size) => ({ size, name: "upload.pdf", type: "application/pdf" }) as File);
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  await rm(path.resolve(process.cwd(), "data", "uploads"), { recursive: true, force: true });
 });
 
 describe("private file storage", () => {
-  it("resolves request and library files under the configured root", () => {
-    const root = path.join("private", "uploads");
+  it("resolves request and library files under the fixed local upload root", () => {
+    const root = path.resolve(process.cwd(), "data", "uploads");
     vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv("FILE_STORAGE_DIR", root);
+    vi.stubEnv("FILE_STORAGE_DIR", path.join("private", "uploads"));
 
-    expect(getPrivateFilePath(fileKey)).toBe(path.join(path.resolve(root), "1d", fileKey));
-    expect(getPrivateFilePath(fileKey, "library")).toBe(
-      path.join(path.resolve(root), "library", "1d", fileKey),
-    );
+    expect(getPrivateFilePath(fileKey)).toBe(path.join(root, "1d", fileKey));
+    expect(getPrivateFilePath(fileKey, "library")).toBe(path.join(root, "library", "1d", fileKey));
   });
 
-  it("rejects invalid keys and missing production storage configuration", () => {
+  it("rejects invalid keys and defaults to the local uploads directory in production", () => {
     vi.stubEnv("NODE_ENV", "test");
     expect(() => getPrivateFilePath("../private-file")).toThrow("Invalid file key.");
 
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("FILE_STORAGE_DIR", "");
-    expect(() => getPrivateFilePath(fileKey)).toThrow("FILE_STORAGE_DIR");
+    expect(getPrivateFilePath(fileKey)).toBe(
+      path.join(path.resolve(process.cwd(), "data", "uploads"), "1d", fileKey),
+    );
   });
 
   it("keeps stored bytes readable after a server-module reload", async () => {
@@ -63,36 +64,36 @@ describe("private file storage", () => {
     }
   });
 
-  it("copies legacy upload files into the configured root without overwriting existing files", async () => {
+  it("copies legacy upload files into the fixed local root without overwriting existing files", async () => {
     const legacyRoot = await mkdtemp(path.join(tmpdir(), "scholardesk-legacy-files-"));
     const destinationRoot = await mkdtemp(path.join(tmpdir(), "scholardesk-migrated-files-"));
     vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv("FILE_STORAGE_DIR", destinationRoot);
+    vi.stubEnv("FILE_STORAGE_DIR", path.join("private", "uploads"));
 
     try {
       const legacyKey = fileKey;
       const libraryKey = "4f2a9b6c-1d2b-4d5f-b6d2-2f9f5d1f1122";
       const legacyRequestPath = path.join(legacyRoot, "1d", legacyKey);
       const legacyLibraryPath = path.join(legacyRoot, "library", "4f", libraryKey);
+      const destinationRequestPath = path.join(destinationRoot, "1d", legacyKey);
 
       await mkdir(path.dirname(legacyRequestPath), { recursive: true });
       await mkdir(path.dirname(legacyLibraryPath), { recursive: true });
       await writeFile(legacyRequestPath, "legacy request payload");
       await writeFile(legacyLibraryPath, "legacy library payload");
-      await writePrivateFile(legacyKey, Buffer.from("existing request payload"));
+      await mkdir(path.dirname(destinationRequestPath), { recursive: true });
+      await writeFile(destinationRequestPath, "existing request payload");
 
-      await expect(migrateLegacyPrivateFiles(legacyRoot)).resolves.toMatchObject({
+      await expect(migrateLegacyPrivateFiles(legacyRoot, destinationRoot)).resolves.toMatchObject({
         copied: 1,
         skipped: 1,
         scanned: 2,
       });
 
-      await expect(readFile(path.join(destinationRoot, "1d", legacyKey), "utf8")).resolves.toBe(
-        "existing request payload",
-      );
-      await expect(readFile(path.join(destinationRoot, "library", "4f", libraryKey), "utf8")).resolves.toBe(
-        "legacy library payload",
-      );
+      await expect(readFile(destinationRequestPath, "utf8")).resolves.toBe("existing request payload");
+      await expect(
+        readFile(path.join(destinationRoot, "library", "4f", libraryKey), "utf8"),
+      ).resolves.toBe("legacy library payload");
     } finally {
       await rm(legacyRoot, { recursive: true, force: true });
       await rm(destinationRoot, { recursive: true, force: true });

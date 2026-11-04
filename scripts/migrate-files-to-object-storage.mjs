@@ -3,15 +3,10 @@
 import path from "node:path";
 import { migrateLegacyPrivateFiles } from "../src/lib/file-storage.server.ts";
 
-const configuredRoot = process.env["FILE_STORAGE_DIR"]?.trim();
-if (!configuredRoot || !path.isAbsolute(configuredRoot)) {
-  throw new Error(
-    "Set FILE_STORAGE_DIR to an absolute path for the persistent private upload storage before running this migration.",
-  );
-}
+const destinationRoot = path.resolve(process.cwd(), "data", "uploads");
 
 const legacyRoot = path.resolve(process.cwd(), "data", "uploads");
-const result = await migrateLegacyPrivateFiles(legacyRoot, configuredRoot);
+const result = await migrateLegacyPrivateFiles(legacyRoot, destinationRoot);
 
 console.log(`Legacy upload scan complete: ${result.scanned} file(s) found in ${result.sourceRoot}.`);
 if (result.copied > 0) {

@@ -75,9 +75,7 @@ function errorResponse(error: unknown, stage: string) {
   }
   const responseMessage = missingStorageFile
     ? "File is unavailable. Please contact support to have it restored."
-    : status === 500
-      ? "File operation failed."
-      : message;
+    : message;
   return Response.json({ error: responseMessage }, { status });
 }
 
