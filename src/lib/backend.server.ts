@@ -749,16 +749,14 @@ export async function saveProfile(input: {
 
 export async function getPublicData() {
   const db = getDatabase();
-  const [setting] = await db
-    .select({ showPrices: siteSettings.showPrices })
-    .from(siteSettings)
-    .where(eq(siteSettings.id, 1))
-    .limit(1);
-  const rows = await db
-    .select()
-    .from(services)
-    .where(eq(services.active, true))
-    .orderBy(services.sort);
+  const [[setting], rows] = await Promise.all([
+    db
+      .select({ showPrices: siteSettings.showPrices })
+      .from(siteSettings)
+      .where(eq(siteSettings.id, 1))
+      .limit(1),
+    db.select().from(services).where(eq(services.active, true)).orderBy(services.sort),
+  ]);
   return {
     showPrices: setting?.showPrices ?? true,
     services: rows.map((row) => ({
@@ -787,12 +785,14 @@ const defaultSiteContent = {
 
 export async function getPublicSiteContent() {
   const db = getDatabase();
-  const [settings] = await db.select().from(siteSettings).where(eq(siteSettings.id, 1)).limit(1);
-  const faqs = await db
-    .select({ id: faqEntries.id, question: faqEntries.question, answer: faqEntries.answer })
-    .from(faqEntries)
-    .where(eq(faqEntries.active, true))
-    .orderBy(faqEntries.sort, faqEntries.question);
+  const [[settings], faqs] = await Promise.all([
+    db.select().from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
+    db
+      .select({ id: faqEntries.id, question: faqEntries.question, answer: faqEntries.answer })
+      .from(faqEntries)
+      .where(eq(faqEntries.active, true))
+      .orderBy(faqEntries.sort, faqEntries.question),
+  ]);
 
   return {
     ...defaultSiteContent,

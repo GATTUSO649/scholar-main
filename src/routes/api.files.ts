@@ -21,7 +21,7 @@ import {
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 50 * 1024 * 1024;
 
-function errorResponse(error: unknown) {
+function errorResponse(error: unknown, stage: string) {
   const message = error instanceof Error ? error.message : "File operation failed.";
   const missingStorageFile = error instanceof Error && "code" in error && error.code === "ENOENT";
   let status: number;
@@ -36,10 +36,11 @@ function errorResponse(error: unknown) {
     status = 400;
   } else status = 500;
   if (status === 500) {
-    console.error(
-      "File operation failed.",
-      getDatabaseErrorCode(error) ?? (error instanceof Error ? error.name : "unknown error"),
-    );
+    console.error("File operation failed.", {
+      stage,
+      code: getDatabaseErrorCode(error),
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
   }
   const responseMessage = missingStorageFile
     ? "File is unavailable. Please contact support to have it restored."
@@ -53,8 +54,10 @@ export const Route = createFileRoute("/api/files")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        let stage = "origin validation";
         try {
           requireSameOrigin(request);
+          stage = "multipart parsing";
           const form = await parseMultipartFormData(request, MAX_REQUEST_BYTES);
           const requestId = String(form.get("request_id") ?? "");
           const kind = String(form.get("kind") ?? "");
@@ -93,6 +96,8 @@ export const Route = createFileRoute("/api/files")({
                 mode: 0o600,
               });
               uploaded.push(storageKey);
+              stage = "request authorization";
+              stage = "file metadata insert";
               await addRequestFile({
                 requestId,
                 uploadedBy: userId,
@@ -103,27 +108,41 @@ export const Route = createFileRoute("/api/files")({
                 kind,
               });
             }
+            stage = kind === "delivery" ? "delivery finalization" : "student upload notification";
             if (kind === "delivery") await completeRequestDelivery(requestId);
             else await notifyAdminsOfStudentUpload(requestId);
           } catch (error) {
-            await Promise.all(
+            const cleanupResults = await Promise.allSettled(
               uploaded.flatMap((key) => [
                 rm(getPrivateFilePath(key), { force: true }),
                 deleteRequestFile(key),
               ]),
             );
+            const cleanupFailures = cleanupResults.flatMap((result) =>
+              result.status === "rejected"
+                ? [
+                    getDatabaseErrorCode(result.reason) ??
+                      (result.reason instanceof Error ? result.reason.name : "unknown"),
+                  ]
+                : [],
+            );
+            if (cleanupFailures.length) {
+              console.error("File upload cleanup was incomplete.", { stage, cleanupFailures });
+            }
             throw error;
           }
           return Response.json({ uploaded: uploaded.length }, { status: 201 });
         } catch (error) {
-          return errorResponse(error);
+          return errorResponse(error, stage);
         }
       },
       GET: async ({ request }) => {
+        let stage = "request authorization";
         try {
           const key = new URL(request.url).searchParams.get("key") ?? "";
           const file = await getAuthorizedFile(key);
           if (!file) return Response.json({ error: "File not found." }, { status: 404 });
+          stage = "private storage read";
           const content = await readFile(getPrivateFilePath(file.storageKey));
           const asciiName = file.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           return new Response(content, {
@@ -136,7 +155,7 @@ export const Route = createFileRoute("/api/files")({
             },
           });
         } catch (error) {
-          return errorResponse(error);
+          return errorResponse(error, stage);
         }
       },
     },

@@ -46,6 +46,7 @@ function PriceVisibility() {
     try {
       await setPublicPricesFn({ data: { showPrices: value } });
       qc.setQueryData(["site-settings"], value);
+      await qc.invalidateQueries({ queryKey: ["public-data"] });
       toast.success(value ? "Prices are now visible to visitors" : "Prices hidden from visitors");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update price visibility.");
