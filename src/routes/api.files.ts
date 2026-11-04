@@ -20,6 +20,32 @@ import {
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 50 * 1024 * 1024;
+const RETRYABLE_DATABASE_CONNECTION_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EPIPE",
+  "08000",
+  "08003",
+  "08006",
+  "08001",
+  "57P01",
+]);
+
+async function retryTransientDatabaseOperation<T>(stage: string, operation: () => Promise<T>) {
+  try {
+    return await operation();
+  } catch (error) {
+    const code = getDatabaseErrorCode(error);
+    if (!code || !RETRYABLE_DATABASE_CONNECTION_CODES.has(code)) throw error;
+    console.warn("Retrying file operation after a transient database connection error.", {
+      stage,
+      code,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return operation();
+  }
+}
 
 function errorResponse(error: unknown, stage: string) {
   const message = error instanceof Error ? error.message : "File operation failed.";
@@ -69,7 +95,9 @@ export const Route = createFileRoute("/api/files")({
             return Response.json({ error: "Invalid upload request." }, { status: 400 });
           }
           stage = "request authorization";
-          const { userId } = await authorizedUploadTarget(requestId, kind);
+          const { userId } = await retryTransientDatabaseOperation(stage, () =>
+            authorizedUploadTarget(requestId, kind),
+          );
           stage = "upload validation";
           const files = form
             .getAll("files")
@@ -101,15 +129,17 @@ export const Route = createFileRoute("/api/files")({
               });
               uploaded.push(storageKey);
               stage = "file metadata insert";
-              await addRequestFile({
-                requestId,
-                uploadedBy: userId,
-                storageKey,
-                name: safeName,
-                mimeType: file.type.slice(0, 120) || "application/octet-stream",
-                size: file.size,
-                kind,
-              });
+              await retryTransientDatabaseOperation(stage, () =>
+                addRequestFile({
+                  requestId,
+                  uploadedBy: userId,
+                  storageKey,
+                  name: safeName,
+                  mimeType: file.type.slice(0, 120) || "application/octet-stream",
+                  size: file.size,
+                  kind,
+                }),
+              );
             }
             if (kind === "delivery") {
               stage = "delivery finalization";
@@ -154,7 +184,7 @@ export const Route = createFileRoute("/api/files")({
         let stage = "request authorization";
         try {
           const key = new URL(request.url).searchParams.get("key") ?? "";
-          const file = await getAuthorizedFile(key);
+          const file = await retryTransientDatabaseOperation(stage, () => getAuthorizedFile(key));
           if (!file) return Response.json({ error: "File not found." }, { status: 404 });
           stage = "private storage read";
           const content = await readFile(getPrivateFilePath(file.storageKey));

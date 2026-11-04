@@ -2891,16 +2891,19 @@ export async function addRequestFile(input: {
   size: number;
   kind: "submission" | "delivery";
 }) {
-  await getDatabase().insert(requestFiles).values({
-    id: randomUUID(),
-    requestId: input.requestId,
-    uploadedBy: input.uploadedBy,
-    storageKey: input.storageKey,
-    name: input.name,
-    mimeType: input.mimeType,
-    size: input.size,
-    kind: input.kind,
-  });
+  await getDatabase()
+    .insert(requestFiles)
+    .values({
+      id: randomUUID(),
+      requestId: input.requestId,
+      uploadedBy: input.uploadedBy,
+      storageKey: input.storageKey,
+      name: input.name,
+      mimeType: input.mimeType,
+      size: input.size,
+      kind: input.kind,
+    })
+    .onConflictDoNothing({ target: requestFiles.storageKey });
 }
 
 export async function notifyAdminsOfStudentUpload(requestId: string) {

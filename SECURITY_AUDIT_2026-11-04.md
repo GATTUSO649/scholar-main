@@ -8,7 +8,7 @@ Reviewed authentication/session code, all five direct API route modules, server-
 
 No confirmed authentication bypass, student-to-student IDOR, SQL injection, client-controlled paid state, or M-PESA callback-only payment authorization was found in the inspected paths. PostgreSQL access is server-side through Drizzle; no Supabase browser client or RLS policies were found in the repository. Same-origin checks and TanStack Start CSRF middleware are enabled for mutations.
 
-Confirmed security work included an unbounded JSON body parse in the library metadata PATCH endpoint; this is now bounded locally. The app still has no trusted-IP login throttling, no fine-grained administrator roles, and no RLS policies in tracked migrations. An append-only administrator audit table and event writes have been implemented with an unapplied migration. Supabase grants/Data API exposure, Render DB-role privileges, and production environment state cannot be verified from this workspace.
+Confirmed security work included an unbounded JSON body parse in the library metadata PATCH endpoint; this is now bounded locally. File authorization and idempotent metadata operations also retry once on known transient database connection errors. The app still has no trusted-IP login throttling, no fine-grained administrator roles, and no RLS policies in tracked migrations. An append-only administrator audit table and event writes have been implemented with an unapplied migration. Supabase grants/Data API exposure, Render DB-role privileges, and production environment state cannot be verified from this workspace.
 
 The repository notes and the earlier `.env` attachment establish that credentials have been exposed. Rotate them with their providers; `.env` being ignored now does not undo that exposure or remove historical copies.
 
@@ -44,6 +44,7 @@ The repository notes and the earlier `.env` attachment establish that credential
 
 - Student request/file access derives identity from the opaque server session and filters by request ownership. Admin authorization checks `user_roles` on the server.
 - Paid request delivery requires the owning student's paid status/payment record. Paid library downloads require a matching paid purchase; free resources are intentionally public.
+- Request file authorization and idempotent metadata insertion retry once for a limited set of transient PostgreSQL connection errors; storage writes are not retried. Upload failure logs include only the operation stage, database code, and error name.
 - M-PESA callback fields are bounded and parsed; callback amount, phone, receipt, transaction date, and merchant/checkout IDs are checked against the stored payment. Provider STK Query is authoritative before paid state is written. Payment rows are locked during transitions; purchase starts serialize on the user/request row. Duplicate callbacks do not independently grant access.
 - Zod validators cover server-function inputs; direct JSON payment/callback bodies and multipart bodies have limits. The library upload checks extension and file signatures.
 - SQL calls use Drizzle parameterization; raw SQL found in reviewed code is static/internal or parameterized.
@@ -65,7 +66,7 @@ The repository notes and the earlier `.env` attachment establish that credential
 
 - Current application data access remains PostgreSQL-only with server-side Drizzle. Generated additive migration `0005_ordinary_lila_cheney.sql` creates the audit table, indexes, and append-only trigger; it has not been applied to any database.
 - Existing uncommitted edits before the security review included `src/routes/_authenticated/route.tsx`, `src/routes/api.files.ts`, `src/styles.css`, and an untracked `src/test/file-api.test.ts`. They were preserved and the file API regression fixture was corrected.
-- Additional security files changed in this audit include `drizzle/schema.ts`, `src/lib/backend.server.ts`, `src/routes/api.library.ts`, `src/components/ui/chart.tsx`, `src/lib/chart-style.ts`, `scripts/promote-admin.mjs`, and security regression tests.
+- Additional security files changed in this audit include `drizzle/schema.ts`, `src/lib/backend.server.ts`, `src/routes/api.library.ts`, `src/routes/api.files.ts`, `src/components/ui/chart.tsx`, `src/lib/chart-style.ts`, `scripts/promote-admin.mjs`, and security regression tests.
 - No production configuration, credentials, database rows, or user files were changed.
 
 ## Verification Results
