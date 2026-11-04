@@ -1,4 +1,3 @@
-import { File as NodeFile } from "node:buffer";
 import { createFileRoute } from "@tanstack/react-router";
 import path from "node:path";
 import {
@@ -34,6 +33,10 @@ const CATEGORIES = new Set(["novel", "business_plan", "article"]);
 
 function isCategory(value: string): value is "novel" | "business_plan" | "article" {
   return CATEGORIES.has(value);
+}
+
+function isFileLike(value: unknown): value is File & { arrayBuffer: () => Promise<ArrayBuffer> } {
+  return !!value && typeof value === "object" && "arrayBuffer" in value && typeof value.arrayBuffer === "function" && "size" in value && typeof value.size === "number" && "type" in value && typeof value.type === "string";
 }
 
 function errorResponse(error: unknown) {
@@ -103,10 +106,10 @@ export const Route = createFileRoute("/api/library")({
           }
           const files = form
             .getAll("files")
-            .filter((entry): entry is File => entry instanceof NodeFile);
+            .filter(isFileLike);
           if (!files.length) {
             const legacyFile = form.get("file");
-            if (legacyFile instanceof NodeFile) files.push(legacyFile);
+            if (isFileLike(legacyFile)) files.push(legacyFile);
           }
           if (!files.length || files.length > MAX_FILES) {
             return Response.json({ error: `Choose between 1 and ${MAX_FILES} documents.` }, { status: 400 });
@@ -193,10 +196,7 @@ export const Route = createFileRoute("/api/library")({
           const form = await parseMultipartFormData(request, MAX_FILE_BYTES + 64 * 1024);
           const id = String(form.get("id") ?? "");
           const file = form.get("file");
-          if (!/^[0-9a-f-]{36}$/i.test(id)) {
-            return Response.json({ error: "Invalid resource." }, { status: 400 });
-          }
-          if (!(file instanceof NodeFile) || file.size === 0 || file.size > MAX_FILE_BYTES) {
+          if (!isFileLike(file) || file.size === 0 || file.size > MAX_FILE_BYTES) {
             return Response.json({ error: "Choose a non-empty document within the file-size limit." }, { status: 413 });
           }
           const content = Buffer.from(await file.arrayBuffer());
@@ -231,9 +231,6 @@ export const Route = createFileRoute("/api/library")({
         try {
           requireSameOrigin(request);
           const id = new URL(request.url).searchParams.get("id") ?? "";
-          if (!/^[0-9a-f-]{36}$/i.test(id)) {
-            return Response.json({ error: "Invalid resource." }, { status: 400 });
-          }
           const resource = await deleteLibraryResource(id);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
           await deletePrivateFile(resource.storageKey, "library");
@@ -255,9 +252,6 @@ export const Route = createFileRoute("/api/library")({
             typeof body?.["description"] === "string" ? body["description"].trim() : "";
           const category = typeof body?.["category"] === "string" ? body["category"] : "";
           const price = typeof body?.["price"] === "number" ? body["price"] : Number.NaN;
-          if (!/^[0-9a-f-]{36}$/i.test(id)) {
-            return Response.json({ error: "Invalid resource." }, { status: 400 });
-          }
           if (title.length < 2 || title.length > 200) {
             return Response.json(
               { error: "Title must be between 2 and 200 characters." },
@@ -289,9 +283,6 @@ export const Route = createFileRoute("/api/library")({
       GET: async ({ request }) => {
         try {
           const id = new URL(request.url).searchParams.get("id") ?? "";
-          if (!/^[0-9a-f-]{36}$/i.test(id)) {
-            return Response.json({ error: "Resource not found." }, { status: 404 });
-          }
           const resource = await getLibraryResourceForDownload(id);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
           const content = await readPrivateFile(resource.storageKey, "library");

@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getMpesaDiagnosticCode,
   getMpesaConfig,
+  getVerifiedMpesaCallbackDetails,
   initiateMpesaStkPush,
   mapMpesaResultCodeToPurchaseStatus,
   normalizeMpesaPhoneNumber,
   queryMpesaStkPush,
+  resolveMpesaVerificationResult,
 } from "@/lib/mpesa.server";
 import { hasMpesaPaymentExpired, MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
@@ -275,15 +277,84 @@ describe("M-Pesa checkout result mapping", () => {
   it("marks a successful STK Query result as paid instead of leaving it stuck in processing", () => {
     expect(mapMpesaResultCodeToPurchaseStatus(1032)).toBe("cancelled");
     expect(mapMpesaResultCodeToPurchaseStatus("0")).toBe("paid");
-    expect(mapMpesaResultCodeToPurchaseStatus("0", undefined, false)).toBe("paid");
     expect(mapMpesaResultCodeToPurchaseStatus(1)).toBe("failed");
   });
 
   it("keeps Safaricom processing responses pending instead of reporting failure", () => {
+    expect(mapMpesaResultCodeToPurchaseStatus(1037)).toBe("pending");
     expect(mapMpesaResultCodeToPurchaseStatus("500.001.1001")).toBe("pending");
     expect(mapMpesaResultCodeToPurchaseStatus(1, "The transaction is still under processing")).toBe(
       "pending",
     );
+  });
+
+  it("uses a fully verified success callback when STK Query is missing or still processing", () => {
+    expect(resolveMpesaVerificationResult(null, "ws_CO_test", true)).toMatchObject({
+      CheckoutRequestID: "ws_CO_test",
+      ResultCode: 0,
+    });
+    expect(
+      resolveMpesaVerificationResult(
+        {
+          ResponseCode: 0,
+          CheckoutRequestID: "ws_CO_test",
+          ResultCode: "500.001.1001",
+          ResultDesc: "The transaction is still under processing",
+        },
+        "ws_CO_test",
+        true,
+      ),
+    ).toMatchObject({ ResultCode: 0 });
+  });
+
+  it("does not let a success callback override a final STK Query failure", () => {
+    expect(
+      resolveMpesaVerificationResult(
+        {
+          ResponseCode: "0",
+          CheckoutRequestID: "ws_CO_test",
+          ResultCode: 1,
+          ResultDesc: "Insufficient balance",
+        },
+        "ws_CO_test",
+        true,
+      ),
+    ).toMatchObject({ ResultCode: 1 });
+  });
+
+  it("recovers callback details only when they match the stored payment", () => {
+    const callback = {
+      Body: {
+        stkCallback: {
+          CheckoutRequestID: "ws_CO_test",
+          MerchantRequestID: "merchant-test",
+          ResultCode: 0,
+          CallbackMetadata: {
+            Item: [
+              { Name: "Amount", Value: 500 },
+              { Name: "MpesaReceiptNumber", Value: "QWE1234567" },
+              { Name: "TransactionDate", Value: 20261030120000 },
+              { Name: "PhoneNumber", Value: 254712345678 },
+            ],
+          },
+        },
+      },
+    };
+    const expected = {
+      checkoutRequestId: "ws_CO_test",
+      merchantRequestId: "merchant-test",
+      amount: 500,
+      phoneNumber: "254712345678",
+    };
+
+    expect(getVerifiedMpesaCallbackDetails(callback, expected)).toMatchObject({
+      receiptNumber: "QWE1234567",
+      transactionTimestamp: new Date("2026-10-30T09:00:00.000Z"),
+    });
+    expect(getVerifiedMpesaCallbackDetails(callback, { ...expected, amount: 501 })).toBeNull();
+    expect(
+      getVerifiedMpesaCallbackDetails(callback, { ...expected, phoneNumber: "254700000000" }),
+    ).toBeNull();
   });
 });
 

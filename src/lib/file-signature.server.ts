@@ -94,6 +94,19 @@ function hasExpectedSignature(extension: string, bytes: Uint8Array) {
   return false;
 }
 
+export function hasSupportedLibraryFileSignature(extension: string, bytes: Uint8Array) {
+  const normalizedExtension = extension.toLowerCase();
+  if (normalizedExtension === ".pdf") return startsWith(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d]);
+  if ([".doc", ".xls", ".ppt"].includes(normalizedExtension)) {
+    return startsWith(bytes, oleSignature);
+  }
+  if (normalizedExtension === ".txt") return isUtf8Text(bytes);
+  if ([".docx", ".xlsx", ".pptx"].includes(normalizedExtension)) {
+    return isZip(bytes);
+  }
+  return false;
+}
+
 export function getDocumentMimeType(extension: string) {
   return documentMimeTypes[extension.toLowerCase()] ?? null;
 }

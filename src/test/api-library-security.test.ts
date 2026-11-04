@@ -69,7 +69,7 @@ function uploadForm(files: TestDocumentFile[], fields: Record<string, string> = 
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mocks.requireLibraryAdmin.mockResolvedValue(undefined);
   mocks.writePrivateFile.mockResolvedValue(undefined);
   mocks.deletePrivateFile.mockResolvedValue(undefined);

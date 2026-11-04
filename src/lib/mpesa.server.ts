@@ -16,10 +16,15 @@ type StkPushInput = {
 };
 
 export type StkPushQueryResult = {
-  ResponseCode?: string;
+  ResponseCode?: number | string;
   ResultCode?: number | string;
   ResultDesc?: string;
   CheckoutRequestID?: string;
+};
+
+export type VerifiedMpesaCallbackDetails = {
+  receiptNumber: string;
+  transactionTimestamp: Date;
 };
 
 export class MpesaUncertainOutcomeError extends Error {
@@ -53,7 +58,6 @@ export function getMpesaDiagnosticCode(error: unknown) {
 export function mapMpesaResultCodeToPurchaseStatus(
   resultCode: number | string,
   resultDesc?: string | undefined,
-  hasVerifiedReceipt = false,
 ): "paid" | "cancelled" | "failed" | "pending" {
   const code = String(resultCode);
   if (code === "0") return "paid";
@@ -69,9 +73,101 @@ export function isMpesaResultPending(
   const code = String(resultCode);
   return (
     code === "pending" ||
+    code === "1037" ||
     code === "500.001.1001" ||
     /under processing|still processing|in progress/i.test(resultDesc ?? "")
   );
+}
+
+export function resolveMpesaVerificationResult(
+  verification: StkPushQueryResult | null,
+  checkoutRequestId: string,
+  hasVerifiedSuccessCallback: boolean,
+): StkPushQueryResult | null {
+  const validQueryResult =
+    verification !== null &&
+    String(verification.ResponseCode) === "0" &&
+    (!verification.CheckoutRequestID || verification.CheckoutRequestID === checkoutRequestId) &&
+    verification.ResultCode !== undefined &&
+    verification.ResultCode !== null;
+
+  if (
+    hasVerifiedSuccessCallback &&
+    (!validQueryResult || isMpesaResultPending(verification.ResultCode!, verification.ResultDesc))
+  ) {
+    return {
+      ResponseCode: "0",
+      CheckoutRequestID: checkoutRequestId,
+      ResultCode: 0,
+      ResultDesc: "Payment confirmed by matching Safaricom callback details.",
+    };
+  }
+
+  return validQueryResult ? verification : null;
+}
+
+export function getVerifiedMpesaCallbackDetails(
+  callbackResponse: Record<string, unknown> | null | undefined,
+  expected: {
+    checkoutRequestId: string;
+    merchantRequestId: string | null;
+    amount: number;
+    phoneNumber: string;
+  },
+): VerifiedMpesaCallbackDetails | null {
+  const body = callbackResponse;
+  const bodyContent = body?.["Body"];
+  if (!bodyContent || typeof bodyContent !== "object") return null;
+  const callback = (bodyContent as Record<string, unknown>)["stkCallback"];
+  if (!callback || typeof callback !== "object") return null;
+  const result = callback as Record<string, unknown>;
+  if (
+    result["CheckoutRequestID"] !== expected.checkoutRequestId ||
+    result["MerchantRequestID"] !== expected.merchantRequestId ||
+    Number(result["ResultCode"]) !== 0
+  ) {
+    return null;
+  }
+  const metadata = result["CallbackMetadata"];
+  if (!metadata || typeof metadata !== "object") return null;
+  const itemList = (metadata as Record<string, unknown>)["Item"];
+  if (!Array.isArray(itemList)) return null;
+  const valueFor = (name: string) => {
+    const item = itemList.find(
+      (candidate) =>
+        candidate !== null &&
+        typeof candidate === "object" &&
+        (candidate as Record<string, unknown>)["Name"] === name,
+    );
+    return item && typeof item === "object"
+      ? (item as Record<string, unknown>)["Value"]
+      : undefined;
+  };
+  const amountValue = valueFor("Amount");
+  const phoneValue = valueFor("PhoneNumber");
+  const receiptValue = valueFor("MpesaReceiptNumber");
+  const dateValue = valueFor("TransactionDate");
+  const dateText =
+    typeof dateValue === "number" && Number.isSafeInteger(dateValue)
+      ? String(dateValue)
+      : dateValue;
+  if (
+    (typeof amountValue !== "number" && typeof amountValue !== "string") ||
+    Number(amountValue) !== expected.amount ||
+    (typeof phoneValue !== "number" && typeof phoneValue !== "string") ||
+    String(phoneValue) !== expected.phoneNumber ||
+    typeof receiptValue !== "string" ||
+    !/^[A-Z0-9]{8,12}$/i.test(receiptValue.trim()) ||
+    typeof dateText !== "string" ||
+    !/^\d{14}$/.test(dateText)
+  ) {
+    return null;
+  }
+  const transactionTimestamp = new Date(
+    `${dateText.slice(0, 4)}-${dateText.slice(4, 6)}-${dateText.slice(6, 8)}T${dateText.slice(8, 10)}:${dateText.slice(10, 12)}:${dateText.slice(12, 14)}+03:00`,
+  );
+  if (!Number.isFinite(transactionTimestamp.getTime())) return null;
+  return { receiptNumber: receiptValue.trim(), transactionTimestamp };
 }
 
 export function getMpesaConfig(shortcodeOverride?: string): MpesaConfig | null {
