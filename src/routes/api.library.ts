@@ -14,7 +14,10 @@ import { getPrivateFilePath } from "@/lib/file-storage.server";
 import { requireSameOrigin } from "@/lib/backend";
 import {
   InvalidUploadBodyError,
+  InvalidRequestBodyError,
+  RequestBodyTooLargeError,
   parseMultipartFormData,
+  parseJsonRequestBody,
   UploadBodyTooLargeError,
 } from "@/lib/form-data.server";
 
@@ -29,9 +32,9 @@ function isCategory(value: string): value is "novel" | "business_plan" | "articl
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Library operation failed.";
   const status =
-    error instanceof UploadBodyTooLargeError
+    error instanceof UploadBodyTooLargeError || error instanceof RequestBodyTooLargeError
       ? 413
-      : error instanceof InvalidUploadBodyError
+      : error instanceof InvalidUploadBodyError || error instanceof InvalidRequestBodyError
         ? 400
         : message.includes("signed in")
           ? 401
@@ -154,7 +157,10 @@ export const Route = createFileRoute("/api/library")({
       PATCH: async ({ request }) => {
         try {
           requireSameOrigin(request);
-          const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+          const body = (await parseJsonRequestBody(request, 16 * 1024)) as Record<
+            string,
+            unknown
+          > | null;
           const id = typeof body?.["id"] === "string" ? body["id"] : "";
           const title = typeof body?.["title"] === "string" ? body["title"].trim() : "";
           const description =

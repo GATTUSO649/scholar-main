@@ -99,6 +99,26 @@ export const userRoles = pgTable(
   (table) => [uniqueIndex("user_roles_user_role_unique").on(table.userId, table.role)],
 );
 
+export const adminAuditEvents = pgTable(
+  "admin_audit_events",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    actorUserId: varchar("actor_user_id", { length: 36 }).references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorEmail: varchar("actor_email", { length: 255 }).notNull(),
+    action: varchar("action", { length: 80 }).notNull(),
+    targetType: varchar("target_type", { length: 80 }).notNull(),
+    targetId: varchar("target_id", { length: 36 }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("admin_audit_actor_created_idx").on(table.actorUserId, table.createdAt),
+    index("admin_audit_target_created_idx").on(table.targetType, table.targetId, table.createdAt),
+  ],
+);
+
 export const sessions = pgTable(
   "sessions",
   {

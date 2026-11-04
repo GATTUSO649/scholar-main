@@ -59,6 +59,7 @@ export const Route = createFileRoute("/api/files")({
           requireSameOrigin(request);
           stage = "multipart parsing";
           const form = await parseMultipartFormData(request, MAX_REQUEST_BYTES);
+          stage = "request validation";
           const requestId = String(form.get("request_id") ?? "");
           const kind = String(form.get("kind") ?? "");
           if (
@@ -67,7 +68,9 @@ export const Route = createFileRoute("/api/files")({
           ) {
             return Response.json({ error: "Invalid upload request." }, { status: 400 });
           }
+          stage = "request authorization";
           const { userId } = await authorizedUploadTarget(requestId, kind);
+          stage = "upload validation";
           const files = form
             .getAll("files")
             .filter((entry): entry is File => entry instanceof File);
@@ -89,6 +92,7 @@ export const Route = createFileRoute("/api/files")({
             for (const file of files) {
               const storageKey = crypto.randomUUID();
               const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "file";
+              stage = "private storage write";
               const destination = getPrivateFilePath(storageKey);
               await mkdir(path.dirname(destination), { recursive: true });
               await writeFile(destination, Buffer.from(await file.arrayBuffer()), {
@@ -96,7 +100,6 @@ export const Route = createFileRoute("/api/files")({
                 mode: 0o600,
               });
               uploaded.push(storageKey);
-              stage = "request authorization";
               stage = "file metadata insert";
               await addRequestFile({
                 requestId,
@@ -108,9 +111,20 @@ export const Route = createFileRoute("/api/files")({
                 kind,
               });
             }
-            stage = kind === "delivery" ? "delivery finalization" : "student upload notification";
-            if (kind === "delivery") await completeRequestDelivery(requestId);
-            else await notifyAdminsOfStudentUpload(requestId);
+            if (kind === "delivery") {
+              stage = "delivery finalization";
+              await completeRequestDelivery(requestId);
+            } else {
+              stage = "student upload notification";
+              try {
+                await notifyAdminsOfStudentUpload(requestId);
+              } catch (error) {
+                console.warn("Student file upload saved, but admin notification failed.", {
+                  code: getDatabaseErrorCode(error),
+                  errorName: error instanceof Error ? error.name : "unknown",
+                });
+              }
+            }
           } catch (error) {
             const cleanupResults = await Promise.allSettled(
               uploaded.flatMap((key) => [

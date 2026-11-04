@@ -411,3 +411,84 @@
     linear-gradient(90deg, oklch(1 0 0 / 0.05) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+
+.admin-workspace-shell {
+  --admin-line: #dce6df;
+  --admin-ink: #173c33;
+  --admin-muted: #687a72;
+  background: #eef3ef;
+}
+
+.admin-workspace-main {
+  min-width: 0;
+}
+
+.admin-page-wrap > :first-child {
+  min-width: 0;
+}
+
+.admin-page-wrap > :first-child > header {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--admin-line);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(23 60 51 / 4%);
+}
+
+.admin-page-wrap > :first-child > header h1 {
+  color: var(--admin-ink);
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.admin-page-wrap > :first-child > section {
+  overflow: hidden;
+  border: 1px solid var(--admin-line);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(23 60 51 / 4%);
+}
+
+.admin-page-wrap > :first-child > nav {
+  padding: 0.5rem;
+  border: 1px solid var(--admin-line);
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.admin-page-wrap > :first-child > section > header,
+.admin-page-wrap > :first-child > section > div > header {
+  color: var(--admin-ink);
+}
+
+.admin-page-wrap input:focus-visible,
+.admin-page-wrap textarea:focus-visible,
+.admin-page-wrap select:focus-visible,
+.admin-page-wrap button:focus-visible,
+.admin-page-wrap a:focus-visible {
+  outline: 2px solid #c78c34;
+  outline-offset: 2px;
+}
+
+.admin-page-wrap > footer {
+  border-color: var(--admin-line);
+  color: var(--admin-muted);
+}
+
+@media (max-width: 640px) {
+  .admin-page-wrap {
+    padding: 1rem;
+  }
+
+  .admin-page-wrap > :first-child > header {
+    padding: 1rem;
+  }
+
+  .admin-page-wrap > :first-child > header h1 {
+    font-size: 1.65rem;
+  }
+
+  .admin-page-wrap > :first-child > section {
+    border-radius: 0.5rem;
+  }
+}

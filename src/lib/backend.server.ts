@@ -8,6 +8,7 @@ import {
 import { and, count, desc, eq, gt, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
+  adminAuditEvents,
   emailVerificationTokens,
   faqEntries,
   loginAttempts,
@@ -107,6 +108,24 @@ function tokenHash(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function makeAdminAuditEvent(
+  actor: SessionUser,
+  action: string,
+  targetType: string,
+  targetId: string | null,
+  metadata: Record<string, unknown> = {},
+) {
+  return {
+    id: randomUUID(),
+    actorUserId: actor.id,
+    actorEmail: actor.email,
+    action,
+    targetType,
+    targetId,
+    metadata,
+  };
+}
+
 async function passwordMatches(password: string, encodedHash: string) {
   const [saltHex, hashHex] = encodedHash.split(":");
   if (!saltHex || !hashHex) return false;
@@ -164,12 +183,24 @@ export function clearSessionCookie() {
   deleteCookie(SESSION_COOKIE, { path: "/", httpOnly: true, sameSite: "lax" });
 }
 
-async function createSession(userId: string, isAdmin = false) {
+async function createSession(userId: string, isAdmin = false, actorEmail = "") {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = getSessionExpiration(isAdmin);
-  await getDatabase()
-    .insert(sessions)
-    .values({ tokenHash: tokenHash(token), userId, expiresAt });
+  await getDatabase().transaction(async (tx) => {
+    await tx.insert(sessions).values({ tokenHash: tokenHash(token), userId, expiresAt });
+    if (isAdmin) {
+      await tx
+        .insert(adminAuditEvents)
+        .values(
+          makeAdminAuditEvent(
+            { id: userId, email: actorEmail },
+            "admin.login_succeeded",
+            "user",
+            userId,
+          ),
+        );
+    }
+  });
   setSessionCookie(token, expiresAt);
 }
 
@@ -461,6 +492,15 @@ export async function registerAdmin(input: {
         userId: id,
         expiresAt: sessionExpiresAt,
       });
+      await tx.insert(adminAuditEvents).values({
+        id: randomUUID(),
+        actorUserId: id,
+        actorEmail: email,
+        action: "admin.account_created",
+        targetType: "user",
+        targetId: id,
+        metadata: { source: "signup_secret" },
+      });
     });
     setSessionCookie(sessionToken, sessionExpiresAt);
   } catch (error) {
@@ -544,7 +584,7 @@ async function authenticateAccount(input: { email: string; password: string }, a
     stage = "login attempt cleanup";
     await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
     stage = "session creation";
-    await createSession(account.id, adminOnly);
+    await createSession(account.id, adminOnly, account.email);
     return { id: account.id, email: account.email };
   } catch (error) {
     if (error instanceof AuthError) throw error;
@@ -844,7 +884,7 @@ export async function saveAdminBusinessSettings(input: {
   businessName: string;
   mpesaTillNumber: string;
 }) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const businessName = input.businessName.trim();
   const mpesaTillNumber = input.mpesaTillNumber.trim();
   if (!businessName || businessName.length > 120) throw new Error("Enter a valid business name.");
@@ -852,13 +892,21 @@ export async function saveAdminBusinessSettings(input: {
     throw new Error("Enter the registered M-PESA Till Number using 5 to 7 digits.");
   }
   const updatedAt = new Date();
-  await getDatabase()
-    .insert(siteSettings)
-    .values({ id: 1, businessName, mpesaTillNumber, updatedAt })
-    .onConflictDoUpdate({
-      target: siteSettings.id,
-      set: { businessName, mpesaTillNumber, updatedAt },
-    });
+  const db = getDatabase();
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(siteSettings)
+      .values({ id: 1, businessName, mpesaTillNumber, updatedAt })
+      .onConflictDoUpdate({
+        target: siteSettings.id,
+        set: { businessName, mpesaTillNumber, updatedAt },
+      });
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "settings.business_updated", "site_settings", "1", {
+        changedFields: ["businessName", "mpesaTillNumber"],
+      }),
+    );
+  });
   return { success: true };
 }
 
@@ -890,15 +938,23 @@ export async function savePublicSiteContent(input: {
   faqTitle: string;
   faqIntro: string;
 }) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const now = new Date();
-  await getDatabase()
-    .insert(siteSettings)
-    .values({ id: 1, ...input, updatedAt: now })
-    .onConflictDoUpdate({
-      target: siteSettings.id,
-      set: { ...input, updatedAt: now },
-    });
+  const db = getDatabase();
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(siteSettings)
+      .values({ id: 1, ...input, updatedAt: now })
+      .onConflictDoUpdate({
+        target: siteSettings.id,
+        set: { ...input, updatedAt: now },
+      });
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "content.site_updated", "site_settings", "1", {
+        changedFields: Object.keys(input),
+      }),
+    );
+  });
   return { success: true };
 }
 
@@ -909,7 +965,8 @@ export async function saveFaqEntry(input: {
   active: boolean;
   sort: number;
 }) {
-  await requireAdmin();
+  const actor = await requireAdmin();
+  const db = getDatabase();
   const values = {
     question: input.question.trim(),
     answer: input.answer.trim(),
@@ -917,31 +974,50 @@ export async function saveFaqEntry(input: {
     sort: input.sort,
   };
   if (input.id) {
-    const [existing] = await getDatabase()
-      .select({ id: faqEntries.id })
-      .from(faqEntries)
-      .where(eq(faqEntries.id, input.id))
-      .limit(1);
-    if (!existing) throw new Error("FAQ entry not found.");
-    await getDatabase().update(faqEntries).set(values).where(eq(faqEntries.id, input.id));
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: faqEntries.id })
+        .from(faqEntries)
+        .where(eq(faqEntries.id, input.id!))
+        .limit(1);
+      if (!existing) throw new Error("FAQ entry not found.");
+      await tx.update(faqEntries).set(values).where(eq(faqEntries.id, input.id!));
+      await tx.insert(adminAuditEvents).values(
+        makeAdminAuditEvent(actor, "content.faq_updated", "faq_entry", input.id!, {
+          changedFields: ["question", "answer", "active", "sort"],
+        }),
+      );
+    });
     return { id: input.id };
   }
 
   const id = randomUUID();
-  await getDatabase()
-    .insert(faqEntries)
-    .values({ id, ...values });
+  await db.transaction(async (tx) => {
+    await tx.insert(faqEntries).values({ id, ...values });
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "content.faq_created", "faq_entry", id, {
+        changedFields: ["question", "answer", "active", "sort"],
+      }),
+    );
+  });
   return { id };
 }
 
 export async function setFaqEntryActive(input: { id: string; active: boolean }) {
-  await requireAdmin();
-  const result = await getDatabase()
-    .update(faqEntries)
-    .set({ active: input.active })
-    .where(eq(faqEntries.id, input.id))
-    .returning({ id: faqEntries.id });
-  if (result.length === 0) throw new Error("FAQ entry not found.");
+  const actor = await requireAdmin();
+  await getDatabase().transaction(async (tx) => {
+    const result = await tx
+      .update(faqEntries)
+      .set({ active: input.active })
+      .where(eq(faqEntries.id, input.id))
+      .returning({ id: faqEntries.id });
+    if (result.length === 0) throw new Error("FAQ entry not found.");
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "content.faq_visibility_changed", "faq_entry", input.id, {
+        active: input.active,
+      }),
+    );
+  });
   return { success: true };
 }
 
@@ -1019,17 +1095,25 @@ export async function createLibraryResource(input: {
   size: number;
 }) {
   const user = await requireAdmin();
-  await getDatabase().insert(libraryResources).values({
-    id: randomUUID(),
-    title: input.title,
-    description: input.description,
-    category: input.category,
-    price: input.price,
-    currency: "KES",
-    storageKey: input.storageKey,
-    name: input.name,
-    size: input.size,
-    uploadedBy: user.id,
+  const id = randomUUID();
+  await getDatabase().transaction(async (tx) => {
+    await tx.insert(libraryResources).values({
+      id,
+      title: input.title,
+      description: input.description,
+      category: input.category,
+      price: input.price,
+      currency: "KES",
+      storageKey: input.storageKey,
+      name: input.name,
+      size: input.size,
+      uploadedBy: user.id,
+    });
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(user, "library.resource_created", "library_resource", id, {
+        category: input.category,
+      }),
+    );
   });
   return { success: true };
 }
@@ -1043,24 +1127,33 @@ export async function updateLibraryResource(
     price: number;
   },
 ) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const db = getDatabase();
-  const [resource] = await db
-    .select({ id: libraryResources.id })
-    .from(libraryResources)
-    .where(eq(libraryResources.id, id))
-    .limit(1);
-  if (!resource) return null;
-  await db
-    .update(libraryResources)
-    .set({
-      title: input.title,
-      description: input.description,
-      category: input.category,
-      price: input.price,
-      currency: "KES",
-    })
-    .where(eq(libraryResources.id, id));
+  const updated = await db.transaction(async (tx) => {
+    const [resource] = await tx
+      .select({ id: libraryResources.id })
+      .from(libraryResources)
+      .where(eq(libraryResources.id, id))
+      .limit(1);
+    if (!resource) return false;
+    await tx
+      .update(libraryResources)
+      .set({
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        price: input.price,
+        currency: "KES",
+      })
+      .where(eq(libraryResources.id, id));
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "library.resource_updated", "library_resource", id, {
+        changedFields: ["title", "description", "category", "price"],
+      }),
+    );
+    return true;
+  });
+  if (!updated) return null;
   return { success: true };
 }
 
@@ -2077,15 +2170,20 @@ export async function handleServiceRequestPaymentCallback(input: {
 }
 
 export async function deleteLibraryResource(id: string) {
-  await requireAdmin();
-  const [resource] = await getDatabase()
-    .select({ storageKey: libraryResources.storageKey })
-    .from(libraryResources)
-    .where(eq(libraryResources.id, id))
-    .limit(1);
-  if (!resource) return null;
-  await getDatabase().delete(libraryResources).where(eq(libraryResources.id, id));
-  return resource;
+  const actor = await requireAdmin();
+  return getDatabase().transaction(async (tx) => {
+    const [resource] = await tx
+      .select({ storageKey: libraryResources.storageKey })
+      .from(libraryResources)
+      .where(eq(libraryResources.id, id))
+      .limit(1);
+    if (!resource) return null;
+    await tx.delete(libraryResources).where(eq(libraryResources.id, id));
+    await tx
+      .insert(adminAuditEvents)
+      .values(makeAdminAuditEvent(actor, "library.resource_deleted", "library_resource", id));
+    return resource;
+  });
 }
 
 function mapRequest(
@@ -2534,7 +2632,7 @@ export async function saveAdminService(input: {
   sort: number;
   active: boolean;
 }) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const db = getDatabase();
   const values = {
     name: input.name.trim(),
@@ -2547,41 +2645,69 @@ export async function saveAdminService(input: {
   };
 
   if (input.id) {
-    const [existing] = await db
-      .select({ id: services.id })
-      .from(services)
-      .where(eq(services.id, input.id))
-      .limit(1);
-    if (!existing) throw new Error("Service not found.");
-    await db.update(services).set(values).where(eq(services.id, input.id));
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: services.id })
+        .from(services)
+        .where(eq(services.id, input.id!))
+        .limit(1);
+      if (!existing) throw new Error("Service not found.");
+      await tx.update(services).set(values).where(eq(services.id, input.id!));
+      await tx.insert(adminAuditEvents).values(
+        makeAdminAuditEvent(actor, "service.updated", "service", input.id!, {
+          changedFields: ["name", "description", "basePrice", "currency", "unit", "sort", "active"],
+        }),
+      );
+    });
     return { id: input.id };
   }
 
   const id = randomUUID();
-  await db.insert(services).values({ id, ...values });
+  await db.transaction(async (tx) => {
+    await tx.insert(services).values({ id, ...values });
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "service.created", "service", id, {
+        changedFields: ["name", "description", "basePrice", "currency", "unit", "sort", "active"],
+      }),
+    );
+  });
   return { id };
 }
 
 export async function setAdminServiceActive(input: { id: string; active: boolean }) {
-  await requireAdmin();
-  const result = await getDatabase()
-    .update(services)
-    .set({ active: input.active })
-    .where(eq(services.id, input.id))
-    .returning({ id: services.id });
-  if (result.length === 0) throw new Error("Service not found.");
+  const actor = await requireAdmin();
+  await getDatabase().transaction(async (tx) => {
+    const result = await tx
+      .update(services)
+      .set({ active: input.active })
+      .where(eq(services.id, input.id))
+      .returning({ id: services.id });
+    if (result.length === 0) throw new Error("Service not found.");
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "service.visibility_changed", "service", input.id, {
+        active: input.active,
+      }),
+    );
+  });
   return { success: true };
 }
 
 export async function setPublicPrices(showPrices: boolean) {
-  await requireAdmin();
-  await getDatabase()
-    .insert(siteSettings)
-    .values({ id: 1, showPrices, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: siteSettings.id,
-      set: { showPrices, updatedAt: new Date() },
-    });
+  const actor = await requireAdmin();
+  await getDatabase().transaction(async (tx) => {
+    await tx
+      .insert(siteSettings)
+      .values({ id: 1, showPrices, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: siteSettings.id,
+        set: { showPrices, updatedAt: new Date() },
+      });
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "settings.price_visibility_changed", "site_settings", "1", {
+        showPrices,
+      }),
+    );
+  });
   return showPrices;
 }
 
@@ -2674,6 +2800,22 @@ export async function updateRequest(input: {
         message,
         href: `/request/${current.id}`,
       });
+    }
+    const changedFields = [
+      ...(input.status !== current.status ? ["status"] : []),
+      ...(input.price !== current.price ? ["price"] : []),
+      ...(input.currency !== current.currency ? ["currency"] : []),
+      ...(input.admin_notes !== current.adminNotes ? ["admin_notes"] : []),
+      ...(input.grade !== current.grade ? ["grade"] : []),
+      ...(input.admin_feedback !== current.adminFeedback ? ["admin_feedback"] : []),
+      ...(input.note ? ["note"] : []),
+    ];
+    if (changedFields.length) {
+      await tx.insert(adminAuditEvents).values(
+        makeAdminAuditEvent(user, "request.updated", "service_request", input.id, {
+          changedFields,
+        }),
+      );
     }
   });
 }
@@ -2832,6 +2974,11 @@ export async function completeRequestDelivery(requestId: string) {
         : `Work for request ${request.ref} is complete. Pay the confirmed quote to download it.`,
       href: `/request/${requestId}`,
     });
+    await tx
+      .insert(adminAuditEvents)
+      .values(
+        makeAdminAuditEvent(user, "request.delivery_completed", "service_request", requestId),
+      );
   });
 }
 

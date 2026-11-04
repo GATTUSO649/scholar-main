@@ -72,19 +72,34 @@ const studentNav = [
   { to: "/support", label: "Help & support", icon: LifeBuoy },
 ] as const;
 
-const adminNav = [
-  { to: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
-  { to: "/admin", label: "Service requests", icon: ClipboardList },
-  { to: "/admin/payments", label: "M-PESA payments", icon: Banknote },
-  { to: "/students", label: "Students", icon: Users },
-  { to: "/admin/resources", label: "Library", icon: BookOpen },
-  { to: "/admin/resources/articles", label: "Articles", icon: FileText },
-  { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
-  { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
-  { to: "/admin/pricing", label: "Services & offers", icon: Banknote },
-  { to: "/admin/content", label: "Website content", icon: FilePenLine },
-  { to: "/admin/business-settings", label: "Business settings", icon: Building2 },
-  { to: "/admin/profile", label: "Admin profile", icon: User },
+const adminNavGroups = [
+  {
+    label: "Operations",
+    items: [
+      { to: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
+      { to: "/admin", label: "Service requests", icon: ClipboardList },
+      { to: "/admin/payments", label: "M-PESA payments", icon: Banknote },
+      { to: "/students", label: "Students", icon: Users },
+    ],
+  },
+  {
+    label: "Library",
+    items: [
+      { to: "/admin/resources", label: "All resources", icon: BookOpen },
+      { to: "/admin/resources/articles", label: "Articles", icon: FileText },
+      { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
+      { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [
+      { to: "/admin/pricing", label: "Services & offers", icon: Banknote },
+      { to: "/admin/content", label: "Website content", icon: FilePenLine },
+      { to: "/admin/business-settings", label: "Business settings", icon: Building2 },
+      { to: "/admin/profile", label: "Admin profile", icon: User },
+    ],
+  },
 ] as const;
 
 function Shell() {
@@ -228,42 +243,44 @@ function Shell() {
       )}
     >
       {!admin &&
-        studentNav.map((n) => (
+        studentNav.map((item) => (
           <NavItem
-            key={n.to}
-            {...n}
-            active={path === n.to || (n.to !== "/dashboard" && path.startsWith(n.to))}
+            key={item.to}
+            {...item}
+            active={path === item.to || (item.to !== "/dashboard" && path.startsWith(item.to))}
             onClick={() => setOpen(false)}
           />
         ))}
       {admin && (
         <>
-          <p className="mb-2 mt-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9aacc1]">
-            Student support
-          </p>
-          {adminNav.map((n) => (
-            <NavItem
-              key={n.to}
-              {...n}
-              active={
-                n.to === "/admin"
-                  ? path === "/admin" || path.startsWith("/manage")
-                  : n.to === "/students"
-                    ? path.startsWith("/students")
-                    : n.to === "/admin/resources"
-                      ? path === "/admin/resources"
-                      : path === n.to
-              }
-              onClick={() => setOpen(false)}
-              admin
-            />
+          {adminNavGroups.map((group) => (
+            <div key={group.label} className="mb-3 space-y-1">
+              <p className="px-3 pb-1 pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9aacc1]">
+                {group.label}
+              </p>
+              {group.items.map((item) => (
+                <NavItem
+                  key={item.to}
+                  {...item}
+                  active={
+                    item.to === "/admin"
+                      ? path === "/admin" || path.startsWith("/manage")
+                      : item.to === "/students"
+                        ? path.startsWith("/students")
+                        : path === item.to
+                  }
+                  onClick={() => setOpen(false)}
+                  admin
+                />
+              ))}
+            </div>
           ))}
           <a
             href="/"
             target="_blank"
             rel="noreferrer"
             onClick={() => setOpen(false)}
-            className="mt-5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#c2cfdd] transition-colors hover:bg-white/10 hover:text-white"
+            className="mt-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-[#c2cfdd] transition-colors hover:bg-white/10 hover:text-white"
           >
             <ExternalLink className="h-4 w-4" /> Public website
           </a>
@@ -273,7 +290,7 @@ function Shell() {
         onClick={() => void leavePortal("/auth")}
         disabled={leavingPortal}
         className={cn(
-          "mt-auto flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors disabled:cursor-wait disabled:opacity-60",
+          "mt-auto flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors disabled:cursor-wait disabled:opacity-60",
           admin
             ? "text-[#c2cfdd] hover:bg-[#793d49]/50 hover:text-white"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
@@ -323,7 +340,7 @@ function Shell() {
       </div>
     );
     return (
-      <div className="min-h-screen bg-[#f2f5f2] lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
+      <div className="admin-workspace-shell min-h-screen bg-[#eef3ef] lg:grid lg:grid-cols-[270px_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#263d5a] bg-[#142742] lg:flex">
           {adminLinks}
         </aside>
@@ -333,6 +350,7 @@ function Shell() {
             <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#b9c7d7]">
               Service workspace
             </p>
+            <p className="mt-1 text-xs font-medium text-white/90">{pageTitle}</p>
           </div>
           <div className="flex items-center gap-1 text-white">
             <NotificationBell />
@@ -369,7 +387,7 @@ function Shell() {
             </div>
           </>
         )}
-        <main className="min-w-0">
+        <main className="admin-workspace-main min-w-0">
           <div className="sticky top-0 z-10 hidden h-19 items-center justify-between border-b border-[#e4ebe6] bg-white/95 px-8 backdrop-blur lg:flex">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7c8983]">
@@ -389,7 +407,7 @@ function Shell() {
               </span>
             </div>
           </div>
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
+          <div className="admin-page-wrap mx-auto max-w-7xl px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
             <Outlet />
             <PortalFooter />
           </div>
@@ -521,7 +539,7 @@ function NavItem({
       to={to}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+        "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
         active
           ? admin
             ? "bg-[#29486b] font-semibold text-white shadow-[inset_3px_0_0_#f1c96b]"
