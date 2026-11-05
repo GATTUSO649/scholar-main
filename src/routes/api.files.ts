@@ -12,6 +12,7 @@ import {
 import {
   deletePrivateFile,
   getConfiguredFileLimit,
+  PrivateFileStorageError,
   readPrivateFile,
   writePrivateFile,
 } from "@/lib/file-storage.server";
@@ -55,10 +56,13 @@ async function retryTransientDatabaseOperation<T>(stage: string, operation: () =
 function errorResponse(error: unknown, stage: string) {
   const message = error instanceof Error ? error.message : "File operation failed.";
   const missingStorageFile = error instanceof Error && "code" in error && error.code === "ENOENT";
+  const storageError = error instanceof PrivateFileStorageError ? error : null;
   let status: number;
-  if (missingStorageFile) status = 404;
+  if (storageError) status = storageError.httpStatus === 404 ? 404 : 503;
+  else if (missingStorageFile) status = 404;
   else if (error instanceof UploadBodyTooLargeError) status = 413;
   else if (error instanceof InvalidUploadBodyError) status = 400;
+  else if (message.includes("Supabase Storage")) status = 503;
   else if (message.includes("signed in")) status = 401;
   else if (message.includes("Administrator access") || message.includes("cannot upload")) {
     status = 403;
@@ -66,16 +70,31 @@ function errorResponse(error: unknown, stage: string) {
   else if (message.includes("allowed") || message.includes("file") || message.includes("upload")) {
     status = 400;
   } else status = 500;
-  if (status === 500) {
+  if (storageError) {
+    console.error("Private file storage operation failed.", {
+      stage,
+      originalMessage: storageError.originalMessage,
+      errorName: storageError.sourceErrorName,
+      code: storageError.storageCode ?? storageError.code ?? null,
+      httpStatus: storageError.httpStatus ?? null,
+      operation: storageError.operation,
+      bucket: storageError.bucket,
+      objectPath: storageError.objectPath,
+    });
+  } else if (status === 500) {
     console.error("File operation failed.", {
       stage,
       code: getDatabaseErrorCode(error),
       errorName: error instanceof Error ? error.name : "unknown",
     });
   }
-  const responseMessage = missingStorageFile
-    ? "File is unavailable. Please contact support to have it restored."
-    : message;
+  const responseMessage = storageError
+    ? status === 404
+      ? "File is unavailable. Please contact support to have it restored."
+      : "File storage is temporarily unavailable. Please try again later."
+    : missingStorageFile
+      ? "File is unavailable. Please contact support to have it restored."
+      : message;
   return Response.json({ error: responseMessage }, { status });
 }
 

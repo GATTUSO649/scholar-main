@@ -1,17 +1,7 @@
 import "./lib/error-capture";
 
-import { migrateLegacyPrivateFiles, verifyPrivateStorageBucket } from "./lib/file-storage.server";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-
-await verifyPrivateStorageBucket();
-const fileMigration = await migrateLegacyPrivateFiles();
-if (fileMigration.copied > 0) {
-  console.info("Migrated private uploads to Supabase Storage.", {
-    copied: fileMigration.copied,
-    skipped: fileMigration.skipped,
-  });
-}
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

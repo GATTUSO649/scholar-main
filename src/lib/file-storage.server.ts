@@ -7,7 +7,150 @@ type SupabaseStorageConfig = {
   serviceRoleKey: string;
   bucket: string;
 };
+export type PrivateFileStorageOperation = "upload" | "download" | "delete" | "bucket_check";
+
+export class PrivateFileStorageError extends Error {
+  readonly operation: PrivateFileStorageOperation;
+  readonly bucket: string;
+  readonly objectPath: string;
+  readonly httpStatus: number | undefined;
+  readonly storageCode: string | undefined;
+  readonly originalMessage: string;
+  readonly sourceErrorName: string;
+
+  constructor(input: {
+    operation: PrivateFileStorageOperation;
+    bucket: string;
+    objectPath: string;
+    originalMessage: string;
+    sourceErrorName?: string;
+    httpStatus?: number;
+    storageCode?: string;
+  }) {
+    super(input.originalMessage);
+    this.name = "PrivateFileStorageError";
+    this.operation = input.operation;
+    this.bucket = input.bucket;
+    this.objectPath = input.objectPath;
+    this.httpStatus = input.httpStatus;
+    this.storageCode = input.storageCode;
+    this.originalMessage = input.originalMessage;
+    this.sourceErrorName = input.sourceErrorName ?? "Error";
+    if (input.httpStatus === 404) this.code = "ENOENT";
+    else if (input.storageCode) this.code = input.storageCode;
+  }
+
+  declare code?: string;
+}
+
 const MAX_CONFIGURED_FILE_BYTES = 100 * 1024 * 1024;
+
+function sanitizeStorageMessage(message: string, serviceRoleKey?: string) {
+  let safeMessage = message.replace(/[\r\n\t]/g, " ").slice(0, 500);
+  if (serviceRoleKey) safeMessage = safeMessage.split(serviceRoleKey).join("[REDACTED]");
+  return safeMessage
+    .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED_TOKEN]")
+    .replace(/\bsb_(?:secret|publishable)_[A-Za-z0-9_-]+\b/g, "[REDACTED_KEY]");
+}
+
+function storageFailure(
+  operation: PrivateFileStorageOperation,
+  bucket: string,
+  objectPath: string,
+  error: unknown,
+  config?: SupabaseStorageConfig,
+) {
+  const sourceErrorName = error instanceof Error ? error.name : "UnknownError";
+  const originalMessage = sanitizeStorageMessage(
+    error instanceof Error ? error.message : "Unknown Supabase Storage failure.",
+    config?.serviceRoleKey,
+  );
+  return new PrivateFileStorageError({
+    operation,
+    bucket,
+    objectPath,
+    originalMessage,
+    sourceErrorName,
+    ...(error &&
+    typeof error === "object" &&
+    "httpStatus" in error &&
+    typeof error.httpStatus === "number"
+      ? { httpStatus: error.httpStatus }
+      : {}),
+    ...(error &&
+    typeof error === "object" &&
+    "storageCode" in error &&
+    typeof error.storageCode === "string"
+      ? { storageCode: error.storageCode }
+      : {}),
+  });
+}
+
+async function fetchStorageObject(
+  config: SupabaseStorageConfig,
+  operation: PrivateFileStorageOperation,
+  objectPath: string,
+  init: RequestInit,
+  url = getObjectUrl(config, objectPath),
+) {
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch (error) {
+    throw storageFailure(operation, config.bucket, objectPath, error, config);
+  }
+  if (response.ok || (operation === "delete" && response.status === 404)) return response;
+
+  const payload = (await response
+    .clone()
+    .json()
+    .catch(() => null)) as {
+    code?: unknown;
+    error?: unknown;
+    message?: unknown;
+    statusCode?: unknown;
+  } | null;
+  const upstreamMessage =
+    (typeof payload?.message === "string" && payload.message) ||
+    (typeof payload?.error === "string" && payload.error) ||
+    response.statusText ||
+    `HTTP ${response.status}`;
+  const upstreamCode =
+    (typeof payload?.code === "string" && payload.code) ||
+    (typeof payload?.statusCode === "string" && payload.statusCode) ||
+    undefined;
+  throw storageFailure(
+    operation,
+    config.bucket,
+    objectPath,
+    Object.assign(new Error(upstreamMessage), {
+      name: "SupabaseStorageResponseError",
+      httpStatus: response.status,
+      ...(upstreamCode ? { storageCode: upstreamCode } : {}),
+    }),
+    config,
+  );
+}
+
+function getStorageConfigForFile(
+  operation: PrivateFileStorageOperation,
+  key: string,
+  area: StorageArea,
+) {
+  const bucket = process.env["SUPABASE_STORAGE_BUCKET"]?.trim() || "private-uploads";
+  const objectPath = getObjectPath(key, area);
+  try {
+    const config = getSupabaseStorageConfig();
+    if (config) return config;
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error("Supabase Storage must be configured for production file storage.");
+    }
+    return null;
+  } catch (error) {
+    throw storageFailure(operation, bucket, objectPath, error);
+  }
+}
 
 export function getConfiguredFileLimit(name: string, fallback: number) {
   const configured = Number(process.env[name]);
@@ -104,10 +247,6 @@ export async function verifyPrivateStorageBucket() {
   }
 }
 
-function missingRemoteFileError() {
-  return Object.assign(new Error("File is unavailable."), { code: "ENOENT" });
-}
-
 async function migrateFilesToSupabase(sourceRoot: string, config: SupabaseStorageConfig) {
   const files = await findPrivateFiles(sourceRoot);
   let copied = 0;
@@ -163,9 +302,9 @@ export async function writePrivateFile(
   contentType = "application/octet-stream",
 ) {
   if (!/^[0-9a-f-]{36}$/i.test(key)) throw new Error("Invalid file key.");
-  const config = getSupabaseStorageConfig();
+  const config = getStorageConfigForFile("upload", key, area);
   if (config) {
-    const response = await fetch(getObjectUrl(config, getObjectPath(key, area)), {
+    const response = await fetchStorageObject(config, "upload", getObjectPath(key, area), {
       method: "POST",
       headers: {
         ...getStorageHeaders(config),
@@ -175,9 +314,7 @@ export async function writePrivateFile(
       body: content,
       signal: AbortSignal.timeout(30_000),
     });
-    if (!response.ok) {
-      throw new Error(`Supabase Storage upload failed (${response.status}).`);
-    }
+    await response.body?.cancel();
     return;
   }
   const destination = getPrivateFilePath(key, area);
@@ -266,16 +403,12 @@ export async function migrateLegacyPrivateFiles(
 
 export async function readPrivateFile(key: string, area: StorageArea = "requests") {
   if (!/^[0-9a-f-]{36}$/i.test(key)) throw new Error("Invalid file key.");
-  const config = getSupabaseStorageConfig();
+  const config = getStorageConfigForFile("download", key, area);
   if (config) {
-    const response = await fetch(getObjectUrl(config, getObjectPath(key, area)), {
+    const response = await fetchStorageObject(config, "download", getObjectPath(key, area), {
       headers: getStorageHeaders(config),
       signal: AbortSignal.timeout(30_000),
     });
-    if (response.status === 404) throw missingRemoteFileError();
-    if (!response.ok) {
-      throw new Error(`Supabase Storage download failed (${response.status}).`);
-    }
     return Buffer.from(await response.arrayBuffer());
   }
   return readFile(getPrivateFilePath(key, area));
@@ -283,23 +416,24 @@ export async function readPrivateFile(key: string, area: StorageArea = "requests
 
 export async function deletePrivateFile(key: string, area: StorageArea = "requests") {
   if (!/^[0-9a-f-]{36}$/i.test(key)) throw new Error("Invalid file key.");
-  const config = getSupabaseStorageConfig();
+  const config = getStorageConfigForFile("delete", key, area);
   if (config) {
-    const response = await fetch(
-      `${config.url}/storage/v1/object/${encodeURIComponent(config.bucket)}`,
+    const objectPath = getObjectPath(key, area);
+    await fetchStorageObject(
+      config,
+      "delete",
+      objectPath,
       {
         method: "DELETE",
         headers: {
           ...getStorageHeaders(config),
           "content-type": "application/json",
         },
-        body: JSON.stringify({ prefixes: [getObjectPath(key, area)] }),
+        body: JSON.stringify({ prefixes: [objectPath] }),
         signal: AbortSignal.timeout(30_000),
       },
+      `${config.url}/storage/v1/object/${encodeURIComponent(config.bucket)}`,
     );
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`Supabase Storage delete failed (${response.status}).`);
-    }
     return;
   }
   await rm(getPrivateFilePath(key, area), { force: true });

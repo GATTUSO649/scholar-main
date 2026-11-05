@@ -63,6 +63,13 @@ function uploadForm(files: TestUploadFile[], kind: "submission" | "delivery" = "
   } as unknown as FormData;
 }
 
+function useSupabaseStorage() {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "server-only-storage-key");
+  vi.stubEnv("SUPABASE_STORAGE_BUCKET", "private-uploads");
+}
+
 beforeEach(async () => {
   vi.clearAllMocks();
   storageRoot = await mkdtemp(path.join(tmpdir(), "scholardesk-file-api-"));
@@ -159,13 +166,13 @@ describe("private request file uploads", () => {
     expect(mocks.addRequestFile).not.toHaveBeenCalled();
   });
 
-  it("surfaces a storage configuration error instead of masking it as a generic failure", async () => {
+  it("reports missing production storage as unavailable without masking it as a server error", async () => {
     mocks.parseMultipartFormData.mockImplementationOnce(async () =>
       uploadForm([new TestUploadFile()]),
     );
     mocks.authorizedUploadTarget.mockResolvedValueOnce({ userId: "student-id" });
     const writeError = new Error(
-      "FILE_STORAGE_DIR must be an absolute path to persistent private storage.",
+      "Supabase Storage must be configured for production file storage.",
     );
     vi.spyOn(await import("@/lib/file-storage.server"), "writePrivateFile").mockRejectedValueOnce(
       writeError,
@@ -175,9 +182,9 @@ describe("private request file uploads", () => {
       request: new Request("https://portal.example/api/files", { method: "POST" }),
     });
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
-      error: "FILE_STORAGE_DIR must be an absolute path to persistent private storage.",
+      error: "Supabase Storage must be configured for production file storage.",
     });
   });
 
@@ -201,6 +208,124 @@ describe("private request file uploads", () => {
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     await expect(response.text()).resolves.toBe("completed work");
+  });
+
+  it("downloads an authorized Supabase object using the expected private object path", async () => {
+    useSupabaseStorage();
+    const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
+    mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
+    const fetchMock = vi.fn().mockResolvedValue(new Response("%PDF-1.7 data", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/files?key=${storageKey}`),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("%PDF-1.7 data");
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://project.supabase.co/storage/v1/object/private-uploads/requests/1d/${storageKey}`,
+      expect.objectContaining({
+        headers: {
+          apikey: "server-only-storage-key",
+          authorization: "Bearer server-only-storage-key",
+        },
+      }),
+    );
+  });
+
+  it("returns 404 and logs provider details when the private object is missing", async () => {
+    useSupabaseStorage();
+    const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
+    mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ code: "ObjectNotFound", message: "Object not found" }, { status: 404 }),
+        ),
+    );
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/files?key=${storageKey}`),
+    });
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: "File is unavailable. Please contact support to have it restored.",
+    });
+    expect(errorLog).toHaveBeenCalledWith("Private file storage operation failed.", {
+      stage: "private storage read",
+      originalMessage: "Object not found",
+      errorName: "SupabaseStorageResponseError",
+      code: "ObjectNotFound",
+      httpStatus: 404,
+      operation: "download",
+      bucket: "private-uploads",
+      objectPath: `requests/1d/${storageKey}`,
+    });
+  });
+
+  it("returns 503 for invalid storage credentials and redacts the key from logs", async () => {
+    useSupabaseStorage();
+    const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
+    mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            code: "InvalidJWT",
+            message: "Invalid bearer server-only-storage-key",
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/files?key=${storageKey}`),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "File storage is temporarily unavailable. Please try again later.",
+    });
+    const serializedLog = JSON.stringify(errorLog.mock.calls);
+    expect(serializedLog).toContain("InvalidJWT");
+    expect(serializedLog).toContain("Invalid Bearer [REDACTED]");
+    expect(serializedLog).not.toContain("server-only-storage-key");
+  });
+
+  it("returns 503 and logs transport failures when Supabase Storage is unavailable", async () => {
+    useSupabaseStorage();
+    const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
+    mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED")));
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/files?key=${storageKey}`),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "File storage is temporarily unavailable. Please try again later.",
+    });
+    expect(errorLog).toHaveBeenCalledWith(
+      "Private file storage operation failed.",
+      expect.objectContaining({
+        originalMessage: "connect ECONNREFUSED",
+        errorName: "Error",
+        httpStatus: null,
+        operation: "download",
+        bucket: "private-uploads",
+        objectPath: `requests/1d/${storageKey}`,
+      }),
+    );
   });
 
   it("downloads the exact PDF uploaded by an admin as a delivery file", async () => {

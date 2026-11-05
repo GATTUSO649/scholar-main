@@ -66,21 +66,24 @@ function errorResponse(error: unknown) {
       ? 413
       : error instanceof InvalidUploadBodyError || error instanceof InvalidRequestBodyError
         ? 400
-        : message.includes("signed in")
-          ? 401
-          : message.includes("Purchase this resource") || message.includes("Student library access")
-            ? 403
-            : message.includes("origin is not allowed")
+        : message.includes("Supabase Storage")
+          ? 503
+          : message.includes("signed in")
+            ? 401
+            : message.includes("Purchase this resource") ||
+                message.includes("Student library access")
               ? 403
-              : message.includes("Administrator access")
+              : message.includes("origin is not allowed")
                 ? 403
-                : message.includes("not found")
-                  ? 404
-                  : message.includes("payments are not configured")
-                    ? 503
-                    : message === "Invalid file key."
-                      ? 400
-                      : 500;
+                : message.includes("Administrator access")
+                  ? 403
+                  : message.includes("not found")
+                    ? 404
+                    : message.includes("payments are not configured")
+                      ? 503
+                      : message === "Invalid file key."
+                        ? 400
+                        : 500;
   if (status === 500) {
     console.error(
       "Library operation failed.",
