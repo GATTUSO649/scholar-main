@@ -39,6 +39,7 @@ const get = (
 if (!get) throw new Error("The file download GET handler is not registered.");
 
 let storageRoot = "";
+type StoredRequestFile = { storageKey: string; name: string; mimeType: string };
 
 class TestUploadFile extends NodeFile {
   constructor(
@@ -50,13 +51,13 @@ class TestUploadFile extends NodeFile {
   }
 }
 
-function uploadForm(files: TestUploadFile[]) {
+function uploadForm(files: TestUploadFile[], kind: "submission" | "delivery" = "submission") {
   return {
     get: (name: string) =>
       name === "request_id"
         ? "9f94f2dc-4970-44d3-ae58-2a54e3811f2c"
         : name === "kind"
-          ? "submission"
+          ? kind
           : null,
     getAll: (name: string) => (name === "files" ? files : []),
   } as unknown as FormData;
@@ -107,9 +108,11 @@ describe("private request file uploads", () => {
     ["PDF", new TestUploadFile("assignment.pdf", "application/pdf", "%PDF-1.7 test")],
     [
       "Word",
-      new TestUploadFile("assignment.doc", "application/msword", new Uint8Array([
-        0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
-      ])),
+      new TestUploadFile(
+        "assignment.doc",
+        "application/msword",
+        new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+      ),
     ],
   ])("accepts a content-validated %s upload", async (_format, file) => {
     mocks.parseMultipartFormData.mockImplementationOnce(async () => uploadForm([file]));
@@ -141,7 +144,9 @@ describe("private request file uploads", () => {
 
   it("rejects an upload when the server denies request ownership", async () => {
     mocks.getDatabaseErrorCode.mockReturnValueOnce(undefined);
-    mocks.authorizedUploadTarget.mockRejectedValueOnce(new Error("You cannot upload to this request."));
+    mocks.authorizedUploadTarget.mockRejectedValueOnce(
+      new Error("You cannot upload to this request."),
+    );
 
     const response = await post({
       request: new Request("https://portal.example/api/files", { method: "POST" }),
@@ -152,10 +157,16 @@ describe("private request file uploads", () => {
   });
 
   it("surfaces a storage configuration error instead of masking it as a generic failure", async () => {
-    mocks.parseMultipartFormData.mockImplementationOnce(async () => uploadForm([new TestUploadFile()]));
+    mocks.parseMultipartFormData.mockImplementationOnce(async () =>
+      uploadForm([new TestUploadFile()]),
+    );
     mocks.authorizedUploadTarget.mockResolvedValueOnce({ userId: "student-id" });
-    const writeError = new Error("FILE_STORAGE_DIR must be an absolute path to persistent private storage.");
-    vi.spyOn(await import("@/lib/file-storage.server"), "writePrivateFile").mockRejectedValueOnce(writeError);
+    const writeError = new Error(
+      "FILE_STORAGE_DIR must be an absolute path to persistent private storage.",
+    );
+    vi.spyOn(await import("@/lib/file-storage.server"), "writePrivateFile").mockRejectedValueOnce(
+      writeError,
+    );
 
     const response = await post({
       request: new Request("https://portal.example/api/files", { method: "POST" }),
@@ -187,6 +198,46 @@ describe("private request file uploads", () => {
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     await expect(response.text()).resolves.toBe("completed work");
+  });
+
+  it("downloads the exact PDF uploaded by an admin as a delivery file", async () => {
+    const file = new TestUploadFile(
+      "KitCulture Website Security Report.pdf",
+      "application/pdf",
+      "%PDF-1.7 completed work",
+    );
+    mocks.authorizedUploadTarget.mockResolvedValueOnce({ userId: "admin-id" });
+    mocks.parseMultipartFormData.mockImplementationOnce(async () => uploadForm([file], "delivery"));
+
+    const uploadResponse = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+    const uploaded = mocks.addRequestFile.mock.calls[0]?.[0] as StoredRequestFile | undefined;
+    expect(uploadResponse.status).toBe(201);
+    expect(uploaded).toMatchObject({
+      name: "KitCulture Website Security Report.pdf",
+      mimeType: "application/pdf",
+    });
+    expect(uploaded?.storageKey).toBeDefined();
+    expect(mocks.completeRequestDelivery).toHaveBeenCalledWith(
+      "9f94f2dc-4970-44d3-ae58-2a54e3811f2c",
+    );
+
+    mocks.getAuthorizedFile.mockResolvedValueOnce({
+      storageKey: uploaded!.storageKey,
+      name: uploaded!.name,
+    });
+    const downloadResponse = await get({
+      request: new Request(
+        `https://portal.example/api/files?key=${encodeURIComponent(uploaded!.storageKey)}`,
+      ),
+    });
+
+    expect(downloadResponse.status).toBe(200);
+    expect(downloadResponse.headers.get("content-disposition")).toContain(
+      'filename="KitCulture Website Security Report.pdf"',
+    );
+    await expect(downloadResponse.text()).resolves.toBe("%PDF-1.7 completed work");
   });
 
   it("retries a transient database reset during download authorization", async () => {

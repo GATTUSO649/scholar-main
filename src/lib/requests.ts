@@ -24,7 +24,8 @@ export function validateUploadFiles(files: File[]) {
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
     const expectedMimeType = DOCUMENT_MIME_TYPES[extension];
     const mimeType = file.type.toLowerCase();
-    if (!expectedMimeType) return "Supported formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, and TXT.";
+    if (!expectedMimeType)
+      return "Supported formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, and TXT.";
     if (
       mimeType &&
       mimeType !== expectedMimeType &&
