@@ -116,24 +116,41 @@ export function PortalFooter() {
   const phoneHref = content.contactPhone.replace(/[^\d+]/g, "");
 
   return (
-    <footer className="mt-10 border-t border-[#e4ebe6] py-5 text-xs text-[#71817a]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p>{content.footerMessage}</p>
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
+    <footer className="mt-12 border-t border-[#dfe8e3] bg-white/70 text-[#71817a]">
+      <div className="grid gap-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#31574b]">
+            ScholarDesk support
+          </p>
+          <p className="mt-1 max-w-xl text-xs leading-5">{content.footerMessage}</p>
+        </div>
+        <nav
+          className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium"
+          aria-label="Portal support"
+        >
           {content.contactEmail && (
             <a href={`mailto:${content.contactEmail}`} className="hover:text-[#155b4c]">
-              {content.contactEmail}
+              Email support
             </a>
           )}
           {content.contactPhone && phoneHref && (
             <a href={`tel:${phoneHref}`} className="hover:text-[#155b4c]">
-              {content.contactPhone}
+              Call support
             </a>
           )}
+          <Link to="/support" className="hover:text-[#155b4c]">
+            Support center
+          </Link>
           <Link to="/faq" className="hover:text-[#155b4c]">
             Help & FAQs
           </Link>
-        </div>
+        </nav>
+      </div>
+      <div className="flex flex-col gap-1 border-t border-[#e8eeea] py-3 text-[11px] sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          © {new Date().getFullYear()} {BRAND}
+        </p>
+        <p>Private support, clear communication.</p>
       </div>
     </footer>
   );

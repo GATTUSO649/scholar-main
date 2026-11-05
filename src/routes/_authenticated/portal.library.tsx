@@ -29,12 +29,7 @@ import { getPublicPaymentDetailsFn, getStudentLibraryResourcesFn } from "@/lib/b
 import { MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
 type LibraryCategory =
-  | "all"
-  | "novel"
-  | "business_plan"
-  | "article"
-  | "lesson_plan"
-  | "working_scheme";
+  "all" | "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme";
 type StudentResource = {
   id: string;
   title: string;

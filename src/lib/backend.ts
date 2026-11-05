@@ -36,6 +36,12 @@ export const getCurrentUserStateFn = createServerFn({ method: "GET" }).handler(a
   return getCurrentUserState();
 });
 
+export const refreshSessionActivityFn = createServerFn({ method: "POST" }).handler(async () => {
+  assertSameOrigin();
+  const { refreshSessionActivity } = await import("./backend.server");
+  return refreshSessionActivity();
+});
+
 export const registerFn = createServerFn({ method: "POST" })
   .validator(
     z.object({

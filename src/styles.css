@@ -232,8 +232,23 @@
   line-height: 1.15;
 }
 
-.admin-page-wrap > :first-child :where(section, form) {
+.admin-page-wrap > :first-child > :where(section, form) {
   overflow: hidden;
+  border: 1px solid var(--admin-line);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(23 60 52 / 5%);
+}
+
+.admin-page-wrap > :first-child > section[aria-label$="summary"] {
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-page-wrap > :first-child > section[aria-label$="summary"] > div {
+  min-width: 0;
   border: 1px solid var(--admin-line);
   border-radius: 0.5rem;
   background: #fff;

@@ -30,13 +30,7 @@ import {
 const MAX_FILE_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_FILE_BYTES", 25 * 1024 * 1024);
 const MAX_REQUEST_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_TOTAL_BYTES", 50 * 1024 * 1024);
 const MAX_FILES = 10;
-const CATEGORIES = new Set([
-  "novel",
-  "business_plan",
-  "article",
-  "lesson_plan",
-  "working_scheme",
-]);
+const CATEGORIES = new Set(["novel", "business_plan", "article", "lesson_plan", "working_scheme"]);
 const RETRYABLE_DATABASE_CONNECTION_CODES = new Set([
   "ECONNRESET",
   "ECONNREFUSED",

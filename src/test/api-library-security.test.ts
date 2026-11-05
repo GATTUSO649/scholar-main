@@ -330,4 +330,18 @@ describe("private library documents", () => {
     expect(response.status).toBe(401);
     expect(mocks.readPrivateFile).not.toHaveBeenCalled();
   });
+
+  it("does not expose a paid PDF through the inline preview without purchase", async () => {
+    const resourceId = "9f94f2dc-4970-44d3-ae58-2a54e3811f2c";
+    mocks.getLibraryResourceForDownload.mockRejectedValueOnce(
+      new Error("Purchase this resource before downloading it."),
+    );
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/library?id=${resourceId}&preview=1`),
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.readPrivateFile).not.toHaveBeenCalled();
+  });
 });

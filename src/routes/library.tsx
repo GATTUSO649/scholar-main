@@ -8,12 +8,7 @@ import { Input } from "@/components/ui/input";
 import { getLibraryResourcesFn } from "@/lib/backend";
 
 type LibraryCategory =
-  | "all"
-  | "novel"
-  | "business_plan"
-  | "article"
-  | "lesson_plan"
-  | "working_scheme";
+  "all" | "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme";
 
 const categories: { id: LibraryCategory; label: string }[] = [
   { id: "all", label: "All resources" },

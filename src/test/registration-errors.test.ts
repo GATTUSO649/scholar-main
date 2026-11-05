@@ -4,6 +4,7 @@ import {
   canUseStudentPortal,
   getDatabaseErrorCode,
   getSessionExpiration,
+  isSessionIdleExpired,
   isAdminSignupConfigured,
 } from "@/lib/backend.server";
 
@@ -46,6 +47,14 @@ describe("session expiration policy", () => {
   it("keeps student sessions at fourteen days", () => {
     const now = 1_800_000_000_000;
     expect(getSessionExpiration(false, now).getTime()).toBe(now + 14 * 24 * 60 * 60 * 1000);
+  });
+
+  it("expires student sessions after twenty minutes without activity", () => {
+    const now = 1_800_000_000_000;
+    const lastActivityAt = new Date(now - 20 * 60 * 1000);
+
+    expect(isSessionIdleExpired(lastActivityAt, now)).toBe(true);
+    expect(isSessionIdleExpired(new Date(now - 20 * 60 * 1000 + 1), now)).toBe(false);
   });
 });
 

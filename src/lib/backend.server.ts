@@ -68,6 +68,7 @@ function derivePassword(password: string, salt: Buffer) {
 }
 const SESSION_COOKIE = "scholar_desk_session";
 const SESSION_DAYS = 14;
+const STUDENT_SESSION_IDLE_MINUTES = 20;
 const ADMIN_SESSION_HOURS = 8;
 const RESET_MINUTES = 30;
 const EMAIL_VERIFICATION_MINUTES = 30;
@@ -191,6 +192,10 @@ export function getSessionExpiration(isAdmin: boolean, now = Date.now()) {
   return new Date(now + duration);
 }
 
+export function isSessionIdleExpired(lastActivityAt: Date, now = Date.now()) {
+  return now - lastActivityAt.getTime() >= STUDENT_SESSION_IDLE_MINUTES * 60 * 1000;
+}
+
 function setSessionCookie(token: string, expiresAt: Date) {
   setCookie(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -231,12 +236,24 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!token) return null;
   const db = getDatabase();
   const [row] = await db
-    .select({ id: users.id, email: users.email, expiresAt: sessions.expiresAt })
+    .select({
+      id: users.id,
+      email: users.email,
+      expiresAt: sessions.expiresAt,
+      lastActivityAt: sessions.lastActivityAt,
+      adminRoleId: userRoles.id,
+    })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
+    .leftJoin(userRoles, and(eq(userRoles.userId, users.id), eq(userRoles.role, "admin")))
     .where(eq(sessions.tokenHash, tokenHash(token)))
     .limit(1);
-  if (!row || row.expiresAt.getTime() <= Date.now()) {
+  const now = Date.now();
+  if (
+    !row ||
+    row.expiresAt.getTime() <= now ||
+    (row.adminRoleId === null && isSessionIdleExpired(row.lastActivityAt, now))
+  ) {
     if (row) await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash(token)));
     clearSessionCookie();
     return null;
@@ -254,6 +271,7 @@ export async function getCurrentUserState() {
       id: users.id,
       email: users.email,
       expiresAt: sessions.expiresAt,
+      lastActivityAt: sessions.lastActivityAt,
       adminRoleId: userRoles.id,
     })
     .from(sessions)
@@ -262,7 +280,12 @@ export async function getCurrentUserState() {
     .where(eq(sessions.tokenHash, tokenHash(token)))
     .limit(1);
 
-  if (!row || row.expiresAt.getTime() <= Date.now()) {
+  const now = Date.now();
+  if (
+    !row ||
+    row.expiresAt.getTime() <= now ||
+    (row.adminRoleId === null && isSessionIdleExpired(row.lastActivityAt, now))
+  ) {
     if (row) await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash(token)));
     clearSessionCookie();
     return { user: null, isAdmin: false, expiresAt: null };
@@ -272,6 +295,24 @@ export async function getCurrentUserState() {
     isAdmin: row.adminRoleId !== null,
     expiresAt: row.expiresAt.toISOString(),
   };
+}
+
+export async function refreshSessionActivity() {
+  const user = await requireUser();
+  const [adminRole] = await getDatabase()
+    .select({ id: userRoles.id })
+    .from(userRoles)
+    .where(and(eq(userRoles.userId, user.id), eq(userRoles.role, "admin")))
+    .limit(1);
+  if (!adminRole) {
+    const token = getCookie(SESSION_COOKIE);
+    if (!token) throw new Error("You must be signed in to continue.");
+    await getDatabase()
+      .update(sessions)
+      .set({ lastActivityAt: new Date() })
+      .where(eq(sessions.tokenHash, tokenHash(token)));
+  }
+  return { refreshed: true };
 }
 
 async function requireUser() {

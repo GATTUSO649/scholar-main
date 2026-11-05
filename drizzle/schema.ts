@@ -129,6 +129,9 @@ export const sessions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [

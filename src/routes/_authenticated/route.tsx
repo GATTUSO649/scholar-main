@@ -30,7 +30,7 @@ import {
   FilePenLine,
   Building2,
 } from "lucide-react";
-import { getCurrentUserStateFn, logoutFn } from "@/lib/backend";
+import { getCurrentUserStateFn, logoutFn, refreshSessionActivityFn } from "@/lib/backend";
 import {
   adminWorkspaceRedirectFor,
   broadcastAuthSessionChange,
@@ -88,6 +88,8 @@ const adminNavGroups = [
       { to: "/admin/resources/articles", label: "Articles", icon: FileText },
       { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
       { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
+      { to: "/admin/resources/lesson-plans", label: "Lesson plans", icon: FileText },
+      { to: "/admin/resources/working-schemes", label: "Working schemes", icon: ClipboardList },
     ],
   },
   {
@@ -100,6 +102,11 @@ const adminNavGroups = [
     ],
   },
 ] as const;
+
+const STUDENT_IDLE_TIMEOUT_MS = 20 * 60 * 1000;
+const SESSION_ACTIVITY_HEARTBEAT_MS = 60 * 1000;
+const STUDENT_ACTIVITY_CHANNEL = "scholardesk-student-activity";
+const STUDENT_ACTIVITY_STORAGE_KEY = "scholardesk-student-activity";
 
 function Shell() {
   const { user, isAdmin, sessionExpiresAt } = Route.useRouteContext();
@@ -122,21 +129,25 @@ function Shell() {
           ? "Novel library"
           : path === "/admin/resources/business-plans"
             ? "Business plan library"
-            : path.startsWith("/admin/resources")
-              ? "Library management"
-              : path === "/admin/content"
-                ? "Website content"
-                : path === "/admin/pricing"
-                  ? "Service pricing"
-                  : path === "/admin/profile"
-                    ? "Admin profile"
-                    : path === "/admin/business-settings"
-                      ? "Business settings"
-                      : path.startsWith("/students")
-                        ? "Student directory"
-                        : path.startsWith("/manage")
-                          ? "Request workspace"
-                          : "Service requests";
+            : path === "/admin/resources/lesson-plans"
+              ? "Lesson plan library"
+              : path === "/admin/resources/working-schemes"
+                ? "Working scheme library"
+                : path.startsWith("/admin/resources")
+                  ? "Library management"
+                  : path === "/admin/content"
+                    ? "Website content"
+                    : path === "/admin/pricing"
+                      ? "Service pricing"
+                      : path === "/admin/profile"
+                        ? "Admin profile"
+                        : path === "/admin/business-settings"
+                          ? "Business settings"
+                          : path.startsWith("/students")
+                            ? "Student directory"
+                            : path.startsWith("/manage")
+                              ? "Request workspace"
+                              : "Service requests";
 
   useEffect(
     () =>
@@ -181,7 +192,7 @@ function Shell() {
   }
 
   useEffect(() => {
-    if (!sessionExpiresAt) return;
+    if (!sessionExpiresAt || !isAdmin) return;
     const expiresAt = Date.parse(sessionExpiresAt);
     if (!Number.isFinite(expiresAt)) return;
     let signedOut = false;
@@ -234,6 +245,113 @@ function Shell() {
       document.removeEventListener("visibilitychange", checkOnFocus);
     };
   }, [isAdmin, navigate, qc, sessionExpiresAt]);
+
+  useEffect(() => {
+    if (isAdmin) return;
+
+    let idleTimer: number;
+    let warningTimer: number;
+    let lastHeartbeatAt = Date.now();
+    let signedOut = false;
+    let activityChannel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        activityChannel = new BroadcastChannel(STUDENT_ACTIVITY_CHANNEL);
+      }
+    } catch {
+      activityChannel = null;
+    }
+
+    const signOutForInactivity = async () => {
+      if (signedOut) return;
+      signedOut = true;
+      try {
+        await qc.cancelQueries();
+        await logoutFn();
+      } catch {
+        // Server-side idle expiry still rejects the session if logout cannot reach the server.
+      } finally {
+        qc.clear();
+        qc.setQueryData(["current-user"], null);
+        broadcastAuthSessionChange();
+        const returnTo = getSafeReturnTo(window.location.href, "/dashboard");
+        await navigate({ to: "/auth", search: { mode: "login", returnTo }, replace: true });
+        toast.info("You were signed out after 20 minutes of inactivity.");
+      }
+    };
+
+    const resetIdleTimers = () => {
+      window.clearTimeout(idleTimer);
+      window.clearTimeout(warningTimer);
+      toast.dismiss("student-idle-warning");
+      warningTimer = window.setTimeout(
+        () => {
+          toast.warning("You’ll be signed out in one minute due to inactivity.", {
+            id: "student-idle-warning",
+          });
+        },
+        STUDENT_IDLE_TIMEOUT_MS - 60 * 1000,
+      );
+      idleTimer = window.setTimeout(() => void signOutForInactivity(), STUDENT_IDLE_TIMEOUT_MS);
+    };
+
+    const handleLocalActivity = () => {
+      if (signedOut) return;
+      resetIdleTimers();
+      if (activityChannel) {
+        activityChannel.postMessage(Date.now());
+      } else {
+        try {
+          window.localStorage.setItem(STUDENT_ACTIVITY_STORAGE_KEY, String(Date.now()));
+        } catch {
+          // Cross-tab activity sync is optional when browser storage is unavailable.
+        }
+      }
+
+      const now = Date.now();
+      if (now - lastHeartbeatAt >= SESSION_ACTIVITY_HEARTBEAT_MS) {
+        lastHeartbeatAt = now;
+        void refreshSessionActivityFn().catch((error: unknown) => {
+          if (error instanceof Error && /signed in|session|expired/i.test(error.message)) {
+            void signOutForInactivity();
+          }
+        });
+      }
+    };
+
+    const handleRemoteActivity = (event: MessageEvent<unknown>) => {
+      if (!signedOut && typeof event.data === "number") resetIdleTimers();
+    };
+    const handleStorageActivity = (event: StorageEvent) => {
+      if (event.key === STUDENT_ACTIVITY_STORAGE_KEY && event.newValue) resetIdleTimers();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") handleLocalActivity();
+    };
+
+    activityChannel?.addEventListener("message", handleRemoteActivity);
+    window.addEventListener("storage", handleStorageActivity);
+    document.addEventListener("pointerdown", handleLocalActivity, { passive: true });
+    document.addEventListener("keydown", handleLocalActivity);
+    document.addEventListener("touchstart", handleLocalActivity, { passive: true });
+    document.addEventListener("scroll", handleLocalActivity, { passive: true });
+    document.addEventListener("visibilitychange", handleVisibility);
+    resetIdleTimers();
+
+    return () => {
+      window.clearTimeout(idleTimer);
+      window.clearTimeout(warningTimer);
+      toast.dismiss("student-idle-warning");
+      activityChannel?.removeEventListener("message", handleRemoteActivity);
+      activityChannel?.close();
+      window.removeEventListener("storage", handleStorageActivity);
+      document.removeEventListener("pointerdown", handleLocalActivity);
+      document.removeEventListener("keydown", handleLocalActivity);
+      document.removeEventListener("touchstart", handleLocalActivity);
+      document.removeEventListener("scroll", handleLocalActivity);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [isAdmin, navigate, qc]);
 
   function handlePublicNavigation(event: React.MouseEvent<HTMLAnchorElement>) {
     setOpen(false);

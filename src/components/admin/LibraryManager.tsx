@@ -31,12 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getAdminLibraryResourcesFn } from "@/lib/backend";
 
 export type AdminLibraryCategory =
-  | "all"
-  | "article"
-  | "novel"
-  | "business_plan"
-  | "lesson_plan"
-  | "working_scheme";
+  "all" | "article" | "novel" | "business_plan" | "lesson_plan" | "working_scheme";
 type ResourceCategory = Exclude<AdminLibraryCategory, "all">;
 type LibraryResource = {
   id: string;

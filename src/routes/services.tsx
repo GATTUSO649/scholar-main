@@ -42,6 +42,7 @@ function ServicesPage() {
     queryFn: () => getLibraryResourcesFn(),
   });
   const services = data?.services ?? [];
+  const freeResources = resources.filter((resource) => resource.price <= 0);
 
   return (
     <PublicPage>
@@ -100,7 +101,7 @@ function ServicesPage() {
                 Downloadable articles and resources
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Browse articles, novels, and business plans shared by our team.
+                Browse free articles, novels, business plans, lesson plans, and working schemes.
               </p>
             </div>
             <Link
@@ -115,12 +116,12 @@ function ServicesPage() {
               <p className="text-sm text-muted-foreground">Loading downloadable resources…</p>
             ) : resourcesError ? (
               <p className="text-sm text-destructive">Could not load downloadable resources.</p>
-            ) : resources.length === 0 ? (
+            ) : freeResources.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 New articles and resources will appear here when available.
               </p>
             ) : (
-              resources.slice(0, 6).map((resource) => (
+              freeResources.slice(0, 6).map((resource) => (
                 <article
                   key={resource.id}
                   className="flex items-start gap-3 rounded-2xl border bg-card p-5 shadow-soft"
