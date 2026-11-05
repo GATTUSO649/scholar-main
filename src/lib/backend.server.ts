@@ -1180,7 +1180,7 @@ export async function requireLibraryAdmin() {
 export async function createLibraryResource(input: {
   title: string;
   description: string;
-  category: "novel" | "business_plan" | "article";
+  category: "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme";
   price: number;
   storageKey: string;
   name: string;
@@ -1197,7 +1197,7 @@ export async function createLibraryResources(
   inputs: Array<{
     title: string;
     description: string;
-    category: "novel" | "business_plan" | "article";
+    category: "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme";
     price: number;
     storageKey: string;
     name: string;
@@ -1239,7 +1239,7 @@ export async function updateLibraryResource(
   input: {
     title: string;
     description: string;
-    category: "novel" | "business_plan" | "article";
+    category: "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme";
     price: number;
   },
 ) {

@@ -30,7 +30,13 @@ import {
 const MAX_FILE_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_FILE_BYTES", 25 * 1024 * 1024);
 const MAX_REQUEST_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_TOTAL_BYTES", 50 * 1024 * 1024);
 const MAX_FILES = 10;
-const CATEGORIES = new Set(["novel", "business_plan", "article"]);
+const CATEGORIES = new Set([
+  "novel",
+  "business_plan",
+  "article",
+  "lesson_plan",
+  "working_scheme",
+]);
 const RETRYABLE_DATABASE_CONNECTION_CODES = new Set([
   "ECONNRESET",
   "ECONNREFUSED",
@@ -43,7 +49,9 @@ const RETRYABLE_DATABASE_CONNECTION_CODES = new Set([
   "57P01",
 ]);
 
-function isCategory(value: string): value is "novel" | "business_plan" | "article" {
+function isCategory(
+  value: string,
+): value is "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme" {
   return CATEGORIES.has(value);
 }
 
@@ -197,7 +205,7 @@ export const Route = createFileRoute("/api/library")({
           const documents: Array<{
             title: string;
             description: string;
-            category: "novel" | "business_plan" | "article";
+            category: "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme";
             price: number;
             storageKey: string;
             name: string;

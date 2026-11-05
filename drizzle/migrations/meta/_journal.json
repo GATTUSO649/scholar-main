@@ -57,6 +57,13 @@
       "when": 1793874953318,
       "tag": "0007_many_slyde",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793917670955,
+      "tag": "0008_glossy_skin",
+      "breakpoints": true
     }
   ]
 }

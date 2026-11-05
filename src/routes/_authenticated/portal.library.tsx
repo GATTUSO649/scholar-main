@@ -28,7 +28,13 @@ import { Label } from "@/components/ui/label";
 import { getPublicPaymentDetailsFn, getStudentLibraryResourcesFn } from "@/lib/backend";
 import { MPESA_PAYMENT_EXPIRY_MS } from "@/lib/mpesa-timeout";
 
-type LibraryCategory = "all" | "novel" | "business_plan" | "article";
+type LibraryCategory =
+  | "all"
+  | "novel"
+  | "business_plan"
+  | "article"
+  | "lesson_plan"
+  | "working_scheme";
 type StudentResource = {
   id: string;
   title: string;
@@ -48,6 +54,8 @@ const categories: { id: LibraryCategory; label: string }[] = [
   { id: "article", label: "Articles" },
   { id: "novel", label: "Novels" },
   { id: "business_plan", label: "Business plans" },
+  { id: "lesson_plan", label: "Lesson plans" },
+  { id: "working_scheme", label: "Working schemes" },
 ];
 
 function formatBytes(bytes: number) {

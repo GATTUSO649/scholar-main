@@ -26,14 +26,11 @@ export const Route = createFileRoute("/_authenticated/submit")({
 const schema = z.object({
   title: z.string().trim().min(3, "Add a title").max(200),
   service_id: z.string().uuid("Choose a type of support"),
-  course_unit: z.string().trim().max(120).optional(),
-  lecturer: z.string().trim().max(120).optional(),
   academic_level: z.string().trim().max(60).optional(),
   description: z.string().trim().min(10, "Describe what you need (10+ characters)").max(5000),
   num_questions: z.coerce.number().int().min(0).max(500).optional(),
   num_pages: z.coerce.number().int().min(0).max(1000).optional(),
   deadline: z.string().min(1, "Set a deadline"),
-  preferred_date: z.string().optional(),
 });
 
 const LEVELS = ["Certificate", "Diploma", "Undergraduate", "Masters", "PhD"];
@@ -84,15 +81,10 @@ function Submit() {
           title: p.data.title,
           service_id: p.data.service_id,
           description: p.data.description,
-          course_unit: p.data.course_unit ?? null,
-          lecturer: p.data.lecturer ?? null,
           academic_level: p.data.academic_level ?? null,
           num_questions: p.data.num_questions ?? null,
           num_pages: p.data.num_pages ?? null,
           deadline: new Date(p.data.deadline).toISOString(),
-          preferred_date: p.data.preferred_date
-            ? new Date(p.data.preferred_date).toISOString()
-            : null,
         },
       });
       const filesUploaded =
@@ -174,16 +166,11 @@ function Submit() {
           </select>
         </div>
 
-        <div>
-          <Label htmlFor="course_unit">Course / unit (optional)</Label>
-          <Input id="course_unit" name="course_unit" className="mt-1.5" />
-        </div>
-        <div>
-          <Label htmlFor="lecturer">Lecturer / tutor name (optional)</Label>
-          <Input id="lecturer" name="lecturer" className="mt-1.5" />
-        </div>
         <div className="sm:col-span-2">
-          <Label htmlFor="description">Instructions — what exactly do you need done?</Label>
+          <Label htmlFor="description">
+            Instructions — what exactly do you need done? (Include course/unit and lecturer/tutor
+            name here, if applicable.)
+          </Label>
           <Textarea id="description" name="description" rows={6} className="mt-1.5" />
           {err("description")}
         </div>
@@ -199,15 +186,6 @@ function Submit() {
           <Label htmlFor="deadline">Deadline</Label>
           <Input id="deadline" name="deadline" type="datetime-local" className="mt-1.5" />
           {err("deadline")}
-        </div>
-        <div>
-          <Label htmlFor="preferred_date">Preferred completion date</Label>
-          <Input
-            id="preferred_date"
-            name="preferred_date"
-            type="datetime-local"
-            className="mt-1.5"
-          />
         </div>
         {uploadsAllowed && (
           <div className="sm:col-span-2">

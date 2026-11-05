@@ -46,7 +46,9 @@ import { Route as ApiLibraryCallbackRouteImport } from './routes/api.library.cal
 import { Route as ApiLibraryPurchaseRouteImport } from './routes/api.library.purchase'
 import { Route as AuthenticatedAdminResourcesArticlesRouteImport } from './routes/_authenticated/admin.resources.articles'
 import { Route as AuthenticatedAdminResourcesBusinessPlansRouteImport } from './routes/_authenticated/admin.resources.business-plans'
+import { Route as AuthenticatedAdminResourcesLessonPlansRouteImport } from './routes/_authenticated/admin.resources.lesson-plans'
 import { Route as AuthenticatedAdminResourcesNovelsRouteImport } from './routes/_authenticated/admin.resources.novels'
+import { Route as AuthenticatedAdminResourcesWorkingSchemesRouteImport } from './routes/_authenticated/admin.resources.working-schemes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -242,10 +244,22 @@ const AuthenticatedAdminResourcesBusinessPlansRoute =
     path: '/business-plans',
     getParentRoute: () => AuthenticatedAdminResourcesRoute,
   } as any)
+const AuthenticatedAdminResourcesLessonPlansRoute =
+  AuthenticatedAdminResourcesLessonPlansRouteImport.update({
+    id: '/lesson-plans',
+    path: '/lesson-plans',
+    getParentRoute: () => AuthenticatedAdminResourcesRoute,
+  } as any)
 const AuthenticatedAdminResourcesNovelsRoute =
   AuthenticatedAdminResourcesNovelsRouteImport.update({
     id: '/novels',
     path: '/novels',
+    getParentRoute: () => AuthenticatedAdminResourcesRoute,
+  } as any)
+const AuthenticatedAdminResourcesWorkingSchemesRoute =
+  AuthenticatedAdminResourcesWorkingSchemesRouteImport.update({
+    id: '/working-schemes',
+    path: '/working-schemes',
     getParentRoute: () => AuthenticatedAdminResourcesRoute,
   } as any)
 
@@ -286,7 +300,9 @@ export interface FileRoutesByFullPath {
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
   '/admin/resources/articles': typeof AuthenticatedAdminResourcesArticlesRoute
   '/admin/resources/business-plans': typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  '/admin/resources/lesson-plans': typeof AuthenticatedAdminResourcesLessonPlansRoute
   '/admin/resources/novels': typeof AuthenticatedAdminResourcesNovelsRoute
+  '/admin/resources/working-schemes': typeof AuthenticatedAdminResourcesWorkingSchemesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -325,7 +341,9 @@ export interface FileRoutesByTo {
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
   '/admin/resources/articles': typeof AuthenticatedAdminResourcesArticlesRoute
   '/admin/resources/business-plans': typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  '/admin/resources/lesson-plans': typeof AuthenticatedAdminResourcesLessonPlansRoute
   '/admin/resources/novels': typeof AuthenticatedAdminResourcesNovelsRoute
+  '/admin/resources/working-schemes': typeof AuthenticatedAdminResourcesWorkingSchemesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -366,7 +384,9 @@ export interface FileRoutesById {
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
   '/_authenticated/admin/resources/articles': typeof AuthenticatedAdminResourcesArticlesRoute
   '/_authenticated/admin/resources/business-plans': typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  '/_authenticated/admin/resources/lesson-plans': typeof AuthenticatedAdminResourcesLessonPlansRoute
   '/_authenticated/admin/resources/novels': typeof AuthenticatedAdminResourcesNovelsRoute
+  '/_authenticated/admin/resources/working-schemes': typeof AuthenticatedAdminResourcesWorkingSchemesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -407,7 +427,9 @@ export interface FileRouteTypes {
     | '/api/library/purchase'
     | '/admin/resources/articles'
     | '/admin/resources/business-plans'
+    | '/admin/resources/lesson-plans'
     | '/admin/resources/novels'
+    | '/admin/resources/working-schemes'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -446,7 +468,9 @@ export interface FileRouteTypes {
     | '/api/library/purchase'
     | '/admin/resources/articles'
     | '/admin/resources/business-plans'
+    | '/admin/resources/lesson-plans'
     | '/admin/resources/novels'
+    | '/admin/resources/working-schemes'
   id:
     | '__root__'
     | '/'
@@ -486,7 +510,9 @@ export interface FileRouteTypes {
     | '/api/library/purchase'
     | '/_authenticated/admin/resources/articles'
     | '/_authenticated/admin/resources/business-plans'
+    | '/_authenticated/admin/resources/lesson-plans'
     | '/_authenticated/admin/resources/novels'
+    | '/_authenticated/admin/resources/working-schemes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -769,11 +795,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminResourcesBusinessPlansRouteImport
       parentRoute: typeof AuthenticatedAdminResourcesRoute
     }
+    '/_authenticated/admin/resources/lesson-plans': {
+      id: '/_authenticated/admin/resources/lesson-plans'
+      path: '/lesson-plans'
+      fullPath: '/admin/resources/lesson-plans'
+      preLoaderRoute: typeof AuthenticatedAdminResourcesLessonPlansRouteImport
+      parentRoute: typeof AuthenticatedAdminResourcesRoute
+    }
     '/_authenticated/admin/resources/novels': {
       id: '/_authenticated/admin/resources/novels'
       path: '/novels'
       fullPath: '/admin/resources/novels'
       preLoaderRoute: typeof AuthenticatedAdminResourcesNovelsRouteImport
+      parentRoute: typeof AuthenticatedAdminResourcesRoute
+    }
+    '/_authenticated/admin/resources/working-schemes': {
+      id: '/_authenticated/admin/resources/working-schemes'
+      path: '/working-schemes'
+      fullPath: '/admin/resources/working-schemes'
+      preLoaderRoute: typeof AuthenticatedAdminResourcesWorkingSchemesRouteImport
       parentRoute: typeof AuthenticatedAdminResourcesRoute
     }
   }
@@ -782,7 +822,9 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminResourcesRouteChildren {
   AuthenticatedAdminResourcesArticlesRoute: typeof AuthenticatedAdminResourcesArticlesRoute
   AuthenticatedAdminResourcesBusinessPlansRoute: typeof AuthenticatedAdminResourcesBusinessPlansRoute
+  AuthenticatedAdminResourcesLessonPlansRoute: typeof AuthenticatedAdminResourcesLessonPlansRoute
   AuthenticatedAdminResourcesNovelsRoute: typeof AuthenticatedAdminResourcesNovelsRoute
+  AuthenticatedAdminResourcesWorkingSchemesRoute: typeof AuthenticatedAdminResourcesWorkingSchemesRoute
 }
 
 const AuthenticatedAdminResourcesRouteChildren: AuthenticatedAdminResourcesRouteChildren =
@@ -791,8 +833,12 @@ const AuthenticatedAdminResourcesRouteChildren: AuthenticatedAdminResourcesRoute
       AuthenticatedAdminResourcesArticlesRoute,
     AuthenticatedAdminResourcesBusinessPlansRoute:
       AuthenticatedAdminResourcesBusinessPlansRoute,
+    AuthenticatedAdminResourcesLessonPlansRoute:
+      AuthenticatedAdminResourcesLessonPlansRoute,
     AuthenticatedAdminResourcesNovelsRoute:
       AuthenticatedAdminResourcesNovelsRoute,
+    AuthenticatedAdminResourcesWorkingSchemesRoute:
+      AuthenticatedAdminResourcesWorkingSchemesRoute,
   }
 
 const AuthenticatedAdminResourcesRouteWithChildren =

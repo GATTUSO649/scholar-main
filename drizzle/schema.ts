@@ -44,6 +44,8 @@ export const libraryCategoryEnum = pgEnum("library_category", [
   "novel",
   "business_plan",
   "article",
+  "lesson_plan",
+  "working_scheme",
 ]);
 export const libraryPurchaseStatusEnum = pgEnum("library_purchase_status", [
   "pending",

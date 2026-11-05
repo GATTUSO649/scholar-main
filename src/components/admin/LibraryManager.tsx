@@ -30,7 +30,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getAdminLibraryResourcesFn } from "@/lib/backend";
 
-export type AdminLibraryCategory = "all" | "article" | "novel" | "business_plan";
+export type AdminLibraryCategory =
+  | "all"
+  | "article"
+  | "novel"
+  | "business_plan"
+  | "lesson_plan"
+  | "working_scheme";
 type ResourceCategory = Exclude<AdminLibraryCategory, "all">;
 type LibraryResource = {
   id: string;
@@ -50,6 +56,8 @@ const sections: { id: AdminLibraryCategory; label: string; to: string }[] = [
   { id: "article", label: "Articles", to: "/admin/resources/articles" },
   { id: "novel", label: "Novels", to: "/admin/resources/novels" },
   { id: "business_plan", label: "Business plans", to: "/admin/resources/business-plans" },
+  { id: "lesson_plan", label: "Lesson plans", to: "/admin/resources/lesson-plans" },
+  { id: "working_scheme", label: "Working schemes", to: "/admin/resources/working-schemes" },
 ];
 
 function formatBytes(bytes: number) {
@@ -93,6 +101,8 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
     article: resources.filter((resource) => resource.category === "article").length,
     novel: resources.filter((resource) => resource.category === "novel").length,
     business_plan: resources.filter((resource) => resource.category === "business_plan").length,
+    lesson_plan: resources.filter((resource) => resource.category === "lesson_plan").length,
+    working_scheme: resources.filter((resource) => resource.category === "working_scheme").length,
   };
   const needle = search.trim().toLowerCase();
   const filteredResources = resources.filter((resource) => {
@@ -232,8 +242,13 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
         <SummaryMetric label="All resources" value={resources.length} icon={BookOpen} />
         <SummaryMetric label="Articles" value={categoryCounts.article} icon={FileText} />
         <SummaryMetric
-          label="Novels and plans"
-          value={categoryCounts.novel + categoryCounts.business_plan}
+          label="Books and plans"
+          value={
+            categoryCounts.novel +
+            categoryCounts.business_plan +
+            categoryCounts.lesson_plan +
+            categoryCounts.working_scheme
+          }
           icon={BriefcaseBusiness}
         />
         <SummaryMetric label="Stored files" value={formatBytes(totalStorage)} icon={HardDrive} />
@@ -297,6 +312,8 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                 <option value="article">Article</option>
                 <option value="novel">Novel</option>
                 <option value="business_plan">Business plan</option>
+                <option value="lesson_plan">Lesson plan</option>
+                <option value="working_scheme">Working scheme</option>
               </select>
             ) : (
               <>
@@ -562,6 +579,8 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                   <option value="article">Article</option>
                   <option value="novel">Novel</option>
                   <option value="business_plan">Business plan</option>
+                  <option value="lesson_plan">Lesson plan</option>
+                  <option value="working_scheme">Working scheme</option>
                 </select>
               </div>
               <div>

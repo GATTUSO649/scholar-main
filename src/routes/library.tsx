@@ -7,13 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getLibraryResourcesFn } from "@/lib/backend";
 
-type LibraryCategory = "all" | "novel" | "business_plan" | "article";
+type LibraryCategory =
+  | "all"
+  | "novel"
+  | "business_plan"
+  | "article"
+  | "lesson_plan"
+  | "working_scheme";
 
 const categories: { id: LibraryCategory; label: string }[] = [
   { id: "all", label: "All resources" },
   { id: "article", label: "Articles" },
   { id: "novel", label: "Novels" },
   { id: "business_plan", label: "Business plans" },
+  { id: "lesson_plan", label: "Lesson plans" },
+  { id: "working_scheme", label: "Working schemes" },
 ];
 
 function formatBytes(bytes: number) {
@@ -80,8 +88,8 @@ function LibraryPage() {
                   The Library
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-6 text-ink-foreground/75 sm:text-base">
-                  Find and download articles, novels, and business plans curated by our team. Search
-                  the collection or browse by category.
+                  Find and download articles, novels, business plans, lesson plans, and working
+                  schemes curated by our team. Search the collection or browse by category.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3 text-sm">

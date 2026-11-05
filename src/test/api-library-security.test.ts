@@ -174,6 +174,25 @@ describe("private library documents", () => {
     );
   });
 
+  it.each(["lesson_plan", "working_scheme"])(
+    "accepts the %s library category",
+    async (category) => {
+      const file = new TestDocumentFile("resource.pdf", "application/pdf", Buffer.from("%PDF-1.7"));
+      mocks.parseMultipartFormData.mockImplementationOnce(async () =>
+        uploadForm([file], { category, description: "Academic resources", price: "0" }),
+      );
+
+      const response = await post({
+        request: new Request("https://portal.example/api/library", { method: "POST" }),
+      });
+
+      expect(response.status).toBe(201);
+      expect(mocks.createLibraryResources).toHaveBeenCalledWith([
+        expect.objectContaining({ category }),
+      ]);
+    },
+  );
+
   it("returns 503 and cleans up when a private Storage upload resets", async () => {
     const file = new TestDocumentFile("one.pdf", "application/pdf", Buffer.from("%PDF-1.7"));
     mocks.parseMultipartFormData.mockImplementationOnce(async () =>
