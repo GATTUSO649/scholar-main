@@ -14,6 +14,22 @@ const mocks = vi.hoisted(() => ({
   replaceLibraryResourceFile: vi.fn(),
   updateLibraryResource: vi.fn(),
   writePrivateFile: vi.fn(),
+  PrivateFileStorageError: class extends Error {
+    readonly operation = "upload";
+    readonly sourceErrorName = "StorageUnknownError";
+    readonly storageCode = "ECONNRESET";
+    readonly destinationHostname = "project.supabase.co";
+    readonly durationMs = 30_000;
+    readonly retryAttempt = 3;
+
+    constructor() {
+      super("fetch failed");
+      this.name = "PrivateFileStorageError";
+      this.code = "ECONNRESET";
+    }
+
+    readonly code: string;
+  },
 }));
 
 vi.mock("@/lib/backend.server", () => mocks);
@@ -21,6 +37,7 @@ vi.mock("@/lib/backend", () => ({ requireSameOrigin: vi.fn() }));
 vi.mock("@/lib/file-storage.server", () => ({
   deletePrivateFile: mocks.deletePrivateFile,
   getConfiguredFileLimit: (_name: string, fallback: number) => fallback,
+  PrivateFileStorageError: mocks.PrivateFileStorageError,
   readPrivateFile: mocks.readPrivateFile,
   writePrivateFile: mocks.writePrivateFile,
 }));
@@ -147,6 +164,56 @@ describe("private library documents", () => {
         }),
       ]),
     );
+    expect(mocks.writePrivateFile).toHaveBeenNthCalledWith(
+      1,
+      expect.any(String),
+      expect.any(Buffer),
+      "library",
+      "application/pdf",
+      true,
+    );
+  });
+
+  it("returns 503 and cleans up when a private Storage upload resets", async () => {
+    const file = new TestDocumentFile("one.pdf", "application/pdf", Buffer.from("%PDF-1.7"));
+    mocks.parseMultipartFormData.mockImplementationOnce(async () =>
+      uploadForm([file], { category: "article", description: "", price: "0" }),
+    );
+    mocks.writePrivateFile.mockRejectedValueOnce(new mocks.PrivateFileStorageError());
+
+    const response = await post({
+      request: new Request("https://portal.example/api/library", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "Library storage is temporarily unavailable. Please try again.",
+    });
+    expect(mocks.deletePrivateFile).toHaveBeenCalledWith(expect.any(String), "library");
+    expect(mocks.createLibraryResources).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 and cleans up after a transient database reset", async () => {
+    const file = new TestDocumentFile("one.pdf", "application/pdf", Buffer.from("%PDF-1.7"));
+    mocks.parseMultipartFormData.mockImplementationOnce(async () =>
+      uploadForm([file], { category: "article", description: "", price: "0" }),
+    );
+    mocks.getDatabaseErrorCode.mockReturnValue("ECONNRESET");
+    mocks.createLibraryResources.mockRejectedValueOnce(
+      Object.assign(new Error("fetch failed"), {
+        cause: Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }),
+      }),
+    );
+
+    const response = await post({
+      request: new Request("https://portal.example/api/library", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "Library services are temporarily unavailable. Please try again.",
+    });
+    expect(mocks.deletePrivateFile).toHaveBeenCalledWith(expect.any(String), "library");
   });
 
   it("rejects unauthorized uploads before writing files", async () => {

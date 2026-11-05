@@ -13,6 +13,7 @@ import { getDocumentMimeType, validateDocumentFile } from "@/lib/file-signature.
 import {
   deletePrivateFile,
   getConfiguredFileLimit,
+  PrivateFileStorageError,
   readPrivateFile,
   writePrivateFile,
 } from "@/lib/file-storage.server";
@@ -30,6 +31,17 @@ const MAX_FILE_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_FILE_BYTES", 25 * 10
 const MAX_REQUEST_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_TOTAL_BYTES", 50 * 1024 * 1024);
 const MAX_FILES = 10;
 const CATEGORIES = new Set(["novel", "business_plan", "article"]);
+const RETRYABLE_DATABASE_CONNECTION_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EPIPE",
+  "08000",
+  "08003",
+  "08006",
+  "08001",
+  "57P01",
+]);
 
 function isCategory(value: string): value is "novel" | "business_plan" | "article" {
   return CATEGORIES.has(value);
@@ -61,39 +73,71 @@ function isFileLike(value: unknown): value is File & { arrayBuffer: () => Promis
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Library operation failed.";
+  const storageError = error instanceof PrivateFileStorageError ? error : null;
+  const missingStorageObject =
+    storageError?.httpStatus === 404 &&
+    ["NoSuchKey", "ObjectNotFound"].includes(storageError.storageCode ?? "");
+  const databaseErrorCode = getDatabaseErrorCode(error);
+  const transientDatabaseFailure =
+    databaseErrorCode !== undefined && RETRYABLE_DATABASE_CONNECTION_CODES.has(databaseErrorCode);
   const status =
     error instanceof UploadBodyTooLargeError || error instanceof RequestBodyTooLargeError
       ? 413
       : error instanceof InvalidUploadBodyError || error instanceof InvalidRequestBodyError
         ? 400
-        : message.includes("Supabase Storage")
-          ? 503
-          : message.includes("signed in")
-            ? 401
-            : message.includes("Purchase this resource") ||
-                message.includes("Student library access")
-              ? 403
-              : message.includes("origin is not allowed")
+        : storageError
+          ? missingStorageObject
+            ? 404
+            : 503
+          : transientDatabaseFailure
+            ? 503
+            : message.includes("signed in")
+              ? 401
+              : message.includes("Purchase this resource") ||
+                  message.includes("Student library access")
                 ? 403
-                : message.includes("Administrator access")
+                : message.includes("origin is not allowed")
                   ? 403
-                  : message.includes("not found")
-                    ? 404
-                    : message.includes("payments are not configured")
-                      ? 503
-                      : message === "Invalid file key."
-                        ? 400
-                        : 500;
-  if (status === 500) {
+                  : message.includes("Administrator access")
+                    ? 403
+                    : message.includes("not found")
+                      ? 404
+                      : message.includes("payments are not configured")
+                        ? 503
+                        : message === "Invalid file key."
+                          ? 400
+                          : 500;
+  if (storageError) {
+    console.error("Library storage operation failed.", {
+      operation: storageError.operation,
+      errorName: storageError.sourceErrorName,
+      code: storageError.code ?? null,
+      storageCode: storageError.storageCode ?? null,
+      httpStatus: storageError.httpStatus ?? null,
+      destinationHostname: storageError.destinationHostname ?? null,
+      durationMs: storageError.durationMs ?? null,
+      retryAttempt: storageError.retryAttempt ?? null,
+    });
+  } else if (status === 500 || transientDatabaseFailure) {
     console.error(
-      "Library operation failed.",
-      getDatabaseErrorCode(error) ?? (error instanceof Error ? error.name : "unknown error"),
+      transientDatabaseFailure
+        ? "Temporary library database failure."
+        : "Library operation failed.",
+      {
+        code: databaseErrorCode ?? null,
+        errorName: error instanceof Error ? error.name : "unknown error",
+      },
     );
   }
-  return Response.json(
-    { error: status === 500 ? "Library operation failed." : message },
-    { status },
-  );
+  const responseError =
+    storageError && status === 503
+      ? "Library storage is temporarily unavailable. Please try again."
+      : transientDatabaseFailure
+        ? "Library services are temporarily unavailable. Please try again."
+        : status === 500
+          ? "Library operation failed."
+          : message;
+  return Response.json({ error: responseError }, { status });
 }
 
 export const Route = createFileRoute("/api/library")({
@@ -196,8 +240,14 @@ export const Route = createFileRoute("/api/library")({
 
           try {
             for (const document of documents) {
-              await writePrivateFile(document.storageKey, document.content, "library");
               storedKeys.push(document.storageKey);
+              await writePrivateFile(
+                document.storageKey,
+                document.content,
+                "library",
+                document.mimeType,
+                true,
+              );
             }
             await createLibraryResources(
               documents.map(({ content: _content, ...metadata }) => metadata),
