@@ -535,7 +535,7 @@ describe("private request file uploads", () => {
             start(controller) {
               controller.error(streamError);
             },
-          }),
+          }) as unknown as BodyInit,
           { status: 200 },
         ),
       ),

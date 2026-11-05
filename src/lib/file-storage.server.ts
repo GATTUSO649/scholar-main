@@ -1,6 +1,6 @@
 import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 type StorageArea = "requests" | "library";
 type SupabaseStorageConfig = {
@@ -104,7 +104,7 @@ function storageFailure(
   });
 }
 
-type StorageClient = ReturnType<typeof createClient>;
+type StorageClient = SupabaseClient;
 
 function getErrorDetails(error: unknown) {
   const pending = [error];
@@ -120,24 +120,28 @@ function getErrorDetails(error: unknown) {
     if (!current || typeof current !== "object" || visited.has(current)) continue;
     visited.add(current);
     const record = current as Record<string, unknown>;
-    if (!name && typeof record.name === "string") name = record.name;
-    if (!message && typeof record.message === "string") message = record.message;
-    if (!code && typeof record.code === "string") code = record.code;
-    if (!storageCode && typeof record.code === "string" && !/^\d+$/.test(record.code)) {
-      storageCode = record.code;
+    if (!name && typeof record["name"] === "string") name = record["name"];
+    if (!message && typeof record["message"] === "string") message = record["message"];
+    if (!code && typeof record["code"] === "string") code = record["code"];
+    if (!storageCode && typeof record["code"] === "string" && !/^\d+$/.test(record["code"])) {
+      storageCode = record["code"];
     }
-    if (!storageCode && typeof record.statusCode === "string" && !/^\d+$/.test(record.statusCode)) {
-      storageCode = record.statusCode;
+    if (
+      !storageCode &&
+      typeof record["statusCode"] === "string" &&
+      !/^\d+$/.test(record["statusCode"])
+    ) {
+      storageCode = record["statusCode"];
     }
     if (!httpStatus) {
-      if (typeof record.httpStatus === "number") httpStatus = record.httpStatus;
-      else if (typeof record.status === "number") httpStatus = record.status;
-      else if (typeof record.statusCode === "string" && /^\d+$/.test(record.statusCode)) {
-        httpStatus = Number(record.statusCode);
+      if (typeof record["httpStatus"] === "number") httpStatus = record["httpStatus"];
+      else if (typeof record["status"] === "number") httpStatus = record["status"];
+      else if (typeof record["statusCode"] === "string" && /^\d+$/.test(record["statusCode"])) {
+        httpStatus = Number(record["statusCode"]);
       }
     }
-    if (record.cause) pending.push(record.cause);
-    if (record.originalError) pending.push(record.originalError);
+    if (record["cause"]) pending.push(record["cause"]);
+    if (record["originalError"]) pending.push(record["originalError"]);
   }
 
   return { name, message, code, storageCode, httpStatus };
@@ -381,7 +385,7 @@ export async function verifyPrivateStorageBucket() {
   const bucket = await runStorageOperation(config, "bucket_check", "", (client) =>
     client.storage.getBucket(config.bucket),
   );
-  if (bucket.public !== false) {
+  if (!bucket || bucket.public !== false) {
     throw new Error(`Supabase Storage bucket "${config.bucket}" must be private.`);
   }
 }
@@ -411,6 +415,7 @@ export async function diagnosePrivateStorage() {
     const downloaded = await runStorageOperation(config, "download", objectPath, (client) =>
       client.storage.from(config.bucket).download(objectPath),
     );
+    if (!downloaded) throw new Error("Supabase Storage diagnostic download returned no object.");
     if (!Buffer.from(await downloaded.arrayBuffer()).equals(probe)) {
       throw new Error("Supabase Storage diagnostic returned unexpected object contents.");
     }
@@ -462,7 +467,7 @@ async function privateObjectExists(config: SupabaseStorageConfig, objectPath: st
   const files = await runStorageOperation(config, "bucket_check", objectPath, (client) =>
     client.storage.from(config.bucket).list(folder, { limit: 100, search: fileName }),
   );
-  return files.some((file) => file.name === fileName);
+  return files?.some((file) => file.name === fileName) ?? false;
 }
 
 async function migrateFilesToSupabase(sourceRoot: string, config: SupabaseStorageConfig) {
@@ -615,6 +620,9 @@ export async function readPrivateFile(key: string, area: StorageArea = "requests
     const file = await runStorageOperation(config, "download", objectPath, (client) =>
       client.storage.from(config.bucket).download(objectPath),
     );
+    if (!file) {
+      throw Object.assign(new Error("Object not found."), { code: "ENOENT" });
+    }
     return Buffer.from(await file.arrayBuffer());
   }
   return readFile(getPrivateFilePath(key, area));

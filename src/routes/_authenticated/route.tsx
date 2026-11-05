@@ -255,7 +255,7 @@ function Shell() {
         <>
           {adminNavGroups.map((group) => (
             <div key={group.label} className="mb-3 space-y-1">
-              <p className="px-3 pb-1 pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9aacc1]">
+              <p className="px-3 pb-1 pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#a6c4b7]">
                 {group.label}
               </p>
               {group.items.map((item) => (
@@ -280,7 +280,7 @@ function Shell() {
             target="_blank"
             rel="noreferrer"
             onClick={() => setOpen(false)}
-            className="mt-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-[#c2cfdd] transition-colors hover:bg-white/10 hover:text-white"
+            className="mt-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-[#d0e0d9] transition-colors hover:bg-white/10 hover:text-white"
           >
             <ExternalLink className="h-4 w-4" /> Public website
           </a>
@@ -292,7 +292,7 @@ function Shell() {
         className={cn(
           "mt-auto flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors disabled:cursor-wait disabled:opacity-60",
           admin
-            ? "text-[#c2cfdd] hover:bg-[#793d49]/50 hover:text-white"
+            ? "text-[#d0e0d9] hover:bg-[#793d49]/50 hover:text-white"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
         )}
       >
@@ -303,14 +303,14 @@ function Shell() {
 
   if (inAdminArea) {
     const adminLinks = (
-      <div className="flex h-full min-h-0 flex-col bg-[#17263c]">
+      <div className="flex h-full min-h-0 flex-col bg-[#123b34]">
         <div className="shrink-0 border-b border-white/10 px-5 py-5">
           <Logo light onClick={handlePublicNavigation} />
           <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-[#b9c7d7]">
             <Sparkles className="h-3.5 w-3.5 text-[#b57c36]" /> Service workspace
           </div>
           <div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-white/6 p-3">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-white/10 text-xs font-bold text-[#f1c96b]">
+            <span className="grid h-9 w-9 place-items-center rounded-md bg-white/10 text-xs font-bold text-[#e3bd70]">
               {profile?.full_name
                 ?.split(/\s+/)
                 .map((part) => part[0])
@@ -340,14 +340,14 @@ function Shell() {
       </div>
     );
     return (
-      <div className="admin-workspace-shell min-h-screen bg-[#f2f4f6] lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#2b3c53] bg-[#17263c] lg:flex">
+      <div className="admin-workspace-shell min-h-screen bg-[#f2f6f3] lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#28534b] bg-[#123b34] lg:flex">
           {adminLinks}
         </aside>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#2b3c53] bg-[#17263c] px-4 py-3 text-white lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#28534b] bg-[#123b34] px-4 py-3 text-white lg:hidden">
           <div>
             <Logo light onClick={handlePublicNavigation} />
-            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#b9c7d7]">
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#b9d1c5]">
               Service workspace
             </p>
             <p className="mt-1 text-xs font-medium text-white/90">{pageTitle}</p>
@@ -381,7 +381,7 @@ function Shell() {
             />
             <div
               id="mobile-admin-navigation"
-              className="fixed right-3 top-16 z-20 h-[min(40rem,calc(100dvh-5rem))] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#2b3c53] bg-[#17263c] shadow-2xl lg:hidden"
+              className="fixed right-3 top-16 z-20 h-[min(40rem,calc(100dvh-5rem))] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#28534b] bg-[#123b34] shadow-2xl lg:hidden"
             >
               {adminLinks}
             </div>
@@ -390,7 +390,7 @@ function Shell() {
         <main className="admin-workspace-main min-w-0">
           <div className="sticky top-0 z-10 hidden h-17 items-center justify-between border-b border-[#e1e6eb] bg-white/95 px-8 backdrop-blur lg:flex">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#778394]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#718078]">
                 ScholarDesk <ChevronRight className="mx-1 inline h-3 w-3" /> Admin workspace
               </p>
               <p className="mt-1 text-sm font-semibold text-[#1b2b40]">{pageTitle}</p>
@@ -402,7 +402,7 @@ function Shell() {
                 to="/admin/profile"
                 className="text-[#1b2b40] hover:bg-[#edf1f5]"
               />
-              <span className="inline-flex items-center gap-2 border-l border-[#e4ebe6] pl-3 text-xs font-medium text-[#71817a]">
+              <span className="inline-flex items-center gap-2 border-l border-[#e4ebe6] pl-3 text-xs font-medium text-[#62746c]">
                 <ShieldCheck className="h-3.5 w-3.5 text-[#398b68]" /> Secure admin
               </span>
             </div>
@@ -543,10 +543,10 @@ function NavItem({
         "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
         active
           ? admin
-            ? "bg-[#29486b] font-semibold text-white shadow-[inset_3px_0_0_#f1c96b]"
+            ? "bg-[#1b5849] font-semibold text-white shadow-[inset_3px_0_0_#e3bd70]"
             : "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
           : admin
-            ? "text-[#c2cfdd] hover:bg-white/10 hover:text-white"
+            ? "text-[#d0e0d9] hover:bg-white/10 hover:text-white"
             : "text-sidebar-foreground/80 hover:bg-sidebar-accent",
       )}
     >

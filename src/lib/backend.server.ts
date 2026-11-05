@@ -1098,7 +1098,9 @@ export async function createLibraryResource(input: {
   mimeType?: string;
   size: number;
 }) {
-  await createLibraryResources([input]);
+  await createLibraryResources([
+    { ...input, mimeType: input.mimeType ?? "application/octet-stream" },
+  ]);
   return { success: true };
 }
 

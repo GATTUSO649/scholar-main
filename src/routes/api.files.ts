@@ -157,7 +157,9 @@ export const Route = createFileRoute("/api/files")({
           const uploaded: string[] = [];
           try {
             for (const { file, content, validation } of preparedFiles) {
-              if (!("mimeType" in validation)) throw new Error("Document validation failed.");
+              if (!("mimeType" in validation) || typeof validation.mimeType !== "string") {
+                throw new Error("Document validation failed.");
+              }
               const storageKey = crypto.randomUUID();
               const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "file";
               stage = "private storage write";

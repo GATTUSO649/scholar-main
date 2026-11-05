@@ -220,20 +220,22 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f3f6f4] px-4 py-5 sm:px-6 sm:py-7">
+    <div className="flex min-h-svh flex-col bg-[#edf3ef] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
         <Logo />
-        <span className="inline-flex items-center gap-2 rounded-md border border-[#dce5df] bg-white px-3 py-2 text-xs font-medium text-[#52645c]">
+        <span className="inline-flex items-center gap-2 rounded-lg border border-[#d6e3dc] bg-white px-3 py-2 text-xs font-medium text-[#52645c]">
           <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
           Secure student portal
         </span>
       </div>
       <main className="flex flex-1 items-center justify-center py-7 sm:py-10">
         <section
-          className={`w-full ${mode === "register" ? "max-w-2xl" : "max-w-lg"} overflow-hidden rounded-xl border border-[#dce5df] bg-white shadow-[0_18px_50px_-32px_rgba(23,38,60,0.28)]`}
+          className={`w-full ${mode === "register" ? "max-w-2xl" : "max-w-lg"} overflow-hidden rounded-xl border border-[#d6e3dc] bg-white shadow-[0_24px_70px_-42px_rgba(16,47,43,0.32)]`}
         >
-          <div className="border-b border-[#e6ece8] bg-[#f8faf8] px-5 py-5 sm:px-8 sm:py-6">
-            <p className="text-xs font-semibold text-[#547064]">{dayGreeting}</p>
+          <div className="border-b border-[#e3ebe6] bg-[#fbfcfb] px-5 py-5 sm:px-8 sm:py-6">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#547064]">
+              {dayGreeting} · Student portal
+            </p>
             <div className="mt-2">
               <div>
                 <h1 className="font-display text-2xl font-semibold tracking-tight text-[#183c34] sm:text-3xl">
