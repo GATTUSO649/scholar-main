@@ -1,6 +1,6 @@
 # Supabase Setup
 
-ScholarDesk uses PostgreSQL through Drizzle and `postgres.js`. The Supabase JavaScript client and Supabase Auth are not used; the application keeps its existing server-side authentication, role checks, password hashes, and opaque database-backed sessions. Never expose a database URL or use a Supabase browser client for application data.
+ScholarDesk uses PostgreSQL through Drizzle and `postgres.js`. The `@supabase/supabase-js` client is used server-side only for private Storage; Supabase Auth is not used. The application keeps its existing server-side authentication, role checks, password hashes, and opaque database-backed sessions. Never expose a database URL or use a Supabase browser client for application data.
 
 ## Create the database
 
@@ -48,10 +48,12 @@ The seed command inserts missing catalog/settings rows only. It creates no users
 
 1. In Supabase **Storage**, create a bucket named `private-uploads` and leave **Public bucket** disabled.
 2. Set `SUPABASE_URL` to the project's HTTPS URL, `SUPABASE_SERVICE_ROLE_KEY` to the server-only service role key, and `SUPABASE_STORAGE_BUCKET=private-uploads` in the hosting provider's environment settings.
-3. Keep the service role key exclusively on the server. Do not add it to `VITE_*` variables, client code, logs, or source control. The app verifies the bucket exists and is private when the production server starts.
+3. Keep the service role key exclusively on the server. Do not add it to `VITE_*` variables, client code, logs, or source control. Storage calls use a 45-second per-request timeout and retry transient network failures at most twice. Diagnostics log the destination hostname and request metadata, never credentials, object paths, or file contents.
 4. PostgreSQL stores only file metadata and storage keys. Uploads and downloads go through server handlers that check the current session, ownership/admin role, and payment status before accessing the private bucket.
 
-Render does not need a persistent disk for uploads with this setup. Existing files can be copied into the bucket with `npm run files:migrate-to-object-storage`; set `LEGACY_FILE_STORAGE_DIR` to the old file directory for that one-time migration. Back up the bucket objects separately from PostgreSQL, as explained in [DATABASE_BACKUP_AND_RESTORE.md](DATABASE_BACKUP_AND_RESTORE.md).
+Render does not need a persistent disk for new uploads with this setup. To verify the configured connection, bucket privacy, upload, download, and cleanup, run `npm run files:diagnose-storage`. The diagnostic uses a unique temporary object and removes it; it does not alter application files or metadata.
+
+Legacy files are never migrated or deleted automatically. For a manual migration, first preserve a backup of the old upload directory, make that directory available to a trusted machine with the application configured to use the intended Supabase project, set `LEGACY_FILE_STORAGE_DIR` to that directory, and run `npm run files:migrate-to-object-storage`. The command verifies the bucket and leaves source files untouched; objects already at the target paths are skipped. Review the copied/skipped counts and verify representative authorized downloads before retiring the old source. The local workspace currently has no `data/uploads` directory; Render's former filesystem cannot be inspected from this repository, so confirm any old Render disk/snapshot or external backup separately. Back up bucket objects separately from PostgreSQL, as explained in [DATABASE_BACKUP_AND_RESTORE.md](DATABASE_BACKUP_AND_RESTORE.md).
 
 ## Render configuration
 

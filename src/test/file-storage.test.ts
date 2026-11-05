@@ -1,9 +1,11 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { Blob as NodeBlob } from "node:buffer";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   deletePrivateFile,
+  diagnosePrivateStorage,
   getPrivateFilePath,
   migrateLegacyPrivateFiles,
   readPrivateFile,
@@ -23,6 +25,7 @@ const filesOfSize = (...sizes: number[]) =>
   sizes.map((size) => ({ size, name: "upload.pdf", type: "application/pdf" }) as File);
 
 beforeEach(() => {
+  vi.stubGlobal("Blob", NodeBlob);
   vi.stubEnv("SUPABASE_URL", "");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
   vi.stubEnv("SUPABASE_STORAGE_BUCKET", "");
@@ -64,7 +67,7 @@ describe("private file storage", () => {
       .fn()
       .mockResolvedValueOnce(new Response("{}", { status: 200 }))
       .mockResolvedValueOnce(new Response("remote document", { status: 200 }))
-      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+      .mockResolvedValueOnce(Response.json([]));
     vi.stubGlobal("fetch", fetchMock);
 
     await writePrivateFile(fileKey, Buffer.from("upload bytes"), "library", "application/pdf");
@@ -77,23 +80,20 @@ describe("private file storage", () => {
       "https://project.supabase.co/storage/v1/object/private-uploads/library/1d/1d28d191-bcce-43cf-8d7c-b03c386de3b3";
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(objectUrl);
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-      method: "POST",
-      headers: {
-        apikey: "server-only-service-role-key",
-        authorization: "Bearer server-only-service-role-key",
-        "content-type": "application/pdf",
-        "x-upsert": "false",
-      },
-      body: Buffer.from("upload bytes"),
-    });
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
+    const uploadHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(uploadHeaders.get("apikey")).toBe("server-only-service-role-key");
+    expect(uploadHeaders.get("authorization")).toBe("Bearer server-only-service-role-key");
+    expect(uploadHeaders.get("content-type")).toBe("application/pdf");
+    expect(uploadHeaders.get("x-upsert")).toBe("false");
+    expect(Buffer.from(fetchMock.mock.calls[0]?.[1]?.body as Uint8Array)).toEqual(
+      Buffer.from("upload bytes"),
+    );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(objectUrl);
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       "https://project.supabase.co/storage/v1/object/private-uploads",
     );
-    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
-      prefixes: [`library/1d/${fileKey}`],
-    });
+    expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("DELETE");
   });
 
   it("requires the configured Supabase bucket to exist and remain private", async () => {
@@ -107,18 +107,76 @@ describe("private file storage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(verifyPrivateStorageBucket()).resolves.toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "https://project.supabase.co/storage/v1/bucket/private-uploads",
-      expect.objectContaining({
-        headers: {
-          apikey: "server-only-service-role-key",
-          authorization: "Bearer server-only-service-role-key",
-        },
-      }),
     );
+    const bucketHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(bucketHeaders.get("apikey")).toBe("server-only-service-role-key");
+    expect(bucketHeaders.get("authorization")).toBe("Bearer server-only-service-role-key");
 
     fetchMock.mockResolvedValueOnce(Response.json({ id: "private-uploads", public: true }));
     await expect(verifyPrivateStorageBucket()).rejects.toThrow(/must be private/);
+  });
+
+  it("retries a transient reset using the Supabase Storage client", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "server-only-service-role-key");
+    const fetchError = Object.assign(new Error("fetch failed"), {
+      cause: Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }),
+    });
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(fetchError)
+      .mockResolvedValueOnce(Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      writePrivateFile(fileKey, Buffer.from("retry-safe"), "requests", "text/plain", true),
+    ).resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[0]?.[1]?.headers as Headers).get("x-upsert")).toBe("true");
+    expect((fetchMock.mock.calls[1]?.[1]?.headers as Headers).get("x-upsert")).toBe("true");
+  });
+
+  it("diagnoses private bucket access with a unique temporary object and removes it", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "server-only-service-role-key");
+    vi.stubEnv("SUPABASE_STORAGE_BUCKET", "private-uploads");
+    let uploadedBytes = Buffer.alloc(0);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const requestUrl = String(input);
+      if (requestUrl.endsWith("/storage/v1/bucket/private-uploads")) {
+        return Response.json({ id: "private-uploads", public: false });
+      }
+      if (init?.method === "POST") {
+        uploadedBytes = Buffer.from(init.body as Uint8Array);
+        return Response.json({});
+      }
+      if (init?.method === "GET" && requestUrl.includes("/diagnostics/")) {
+        return new Response(uploadedBytes);
+      }
+      if (init?.method === "DELETE") return Response.json([]);
+      throw new Error("Unexpected diagnostic Storage request.");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(diagnosePrivateStorage()).resolves.toEqual({
+      connected: true,
+      bucketExists: true,
+      bucketPrivate: true,
+      upload: true,
+      download: true,
+      cleanup: true,
+      destinationHostname: "project.supabase.co",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://project.supabase.co/storage/v1/bucket/private-uploads",
+    );
+    expect(fetchMock.mock.calls[3]?.[1]?.method).toBe("DELETE");
   });
 
   it("migrates legacy request and library files without replacing existing objects", async () => {
@@ -136,9 +194,9 @@ describe("private file storage", () => {
     await writeFile(libraryPath, "library document");
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(new Response(null, { status: 200 }))
-      .mockResolvedValueOnce(new Response(null, { status: 404 }))
-      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+      .mockResolvedValueOnce(Response.json([{ name: fileKey }]))
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json({}));
     vi.stubGlobal("fetch", fetchMock);
 
     try {
@@ -149,12 +207,15 @@ describe("private file storage", () => {
         destinationRoot: "Supabase Storage: private-uploads",
       });
       expect(fetchMock.mock.calls[0]?.[0]).toBe(
-        `https://project.supabase.co/storage/v1/object/private-uploads/requests/1d/${fileKey}`,
+        "https://project.supabase.co/storage/v1/object/list/private-uploads",
+      );
+      expect(fetchMock.mock.calls[1]?.[0]).toBe(
+        "https://project.supabase.co/storage/v1/object/list/private-uploads",
       );
       expect(fetchMock.mock.calls[2]?.[0]).toBe(
         `https://project.supabase.co/storage/v1/object/private-uploads/library/4f/${libraryKey}`,
       );
-      expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: "POST" });
+      expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("POST");
     } finally {
       await rm(legacyRoot, { recursive: true, force: true });
     }

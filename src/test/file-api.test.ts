@@ -1,6 +1,7 @@
-import { File as NodeFile } from "node:buffer";
+import { Blob as NodeBlob, File as NodeFile } from "node:buffer";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { ReadableStream } from "node:stream/web";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -63,6 +64,50 @@ function uploadForm(files: TestUploadFile[], kind: "submission" | "delivery" = "
   } as unknown as FormData;
 }
 
+function makeZip(entries: string[]) {
+  const encoder = new TextEncoder();
+  const localRecords: Uint8Array[] = [];
+  const centralRecords: Uint8Array[] = [];
+  let localOffset = 0;
+
+  for (const entry of entries) {
+    const name = encoder.encode(entry);
+    const localRecord = new Uint8Array(30 + name.length);
+    const localView = new DataView(localRecord.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(26, name.length, true);
+    localRecord.set(name, 30);
+    localRecords.push(localRecord);
+
+    const centralRecord = new Uint8Array(46 + name.length);
+    const centralView = new DataView(centralRecord.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(28, name.length, true);
+    centralView.setUint32(42, localOffset, true);
+    centralRecord.set(name, 46);
+    centralRecords.push(centralRecord);
+    localOffset += localRecord.length;
+  }
+
+  const centralSize = centralRecords.reduce((size, record) => size + record.length, 0);
+  const endRecord = new Uint8Array(22);
+  const endView = new DataView(endRecord.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, entries.length, true);
+  endView.setUint16(10, entries.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, localOffset, true);
+
+  const parts = [...localRecords, ...centralRecords, endRecord];
+  const archive = new Uint8Array(parts.reduce((size, part) => size + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    archive.set(part, offset);
+    offset += part.length;
+  }
+  return archive;
+}
+
 function useSupabaseStorage() {
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
@@ -72,6 +117,7 @@ function useSupabaseStorage() {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  vi.stubGlobal("Blob", NodeBlob);
   storageRoot = await mkdtemp(path.join(tmpdir(), "scholardesk-file-api-"));
   vi.stubEnv("NODE_ENV", "test");
   vi.stubEnv("FILE_STORAGE_DIR", storageRoot);
@@ -115,24 +161,167 @@ describe("private request file uploads", () => {
   });
 
   it.each([
-    ["PDF", new TestUploadFile("assignment.pdf", "application/pdf", "%PDF-1.7 test")],
     [
-      "Word",
-      new TestUploadFile(
-        "assignment.doc",
-        "application/msword",
-        new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
-      ),
+      "PDF",
+      new TestUploadFile("assignment.pdf", "application/pdf", "%PDF-1.7 test"),
+      "application/pdf",
     ],
-  ])("accepts a content-validated %s upload", async (_format, file) => {
+    [
+      "DOCX",
+      new TestUploadFile(
+        "assignment.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        makeZip(["[Content_Types].xml", "word/document.xml"]),
+      ),
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ],
+    [
+      "XLSX",
+      new TestUploadFile(
+        "assignment.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        makeZip(["[Content_Types].xml", "xl/workbook.xml"]),
+      ),
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ],
+  ])("uploads a content-validated %s through Supabase Storage", async (_format, file, mimeType) => {
+    useSupabaseStorage();
     mocks.parseMultipartFormData.mockImplementationOnce(async () => uploadForm([file]));
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
 
     const response = await post({
       request: new Request("https://portal.example/api/files", { method: "POST" }),
     });
 
     expect(response.status).toBe(201);
-    expect(mocks.addRequestFile.mock.calls[0]?.[0]).toMatchObject({ name: file.name });
+    expect(mocks.addRequestFile.mock.calls[0]?.[0]).toMatchObject({
+      name: file.name,
+      mimeType,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[0]).toMatch(
+      /^https:\/\/project\.supabase\.co\/storage\/v1\/object\/private-uploads\/requests\/[0-9a-f]{2}\//,
+    );
+    const uploadHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(uploadHeaders.get("content-type")).toBe(mimeType);
+    expect(uploadHeaders.get("x-upsert")).toBe("true");
+  });
+
+  it("rejects unsupported file types before calling Storage", async () => {
+    mocks.parseMultipartFormData.mockImplementationOnce(async () =>
+      uploadForm([new TestUploadFile("photo.png", "image/png", "not a document")]),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.addRequestFile).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized file before calling Storage", async () => {
+    const content = Buffer.alloc(20 * 1024 * 1024 + 1);
+    content.set(Buffer.from("%PDF-1.7"));
+    mocks.parseMultipartFormData.mockImplementationOnce(async () =>
+      uploadForm([new TestUploadFile("large.pdf", "application/pdf", content)]),
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(413);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when the configured Storage bucket does not exist", async () => {
+    useSupabaseStorage();
+    const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
+    mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ code: "BucketNotFound", message: "Bucket not found" }, { status: 404 }),
+        ),
+    );
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/files?key=${storageKey}`),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "File storage is temporarily unavailable. Please try again later.",
+    });
+  });
+
+  it("retries a transient Storage upload reset without duplicating metadata", async () => {
+    useSupabaseStorage();
+    const fetchError = Object.assign(new Error("fetch failed"), {
+      cause: Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }),
+    });
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(fetchError)
+      .mockResolvedValueOnce(Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[0]?.[1]?.headers as Headers).get("x-upsert")).toBe("true");
+    expect((fetchMock.mock.calls[1]?.[1]?.headers as Headers).get("x-upsert")).toBe("true");
+    expect(mocks.addRequestFile).toHaveBeenCalledOnce();
+  });
+
+  it("requires authentication before private downloads reach Storage", async () => {
+    useSupabaseStorage();
+    mocks.getDatabaseErrorCode.mockReturnValue(undefined);
+    mocks.getAuthorizedFile.mockRejectedValue(new Error("You must be signed in."));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await get({
+      request: new Request(
+        "https://portal.example/api/files?key=1d28d191-bcce-43cf-8d7c-b03c386de3b3",
+      ),
+    });
+
+    expect(response.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("removes the uploaded object and metadata when PostgreSQL insertion fails", async () => {
+    useSupabaseStorage();
+    mocks.getDatabaseErrorCode.mockReturnValue(undefined);
+    mocks.addRequestFile.mockRejectedValue(new Error("database unavailable"));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({}))
+      .mockResolvedValueOnce(Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await post({
+      request: new Request("https://portal.example/api/files", { method: "POST" }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("DELETE");
+    expect(mocks.deleteRequestFile).toHaveBeenCalledOnce();
   });
 
   it("stores multiple documents from one upload request", async () => {
@@ -223,15 +412,12 @@ describe("private request file uploads", () => {
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe("%PDF-1.7 data");
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `https://project.supabase.co/storage/v1/object/private-uploads/requests/1d/${storageKey}`,
-      expect.objectContaining({
-        headers: {
-          apikey: "server-only-storage-key",
-          authorization: "Bearer server-only-storage-key",
-        },
-      }),
     );
+    const requestHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(requestHeaders.get("apikey")).toBe("server-only-storage-key");
+    expect(requestHeaders.get("authorization")).toBe("Bearer server-only-storage-key");
   });
 
   it("returns 404 and logs provider details when the private object is missing", async () => {
@@ -259,12 +445,14 @@ describe("private request file uploads", () => {
     expect(errorLog).toHaveBeenCalledWith("Private file storage operation failed.", {
       stage: "private storage read",
       originalMessage: "Object not found",
-      errorName: "SupabaseStorageResponseError",
-      code: "ObjectNotFound",
+      errorName: "StorageApiError",
+      code: "ENOENT",
+      storageCode: "ObjectNotFound",
       httpStatus: 404,
       operation: "download",
-      bucket: "private-uploads",
-      objectPath: `requests/1d/${storageKey}`,
+      destinationHostname: "project.supabase.co",
+      durationMs: expect.any(Number),
+      retryAttempt: 1,
     });
   });
 
@@ -304,7 +492,11 @@ describe("private request file uploads", () => {
     useSupabaseStorage();
     const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
     mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED")));
+    const fetchError = Object.assign(new Error("fetch failed"), {
+      cause: Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }),
+    });
+    const fetchMock = vi.fn().mockRejectedValue(fetchError);
+    vi.stubGlobal("fetch", fetchMock);
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await get({
@@ -318,14 +510,47 @@ describe("private request file uploads", () => {
     expect(errorLog).toHaveBeenCalledWith(
       "Private file storage operation failed.",
       expect.objectContaining({
-        originalMessage: "connect ECONNREFUSED",
-        errorName: "Error",
+        originalMessage: "fetch failed",
+        errorName: "StorageUnknownError",
+        code: "ECONNRESET",
+        storageCode: "ECONNRESET",
         httpStatus: null,
         operation: "download",
-        bucket: "private-uploads",
-        objectPath: `requests/1d/${storageKey}`,
+        destinationHostname: "project.supabase.co",
+        retryAttempt: 3,
       }),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("returns 503 when the Storage response body resets after HTTP 200", async () => {
+    useSupabaseStorage();
+    const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
+    mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
+    const streamError = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.error(streamError);
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/files?key=${storageKey}`),
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "File storage is temporarily unavailable. Please try again later.",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("downloads the exact PDF uploaded by an admin as a delivery file", async () => {

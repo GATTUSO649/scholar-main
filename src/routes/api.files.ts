@@ -57,8 +57,11 @@ function errorResponse(error: unknown, stage: string) {
   const message = error instanceof Error ? error.message : "File operation failed.";
   const missingStorageFile = error instanceof Error && "code" in error && error.code === "ENOENT";
   const storageError = error instanceof PrivateFileStorageError ? error : null;
+  const missingStorageObject =
+    storageError?.httpStatus === 404 &&
+    ["NoSuchKey", "ObjectNotFound"].includes(storageError.storageCode ?? "");
   let status: number;
-  if (storageError) status = storageError.httpStatus === 404 ? 404 : 503;
+  if (storageError) status = missingStorageObject ? 404 : 503;
   else if (missingStorageFile) status = 404;
   else if (error instanceof UploadBodyTooLargeError) status = 413;
   else if (error instanceof InvalidUploadBodyError) status = 400;
@@ -75,11 +78,13 @@ function errorResponse(error: unknown, stage: string) {
       stage,
       originalMessage: storageError.originalMessage,
       errorName: storageError.sourceErrorName,
-      code: storageError.storageCode ?? storageError.code ?? null,
+      code: storageError.code ?? null,
+      storageCode: storageError.storageCode ?? null,
       httpStatus: storageError.httpStatus ?? null,
       operation: storageError.operation,
-      bucket: storageError.bucket,
-      objectPath: storageError.objectPath,
+      destinationHostname: storageError.destinationHostname ?? null,
+      durationMs: storageError.durationMs ?? null,
+      retryAttempt: storageError.retryAttempt ?? null,
     });
   } else if (status === 500) {
     console.error("File operation failed.", {
@@ -156,7 +161,7 @@ export const Route = createFileRoute("/api/files")({
               const storageKey = crypto.randomUUID();
               const safeName = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 255) || "file";
               stage = "private storage write";
-              await writePrivateFile(storageKey, content);
+              await writePrivateFile(storageKey, content, "requests", validation.mimeType, true);
               uploaded.push(storageKey);
               stage = "file metadata insert";
               await retryTransientDatabaseOperation(stage, () =>
