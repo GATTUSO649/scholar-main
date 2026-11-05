@@ -36,14 +36,14 @@ describe("private file storage", () => {
     expect(getPrivateFilePath(fileKey, "library")).toBe(path.join(root, "library", "1d", fileKey));
   });
 
-  it("rejects invalid keys and defaults to the local uploads directory in production", () => {
+  it("rejects invalid keys and uses the fixed Render disk path in production", () => {
     vi.stubEnv("NODE_ENV", "test");
     expect(() => getPrivateFilePath("../private-file")).toThrow("Invalid file key.");
 
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("FILE_STORAGE_DIR", "");
     expect(getPrivateFilePath(fileKey)).toBe(
-      path.join(path.resolve(process.cwd(), "data", "uploads"), "1d", fileKey),
+      path.join(path.resolve("/var/data/uploads"), "1d", fileKey),
     );
   });
 
@@ -90,7 +90,9 @@ describe("private file storage", () => {
         scanned: 2,
       });
 
-      await expect(readFile(destinationRequestPath, "utf8")).resolves.toBe("existing request payload");
+      await expect(readFile(destinationRequestPath, "utf8")).resolves.toBe(
+        "existing request payload",
+      );
       await expect(
         readFile(path.join(destinationRoot, "library", "4f", libraryKey), "utf8"),
       ).resolves.toBe("legacy library payload");
@@ -116,12 +118,12 @@ describe("document format validation", () => {
   });
 
   it("rejects mismatched MIME types and invalid document contents", () => {
-    expect(validateDocumentFile("report.pdf", "text/plain", Buffer.from("%PDF-1.7"))).toHaveProperty(
-      "error",
-    );
-    expect(validateDocumentFile("fake.docx", "application/zip", Buffer.from("PK fake"))).toHaveProperty(
-      "error",
-    );
+    expect(
+      validateDocumentFile("report.pdf", "text/plain", Buffer.from("%PDF-1.7")),
+    ).toHaveProperty("error");
+    expect(
+      validateDocumentFile("fake.docx", "application/zip", Buffer.from("PK fake")),
+    ).toHaveProperty("error");
     expect(validateDocumentFile("image.png", "image/png", Buffer.from("image"))).toHaveProperty(
       "error",
     );

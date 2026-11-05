@@ -10,12 +10,21 @@ export function getConfiguredFileLimit(name: string, fallback: number) {
   return Math.min(configured, MAX_CONFIGURED_FILE_BYTES);
 }
 
-const FIXED_UPLOAD_ROOT = path.resolve(process.cwd(), "data", "uploads");
+function getFixedUploadRoot() {
+  return process.env["NODE_ENV"] === "production"
+    ? path.resolve("/var/data/uploads")
+    : path.resolve(process.cwd(), "data", "uploads");
+}
 
 export function getPrivateFilePath(key: string, area: StorageArea = "requests") {
   if (!/^[0-9a-f-]{36}$/i.test(key)) throw new Error("Invalid file key.");
 
-  return path.join(FIXED_UPLOAD_ROOT, ...(area === "library" ? ["library"] : []), key.slice(0, 2), key);
+  return path.join(
+    getFixedUploadRoot(),
+    ...(area === "library" ? ["library"] : []),
+    key.slice(0, 2),
+    key,
+  );
 }
 
 export async function writePrivateFile(
@@ -61,10 +70,10 @@ async function findPrivateFiles(root: string) {
 
 export async function migrateLegacyPrivateFiles(
   sourceRoot = path.join(process.cwd(), "data", "uploads"),
-  destinationRoot = FIXED_UPLOAD_ROOT,
+  destinationRoot?: string,
 ) {
   const resolvedSource = path.resolve(sourceRoot);
-  const resolvedDestination = path.resolve(destinationRoot);
+  const resolvedDestination = path.resolve(destinationRoot ?? getFixedUploadRoot());
 
   if (resolvedSource === resolvedDestination) {
     return {

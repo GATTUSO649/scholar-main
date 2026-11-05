@@ -41,8 +41,6 @@ services:
         value: "true"
       - key: ADMIN_SIGNUP_SECRET
         sync: false
-      - key: FILE_STORAGE_DIR
-        value: /var/data/uploads
       - key: REQUEST_MAX_FILE_BYTES
         value: "20971520"
       - key: REQUEST_MAX_TOTAL_BYTES
