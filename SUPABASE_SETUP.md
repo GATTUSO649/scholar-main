@@ -22,11 +22,24 @@ Optional variable:
 DATABASE_MIGRATION_URL=postgresql://MIGRATION_USER:PASSWORD@HOST:PORT/postgres
 ```
 
-A Supabase `service_role` key is not a database URL and must not be used as one. Do not add Supabase Auth, a browser-side database client, or broad RLS policies: current access control relies on the server session and server-side authorization. Supabase's default database role has broad privileges; for production, use a dedicated runtime role restricted to the application schema/tables and a separate migration role. Do not grant the runtime role ownership or general DDL rights.
+A Supabase `service_role` key is not a database URL and must not be used as one. Supabase Auth and browser-side database clients are not used; application access is authorized by server sessions and backend permission checks. Migration `0007_many_slyde.sql` enables RLS on all current public application tables and revokes table, sequence, and function privileges from `anon` and `authenticated`, leaving the Supabase Data API roles with no direct application-data access. No RLS policies are defined, so these roles fail closed. The server currently connects with the `postgres` role, which has `BYPASSRLS`; a replacement runtime role without `BYPASSRLS` requires a separately reviewed policy design before deployment.
+
+Migration 0007 also revokes default public-schema object grants for `postgres`. The current database has separate default ACLs owned by `supabase_admin`, which the application's migration role cannot change. A Supabase owner should run the following in the SQL Editor, using an appropriately privileged account, to prevent future objects created by `supabase_admin` from inheriting Data API grants:
+
+```sql
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+	REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+	REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+	REVOKE ALL ON FUNCTIONS FROM anon, authenticated;
+```
+
+The existing `rls_auto_enable` event trigger enables RLS on new public tables, but it does not replace these default-privilege revokes. Review future public functions before granting execution to either Data API role.
 
 ## Initialize or update the schema
 
-Install dependencies and apply the reviewed, additive Drizzle migration:
+Install dependencies and apply the reviewed, additive Drizzle migrations:
 
 ```sh
 npm ci

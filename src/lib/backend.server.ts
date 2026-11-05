@@ -27,7 +27,13 @@ import {
   userRoles,
   users,
 } from "../../drizzle/schema";
-import { getCookie, setCookie, deleteCookie, getRequestUrl } from "@tanstack/react-start/server";
+import {
+  getCookie,
+  setCookie,
+  deleteCookie,
+  getRequest,
+  getRequestUrl,
+} from "@tanstack/react-start/server";
 import { getDatabase } from "./database.server";
 import {
   buildPasswordChangedEmail,
@@ -110,6 +116,15 @@ function tokenHash(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function getAuditRequestMetadata() {
+  try {
+    const userAgent = getRequest().headers.get("user-agent")?.slice(0, 512);
+    return userAgent ? { userAgent } : {};
+  } catch {
+    return {};
+  }
+}
+
 function makeAdminAuditEvent(
   actor: SessionUser,
   action: string,
@@ -124,7 +139,12 @@ function makeAdminAuditEvent(
     action,
     targetType,
     targetId,
-    metadata,
+    metadata: {
+      actorRole: "admin",
+      outcome: "success",
+      ...metadata,
+      ...getAuditRequestMetadata(),
+    },
   };
 }
 
@@ -261,13 +281,39 @@ async function requireUser() {
 }
 
 async function requireAdmin() {
-  const user = await requireUser();
+  let user: SessionUser;
+  try {
+    user = await requireUser();
+  } catch (error) {
+    console.warn("Unauthenticated administrative access denied.", {
+      outcome: "failure",
+      reason: "unauthenticated",
+    });
+    throw error;
+  }
   const [role] = await getDatabase()
     .select({ id: userRoles.id })
     .from(userRoles)
     .where(and(eq(userRoles.userId, user.id), eq(userRoles.role, "admin")))
     .limit(1);
-  if (!role) throw new Error("Administrator access is required.");
+  if (!role) {
+    try {
+      await getDatabase()
+        .insert(adminAuditEvents)
+        .values(
+          makeAdminAuditEvent(user, "admin.authorization_denied", "admin_operation", null, {
+            actorRole: "non_admin",
+            outcome: "failure",
+            reason: "insufficient_role",
+          }),
+        );
+    } catch (error) {
+      console.error("Administrative denial audit could not be persisted.", {
+        code: getDatabaseErrorCode(error) ?? "unknown",
+      });
+    }
+    throw new Error("Administrator access is required.");
+  }
   return user;
 }
 
@@ -494,15 +540,11 @@ export async function registerAdmin(input: {
         userId: id,
         expiresAt: sessionExpiresAt,
       });
-      await tx.insert(adminAuditEvents).values({
-        id: randomUUID(),
-        actorUserId: id,
-        actorEmail: email,
-        action: "admin.account_created",
-        targetType: "user",
-        targetId: id,
-        metadata: { source: "signup_secret" },
-      });
+      await tx.insert(adminAuditEvents).values(
+        makeAdminAuditEvent({ id, email }, "admin.account_created", "user", id, {
+          source: "signup_secret",
+        }),
+      );
     });
     setSessionCookie(sessionToken, sessionExpiresAt);
   } catch (error) {
@@ -543,11 +585,36 @@ function isDuplicateKey(error: unknown): boolean {
   return code === "23505";
 }
 
+async function recordFailedAdminLogin(email: string, reason: string) {
+  try {
+    await getDatabase()
+      .insert(adminAuditEvents)
+      .values({
+        id: randomUUID(),
+        actorUserId: null,
+        actorEmail: email.slice(0, 255),
+        action: "admin.login_failed",
+        targetType: "user",
+        targetId: null,
+        metadata: {
+          actorRole: "admin",
+          outcome: "failure",
+          reason,
+          ...getAuditRequestMetadata(),
+        },
+      });
+  } catch (error) {
+    console.error("Failed administrator login audit could not be persisted.", {
+      code: getDatabaseErrorCode(error) ?? "unknown",
+    });
+  }
+}
+
 async function authenticateAccount(input: { email: string; password: string }, adminOnly: boolean) {
   let stage = "login throttle";
+  const email = input.email.trim().toLowerCase();
   try {
     const db = getDatabase();
-    const email = input.email.trim().toLowerCase();
     const now = new Date();
     const windowStartedAt = new Date(Date.now() - LOGIN_WINDOW_MINUTES * 60 * 1000);
     const nowTimestamp = now.toISOString();
@@ -589,6 +656,14 @@ async function authenticateAccount(input: { email: string; password: string }, a
     await createSession(account.id, adminOnly, account.email);
     return { id: account.id, email: account.email };
   } catch (error) {
+    if (adminOnly && error instanceof AuthError) {
+      const reason = error.message.includes("Too many sign-in attempts")
+        ? "rate_limited"
+        : error.message.includes("Email verification")
+          ? "email_unverified"
+          : "invalid_credentials";
+      await recordFailedAdminLogin(email, reason);
+    }
     if (error instanceof AuthError) throw error;
     console.error("Sign-in failed.", {
       stage,
@@ -609,10 +684,24 @@ export function loginAdminAccount(input: { email: string; password: string }) {
 export async function logoutAccount() {
   const token = getCookie(SESSION_COOKIE);
   try {
-    if (token)
-      await getDatabase()
-        .delete(sessions)
-        .where(eq(sessions.tokenHash, tokenHash(token)));
+    if (token) {
+      const user = await getCurrentUser();
+      const [adminRole] = user
+        ? await getDatabase()
+            .select({ id: userRoles.id })
+            .from(userRoles)
+            .where(and(eq(userRoles.userId, user.id), eq(userRoles.role, "admin")))
+            .limit(1)
+        : [];
+      await getDatabase().transaction(async (tx) => {
+        await tx.delete(sessions).where(eq(sessions.tokenHash, tokenHash(token)));
+        if (user && adminRole) {
+          await tx
+            .insert(adminAuditEvents)
+            .values(makeAdminAuditEvent(user, "admin.logout", "user", user.id));
+        }
+      });
+    }
   } finally {
     clearSessionCookie();
   }

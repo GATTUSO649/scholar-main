@@ -44,7 +44,7 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
-function addSecurityHeaders(response: Response) {
+export function addSecurityHeaders(response: Response) {
   const headers = new Headers(response.headers);
   headers.set(
     "content-security-policy",

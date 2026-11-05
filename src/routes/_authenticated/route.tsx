@@ -25,7 +25,6 @@ import {
   Menu,
   X,
   ChevronRight,
-  ShieldCheck,
   Sparkles,
   Banknote,
   FilePenLine,
@@ -147,6 +146,17 @@ function Shell() {
       }),
     [qc],
   );
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
+
+  useEffect(() => setOpen(false), [path]);
 
   async function leavePortal(to: "/" | "/auth") {
     if (leavingPortal) return;
@@ -309,33 +319,9 @@ function Shell() {
           <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-[#b9c7d7]">
             <Sparkles className="h-3.5 w-3.5 text-[#b57c36]" /> Service workspace
           </div>
-          <div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-white/6 p-3">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-white/10 text-xs font-bold text-[#e3bd70]">
-              {profile?.full_name
-                ?.split(/\s+/)
-                .map((part) => part[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase() ?? "AD"}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-white">
-                {profile?.full_name || "Administrator"}
-              </span>
-              <span className="block truncate text-xs text-[#b9c7d7]">Operations team</span>
-            </span>
-          </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col px-3 py-3">
           <NavLinks admin />
-          <div className="mt-auto shrink-0 border-t border-white/10 px-3 pt-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#d3dfeb]">
-              <span className="h-2 w-2 rounded-full bg-[#62c49b]" /> Workspace active
-            </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-[#aebdd0]">
-              Student records and files remain private.
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -377,13 +363,28 @@ function Shell() {
               type="button"
               aria-label="Close navigation"
               onClick={() => setOpen(false)}
-              className="fixed inset-0 top-14 z-10 bg-black/35 lg:hidden"
+              className="fixed inset-0 z-40 bg-black/45 lg:hidden"
             />
             <div
               id="mobile-admin-navigation"
-              className="fixed right-3 top-16 z-20 h-[min(40rem,calc(100dvh-5rem))] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#28534b] bg-[#123b34] shadow-2xl lg:hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Admin navigation"
+              className="fixed inset-y-0 left-0 z-50 h-dvh w-[min(22rem,88vw)] overflow-hidden border-r border-[#28534b] bg-[#123b34] shadow-2xl lg:hidden"
             >
-              {adminLinks}
+              <div className="flex h-full flex-col">
+                <div className="flex shrink-0 justify-end border-b border-white/10 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Close menu"
+                    className="rounded-md p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1">{adminLinks}</div>
+              </div>
             </div>
           </>
         )}
@@ -402,9 +403,6 @@ function Shell() {
                 to="/admin/profile"
                 className="text-[#1b2b40] hover:bg-[#edf1f5]"
               />
-              <span className="inline-flex items-center gap-2 border-l border-[#e4ebe6] pl-3 text-xs font-medium text-[#62746c]">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#398b68]" /> Secure admin
-              </span>
             </div>
           </div>
           <div className="admin-page-wrap mx-auto max-w-7xl px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
@@ -450,13 +448,46 @@ function Shell() {
             type="button"
             aria-label="Close navigation"
             onClick={() => setOpen(false)}
-            className="fixed inset-0 top-14 z-10 bg-black/35 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/45 lg:hidden"
           />
           <div
             id="mobile-student-navigation"
-            className="fixed right-3 top-16 z-20 flex max-h-[calc(100dvh-5rem)] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl lg:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Student navigation"
+            className="fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(22rem,88vw)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl lg:hidden"
           >
+            <div className="mb-5 flex shrink-0 items-center justify-between border-b border-sidebar-border pb-4">
+              <Logo light onClick={handlePublicNavigation} />
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close menu"
+                className="rounded-md p-2 transition-colors hover:bg-sidebar-accent"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             <NavLinks />
+            <div className="mt-5 flex shrink-0 items-center gap-3 border-t border-sidebar-border pt-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sidebar-accent text-sm font-semibold">
+                {profile?.full_name
+                  ?.trim()
+                  .split(/\s+/)
+                  .map((part) => part[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase() ?? "S"}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">
+                  {profile?.full_name || "Student account"}
+                </span>
+                <span className="block truncate text-xs text-sidebar-foreground/70">
+                  {profile?.email}
+                </span>
+              </span>
+            </div>
           </div>
         </>
       )}

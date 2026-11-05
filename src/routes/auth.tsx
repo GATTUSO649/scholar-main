@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -91,7 +90,8 @@ function AuthPage() {
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
   const [emailForLogin, setEmailForLogin] = useState("");
-  const [dayGreeting, setDayGreeting] = useState("Welcome");
+  const [passwordValue, setPasswordValue] = useState("");
+  const passwordIsValid = password.safeParse(passwordValue).success;
 
   useEffect(
     () =>
@@ -101,11 +101,6 @@ function AuthPage() {
       }),
     [queryClient],
   );
-
-  useEffect(() => {
-    const hour = new Date().getHours();
-    setDayGreeting(hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening");
-  }, []);
 
   useEffect(() => {
     getCurrentUserFn()
@@ -125,6 +120,7 @@ function AuthPage() {
     setFormError(null);
     setFormSuccess(null);
     setSent(null);
+    setPasswordValue("");
     navigate({
       to: "/auth",
       search: { mode: m, ...(returnTo ? { returnTo } : {}) },
@@ -220,40 +216,30 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col bg-[#edf3ef] px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
-        <Logo />
-        <span className="inline-flex items-center gap-2 rounded-lg border border-[#d6e3dc] bg-white px-3 py-2 text-xs font-medium text-[#52645c]">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
-          Secure student portal
-        </span>
-      </div>
-      <main className="flex flex-1 items-center justify-center py-7 sm:py-10">
-        <section
-          className={`w-full ${mode === "register" ? "max-w-2xl" : "max-w-lg"} overflow-hidden rounded-xl border border-[#d6e3dc] bg-white shadow-[0_24px_70px_-42px_rgba(16,47,43,0.32)]`}
-        >
+    <div className="min-h-svh bg-[#edf3ef] px-4 py-8 sm:px-6">
+      <main className="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-md flex-col justify-center">
+        <div className="mb-6 flex justify-center">
+          <Logo />
+        </div>
+        <section className="overflow-hidden rounded-xl border border-[#d6e3dc] bg-white shadow-[0_24px_70px_-42px_rgba(16,47,43,0.32)]">
           <div className="border-b border-[#e3ebe6] bg-[#fbfcfb] px-5 py-5 sm:px-8 sm:py-6">
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#547064]">
-              {dayGreeting} · Student portal
+              Student portal
             </p>
-            <div className="mt-2">
-              <div>
-                <h1 className="font-display text-2xl font-semibold tracking-tight text-[#183c34] sm:text-3xl">
-                  {mode === "register"
-                    ? "Create your account"
-                    : mode === "forgot"
-                      ? "Reset your password"
-                      : "Sign in"}
-                </h1>
-                <p className="mt-1.5 max-w-lg text-sm leading-5 text-muted-foreground">
-                  {mode === "register"
-                    ? "Set up a private workspace for your requests and documents."
-                    : mode === "forgot"
-                      ? "We’ll email you a secure password reset link."
-                      : "Sign in to manage your requests and continue your work."}
-                </p>
-              </div>
-            </div>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[#183c34]">
+              {mode === "register"
+                ? "Create your account"
+                : mode === "forgot"
+                  ? "Reset your password"
+                  : "Welcome back"}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {mode === "register"
+                ? "Create an account to manage your requests and documents."
+                : mode === "forgot"
+                  ? "We’ll email you a password reset link."
+                  : "Sign in to manage your requests and continue your work."}
+            </p>
           </div>
 
           <div className="p-5 sm:p-8">
@@ -288,14 +274,9 @@ function AuthPage() {
               <form onSubmit={submit} className="space-y-4" noValidate>
                 {mode === "register" ? (
                   <>
-                    <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <div className="space-y-3">
                       {FIELDS.map(([name, label, type]) => (
-                        <div
-                          key={name}
-                          className={
-                            name === "full_name" || name === "email" ? "sm:col-span-2" : ""
-                          }
-                        >
+                        <div key={name}>
                           <Label htmlFor={name}>{label}</Label>
                           <Input
                             id={name}
@@ -310,17 +291,27 @@ function AuthPage() {
                                     ? "tel"
                                     : "name"
                             }
-                            className="mt-1 h-10 rounded-md"
+                            className="mt-1.5 h-10 rounded-lg"
+                            onChange={
+                              name === "password"
+                                ? (event) => setPasswordValue(event.target.value)
+                                : undefined
+                            }
                           />
                           {errors[name] && (
                             <p className="mt-1 text-xs text-destructive">{errors[name]}</p>
                           )}
+                          {name === "password" && !passwordIsValid && (
+                            <p
+                              aria-live="polite"
+                              className="mt-1 text-xs leading-5 text-muted-foreground"
+                            >
+                              Use 8+ characters with uppercase, lowercase, a number, and a symbol.
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs leading-5 text-muted-foreground sm:col-span-2">
-                      Use 8+ characters with uppercase, lowercase, a number, and a symbol.
-                    </p>
                   </>
                 ) : (
                   <>
@@ -333,7 +324,7 @@ function AuthPage() {
                         required
                         autoComplete="email"
                         defaultValue={emailForLogin}
-                        className="mt-1 h-10 rounded-md"
+                        className="mt-1.5 h-10 rounded-lg"
                       />
                       {mode === "forgot" && errors["email"] && (
                         <p className="mt-1 text-xs text-destructive">{errors["email"]}</p>
@@ -348,13 +339,13 @@ function AuthPage() {
                           type="password"
                           required
                           autoComplete="current-password"
-                          className="mt-1 h-10 rounded-md"
+                          className="mt-1.5 h-10 rounded-lg"
                         />
                       </div>
                     )}
                   </>
                 )}
-                <Button type="submit" className="mt-2 h-11 w-full rounded-md" disabled={busy}>
+                <Button type="submit" className="mt-2 h-11 w-full rounded-xl" disabled={busy}>
                   {busy
                     ? "Please wait…"
                     : mode === "register"

@@ -69,7 +69,7 @@ export const users = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("users_email_unique").on(table.email)],
-);
+).enableRLS();
 
 export const profiles = pgTable("profiles", {
   id: varchar("id", { length: 36 })
@@ -85,7 +85,7 @@ export const profiles = pgTable("profiles", {
   yearOfStudy: varchar("year_of_study", { length: 20 }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 export const userRoles = pgTable(
   "user_roles",
@@ -97,7 +97,7 @@ export const userRoles = pgTable(
     role: userRoleEnum("role").notNull().default("student"),
   },
   (table) => [uniqueIndex("user_roles_user_role_unique").on(table.userId, table.role)],
-);
+).enableRLS();
 
 export const adminAuditEvents = pgTable(
   "admin_audit_events",
@@ -117,7 +117,7 @@ export const adminAuditEvents = pgTable(
     index("admin_audit_actor_created_idx").on(table.actorUserId, table.createdAt),
     index("admin_audit_target_created_idx").on(table.targetType, table.targetId, table.createdAt),
   ],
-);
+).enableRLS();
 
 export const sessions = pgTable(
   "sessions",
@@ -133,7 +133,7 @@ export const sessions = pgTable(
     index("sessions_user_id_idx").on(table.userId),
     index("sessions_expiry_idx").on(table.expiresAt),
   ],
-);
+).enableRLS();
 
 export const passwordResetTokens = pgTable(
   "password_reset_tokens",
@@ -146,7 +146,7 @@ export const passwordResetTokens = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("password_reset_expiry_idx").on(table.expiresAt)],
-);
+).enableRLS();
 
 export const emailVerificationTokens = pgTable(
   "email_verification_tokens",
@@ -159,13 +159,13 @@ export const emailVerificationTokens = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("email_verification_expiry_idx").on(table.expiresAt)],
-);
+).enableRLS();
 
 export const loginAttempts = pgTable("login_attempts", {
   email: varchar("email", { length: 255 }).primaryKey(),
   attempts: integer("attempts").notNull().default(0),
   windowStartedAt: timestamp("window_started_at", { withTimezone: true, mode: "date" }).notNull(),
-});
+}).enableRLS();
 
 export const services = pgTable(
   "services",
@@ -183,7 +183,7 @@ export const services = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("services_active_sort_idx").on(table.active, table.sort)],
-);
+).enableRLS();
 
 export const requests = pgTable(
   "requests",
@@ -224,7 +224,7 @@ export const requests = pgTable(
     index("requests_student_created_idx").on(table.studentId, table.createdAt),
     index("requests_status_idx").on(table.status),
   ],
-);
+).enableRLS();
 
 export const requestUpdates = pgTable(
   "request_updates",
@@ -241,7 +241,7 @@ export const requestUpdates = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("request_updates_request_created_idx").on(table.requestId, table.createdAt)],
-);
+).enableRLS();
 
 export const requestFiles = pgTable(
   "request_files",
@@ -264,7 +264,7 @@ export const requestFiles = pgTable(
     uniqueIndex("request_files_storage_key_unique").on(table.storageKey),
     index("request_files_request_created_idx").on(table.requestId, table.createdAt),
   ],
-);
+).enableRLS();
 
 export const libraryResources = pgTable(
   "library_resources",
@@ -288,7 +288,7 @@ export const libraryResources = pgTable(
     uniqueIndex("library_resources_storage_key_unique").on(table.storageKey),
     index("library_resources_category_created_idx").on(table.category, table.createdAt),
   ],
-);
+).enableRLS();
 
 export const libraryPurchases = pgTable(
   "library_purchases",
@@ -326,7 +326,7 @@ export const libraryPurchases = pgTable(
     index("library_purchases_resource_created_idx").on(table.resourceId, table.createdAt),
     index("library_purchases_status_created_idx").on(table.status, table.createdAt),
   ],
-);
+).enableRLS();
 
 export const serviceRequestPayments = pgTable(
   "service_request_payments",
@@ -363,7 +363,7 @@ export const serviceRequestPayments = pgTable(
     index("service_request_payments_student_status_idx").on(table.studentId, table.status),
     index("service_request_payments_status_created_idx").on(table.status, table.createdAt),
   ],
-);
+).enableRLS();
 
 export const faqEntries = pgTable(
   "faq_entries",
@@ -376,7 +376,7 @@ export const faqEntries = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("faq_entries_active_sort_idx").on(table.active, table.sort)],
-);
+).enableRLS();
 
 export const siteSettings = pgTable("site_settings", {
   id: integer("id").primaryKey().default(1),
@@ -399,7 +399,7 @@ export const siteSettings = pgTable("site_settings", {
     .notNull()
     .default("Answers to common questions about ScholarDesk services, payments and privacy."),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 export const notifications = pgTable(
   "notifications",
@@ -422,4 +422,4 @@ export const notifications = pgTable(
     index("notifications_user_created_idx").on(table.userId, table.createdAt),
     index("notifications_user_read_created_idx").on(table.userId, table.readAt, table.createdAt),
   ],
-);
+).enableRLS();

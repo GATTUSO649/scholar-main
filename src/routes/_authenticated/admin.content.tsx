@@ -103,7 +103,7 @@ function WebsiteContent() {
     setIsFaqFormOpen(true);
     setFaqDraft({
       ...emptyFaq,
-      sort: String(Math.max(-1, ...faqs.map((entry) => entry.sort)) + 1),
+      sort: String(Math.max(-1, ...faqs.map((entry) => entry.sort)) + 2),
     });
   }
 
@@ -114,7 +114,7 @@ function WebsiteContent() {
       question: entry.question,
       answer: entry.answer,
       active: entry.active,
-      sort: String(entry.sort),
+      sort: String(entry.sort + 1),
     });
   }
 
@@ -128,7 +128,7 @@ function WebsiteContent() {
           question: faqDraft.question,
           answer: faqDraft.answer,
           active: faqDraft.active,
-          sort: Number(faqDraft.sort),
+          sort: Number(faqDraft.sort) - 1,
         },
       });
       await refreshContent();
@@ -157,13 +157,15 @@ function WebsiteContent() {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <header className="border-b border-[#dfe8e3] pb-6">
-        <p className="text-[10px] font-bold uppercase text-[#6b8177]">Site controls</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b8177]">
+          Public site <span className="px-1 text-[#bd8a48]">/</span> Content management
+        </p>
         <h1 className="mt-2 text-3xl font-semibold text-[#173c33]">Website content</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[#677872]">
-          Keep support details, the public footer and FAQ page current. Changes appear across the
-          public site and both portal views.
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#677872]">
+          Manage the support information, footer copy and frequently asked questions shown to
+          students and visitors.
         </p>
       </header>
 
@@ -175,16 +177,21 @@ function WebsiteContent() {
         </p>
       ) : (
         <>
-          <section aria-labelledby="site-details-title">
-            <div className="mb-5 flex items-center gap-3">
+          <section
+            aria-labelledby="site-details-title"
+            className="rounded-xl border border-[#dfe8e3] bg-white p-5 sm:p-6"
+          >
+            <div className="mb-6 flex items-start gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#e5f1eb] text-[#155b4c]">
                 <FilePenLine className="h-5 w-5" />
               </span>
               <div>
                 <h2 id="site-details-title" className="text-lg font-semibold text-[#173c33]">
-                  Contact and page details
+                  Support and page details
                 </h2>
-                <p className="text-sm text-[#71817a]">Shared across public and portal footers.</p>
+                <p className="mt-1 text-sm leading-5 text-[#71817a]">
+                  These details are displayed across the public site and portal.
+                </p>
               </div>
             </div>
 
@@ -268,26 +275,30 @@ function WebsiteContent() {
                 </Field>
               </div>
               <div className="md:col-span-2">
-                <Button type="submit" disabled={siteSaving}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {siteSaving ? "Saving…" : "Save site details"}
-                </Button>
+                <div className="flex justify-end border-t border-[#e6ede8] pt-5">
+                  <Button type="submit" disabled={siteSaving}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {siteSaving ? "Saving…" : "Save site details"}
+                  </Button>
+                </div>
               </div>
             </form>
           </section>
 
           <section
             aria-labelledby="faq-management-title"
-            className="border-t border-[#dfe8e3] pt-8"
+            className="rounded-xl border border-[#dfe8e3] bg-white p-5 sm:p-6"
           >
             <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="text-[10px] font-bold uppercase text-[#6b8177]">Public help</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b8177]">
+                  Public help
+                </p>
                 <h2 id="faq-management-title" className="mt-1 text-xl font-semibold text-[#173c33]">
                   Frequently asked questions
                 </h2>
-                <p className="mt-1 text-sm text-[#71817a]">
-                  Edit answers, control their order and publish or hide entries.
+                <p className="mt-1 text-sm leading-5 text-[#71817a]">
+                  Keep answers accurate, set their display order and manage publication.
                 </p>
               </div>
               <Button type="button" onClick={startNewFaq}>
@@ -296,7 +307,10 @@ function WebsiteContent() {
             </header>
 
             {isFaqFormOpen && (
-              <form onSubmit={saveFaq} className="mt-5 grid gap-4 border-y border-[#dfe8e3] py-5">
+              <form
+                onSubmit={saveFaq}
+                className="mt-5 grid gap-4 rounded-lg border border-[#dfe8e3] bg-[#f8faf8] p-4 sm:p-5"
+              >
                 <Field label="Question" htmlFor="faq-question">
                   <Input
                     id="faq-question"
@@ -321,7 +335,7 @@ function WebsiteContent() {
                     <Input
                       id="faq-sort"
                       type="number"
-                      min="0"
+                      min="1"
                       max="9999"
                       value={faqDraft.sort}
                       onChange={(event) => setFaqDraft({ ...faqDraft, sort: event.target.value })}
@@ -341,7 +355,7 @@ function WebsiteContent() {
                     </label>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 border-t border-[#e1e9e3] pt-4">
                   <Button type="submit" disabled={faqSaving}>
                     <Save className="mr-2 h-4 w-4" />
                     {faqSaving ? "Saving…" : editingId ? "Save FAQ" : "Add FAQ"}
@@ -371,9 +385,11 @@ function WebsiteContent() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-medium text-[#24473b]">{entry.question}</h3>
-                        <span className="text-xs text-[#71817a]">#{entry.sort}</span>
+                        <span className="rounded border border-[#dfe8e3] px-1.5 py-0.5 text-[11px] font-medium text-[#71817a]">
+                          Order {entry.sort + 1}
+                        </span>
                         <span
-                          className={`text-xs font-medium ${entry.active ? "text-emerald-700" : "text-[#71817a]"}`}
+                          className={`rounded px-2 py-0.5 text-[11px] font-semibold ${entry.active ? "bg-emerald-50 text-emerald-800" : "bg-[#eef1ef] text-[#71817a]"}`}
                         >
                           {entry.active ? "Published" : "Hidden"}
                         </span>
