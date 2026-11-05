@@ -114,10 +114,15 @@ export function getDocumentMimeType(extension: string) {
 export function validateDocumentFile(name: string, mimeType: string, bytes: Uint8Array) {
   const extension = path.extname(name).toLowerCase();
   const expectedMimeType = getDocumentMimeType(extension);
-  if (!expectedMimeType) return { error: "Supported formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, and TXT." };
+  if (!expectedMimeType)
+    return { error: "Supported formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, and TXT." };
 
   const suppliedMimeType = mimeType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  const allowedMimeTypes = [expectedMimeType, "application/octet-stream", ...(mimeAliases[extension] ?? [])];
+  const allowedMimeTypes = [
+    expectedMimeType,
+    "application/octet-stream",
+    ...(mimeAliases[extension] ?? []),
+  ];
   if (suppliedMimeType && !allowedMimeTypes.includes(suppliedMimeType)) {
     return { error: "The file type does not match its extension." };
   }

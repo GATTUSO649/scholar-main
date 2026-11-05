@@ -49,14 +49,11 @@ const post = handlers.handlers?.POST;
 const put = handlers.handlers?.PUT;
 const remove = handlers.handlers?.DELETE;
 const get = handlers.handlers?.GET;
-if (!post || !put || !remove || !get) throw new Error("The library file handlers are not registered.");
+if (!post || !put || !remove || !get)
+  throw new Error("The library file handlers are not registered.");
 
 class TestDocumentFile extends NodeFile {
-  constructor(
-    name: string,
-    type: string,
-    content: Uint8Array,
-  ) {
+  constructor(name: string, type: string, content: Uint8Array) {
     super([Buffer.from(content)], name, { type });
   }
 }
@@ -138,8 +135,16 @@ describe("private library documents", () => {
     expect(mocks.createLibraryResources).toHaveBeenCalledOnce();
     expect(mocks.createLibraryResources.mock.calls[0]?.[0]).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: "one.pdf", mimeType: "application/pdf", category: "article" }),
-        expect.objectContaining({ name: "two.pdf", mimeType: "application/pdf", category: "article" }),
+        expect.objectContaining({
+          name: "one.pdf",
+          mimeType: "application/pdf",
+          category: "article",
+        }),
+        expect.objectContaining({
+          name: "two.pdf",
+          mimeType: "application/pdf",
+          category: "article",
+        }),
       ]),
     );
   });
@@ -160,19 +165,22 @@ describe("private library documents", () => {
 
   it("replaces the document while preserving the resource ID and deleting old bytes", async () => {
     const resourceId = "9f94f2dc-4970-44d3-ae58-2a54e3811f2c";
-    mocks.parseMultipartFormData.mockImplementationOnce(async () => ({
-      get: (name: string) =>
-        name === "id"
-          ? resourceId
-          : name === "file"
-            ? new TestDocumentFile(
-                "replacement.doc",
-                "application/msword",
-                new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
-              )
-            : null,
-      getAll: () => [],
-    }) as unknown as FormData);
+    mocks.parseMultipartFormData.mockImplementationOnce(
+      async () =>
+        ({
+          get: (name: string) =>
+            name === "id"
+              ? resourceId
+              : name === "file"
+                ? new TestDocumentFile(
+                    "replacement.doc",
+                    "application/msword",
+                    new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+                  )
+                : null,
+          getAll: () => [],
+        }) as unknown as FormData,
+    );
 
     const response = await put({
       request: new Request("https://portal.example/api/library", { method: "PUT" }),

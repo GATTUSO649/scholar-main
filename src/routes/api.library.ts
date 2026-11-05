@@ -35,8 +35,28 @@ function isCategory(value: string): value is "novel" | "business_plan" | "articl
   return CATEGORIES.has(value);
 }
 
+function sanitizeFileName(name: string) {
+  return (
+    Array.from(name, (character) => {
+      const code = character.charCodeAt(0);
+      return character === "/" || character === "\\" || code < 32 || code === 127 ? "_" : character;
+    })
+      .join("")
+      .slice(0, 255) || "document"
+  );
+}
+
 function isFileLike(value: unknown): value is File & { arrayBuffer: () => Promise<ArrayBuffer> } {
-  return !!value && typeof value === "object" && "arrayBuffer" in value && typeof value.arrayBuffer === "function" && "size" in value && typeof value.size === "number" && "type" in value && typeof value.type === "string";
+  return (
+    !!value &&
+    typeof value === "object" &&
+    "arrayBuffer" in value &&
+    typeof value.arrayBuffer === "function" &&
+    "size" in value &&
+    typeof value.size === "number" &&
+    "type" in value &&
+    typeof value.type === "string"
+  );
 }
 
 function errorResponse(error: unknown) {
@@ -104,15 +124,16 @@ export const Route = createFileRoute("/api/library")({
               { status: 400 },
             );
           }
-          const files = form
-            .getAll("files")
-            .filter(isFileLike);
+          const files = form.getAll("files").filter(isFileLike);
           if (!files.length) {
             const legacyFile = form.get("file");
             if (isFileLike(legacyFile)) files.push(legacyFile);
           }
           if (!files.length || files.length > MAX_FILES) {
-            return Response.json({ error: `Choose between 1 and ${MAX_FILES} documents.` }, { status: 400 });
+            return Response.json(
+              { error: `Choose between 1 and ${MAX_FILES} documents.` },
+              { status: 400 },
+            );
           }
           if (
             files.some((file) => file.size === 0 || file.size > MAX_FILE_BYTES) ||
@@ -143,8 +164,7 @@ export const Route = createFileRoute("/api/library")({
             if ("error" in validation) {
               return Response.json({ error: validation.error }, { status: 400 });
             }
-            const originalName =
-              file.name.replace(/[\\/\x00-\x1f\x7f]/g, "_").slice(0, 255) || "document";
+            const originalName = sanitizeFileName(file.name);
             const filenameTitle = path.parse(originalName).name.trim() || "Document";
             const title =
               files.length === 1
@@ -197,12 +217,16 @@ export const Route = createFileRoute("/api/library")({
           const id = String(form.get("id") ?? "");
           const file = form.get("file");
           if (!isFileLike(file) || file.size === 0 || file.size > MAX_FILE_BYTES) {
-            return Response.json({ error: "Choose a non-empty document within the file-size limit." }, { status: 413 });
+            return Response.json(
+              { error: "Choose a non-empty document within the file-size limit." },
+              { status: 413 },
+            );
           }
           const content = Buffer.from(await file.arrayBuffer());
           const validation = validateDocumentFile(file.name, file.type, content);
-          if ("error" in validation) return Response.json({ error: validation.error }, { status: 400 });
-          const originalName = file.name.replace(/[\\/\x00-\x1f\x7f]/g, "_").slice(0, 255) || "document";
+          if ("error" in validation)
+            return Response.json({ error: validation.error }, { status: 400 });
+          const originalName = sanitizeFileName(file.name);
           newStorageKey = crypto.randomUUID();
           await writePrivateFile(newStorageKey, content, "library");
           const result = await replaceLibraryResourceFile(id, {
@@ -292,7 +316,10 @@ export const Route = createFileRoute("/api/library")({
             resource.mimeType === "application/pdf";
           return new Response(content, {
             headers: {
-              "content-type": resource.mimeType || getDocumentMimeType(path.extname(resource.name)) || "application/octet-stream",
+              "content-type":
+                resource.mimeType ||
+                getDocumentMimeType(path.extname(resource.name)) ||
+                "application/octet-stream",
               "content-length": String(content.byteLength),
               "content-disposition": `${preview ? "inline" : "attachment"}; filename="${asciiName}"`,
               "cache-control": "private, no-store",

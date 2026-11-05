@@ -121,9 +121,10 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
     setBusy(true);
     try {
       const response = await fetch("/api/library", { method: "POST", body });
-      const result = (await response.json().catch(() => null)) as
-        | { error?: string; uploaded?: number }
-        | null;
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+        uploaded?: number;
+      } | null;
       if (!response.ok) throw new Error(result?.error ?? "Could not upload the resource.");
       form.reset();
       await refreshLibrary();

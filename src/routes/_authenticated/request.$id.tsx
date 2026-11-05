@@ -83,7 +83,8 @@ function Detail() {
             <div>
               <h2 className="font-semibold">Add files to this request</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, or TXT. Up to 10 files, 20 MB each, and 50 MB total.
+                PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, or TXT. Up to 10 files, 20 MB each, and 50 MB
+                total.
               </p>
             </div>
             <Button type="button" onClick={addAttachments} disabled={uploading || !files.length}>

@@ -97,30 +97,28 @@ export function RequestSummary({
       </div>
 
       <section className="min-w-0">
-          <h2 className="text-lg font-semibold">Files & deliverables</h2>
-          <ul className="mt-3 space-y-2">
-            {data.files.length === 0 && (
-              <li className="text-sm text-muted-foreground">No files.</li>
-            )}
-            {data.files.map((f) => (
-              <li key={f.id}>
-                <button
-                  onClick={() => openFile(f.path)}
-                  className="flex min-w-0 w-full items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left text-sm hover:bg-muted sm:px-4"
-                >
-                  {f.kind === "delivery" ? (
-                    <Download className="h-4 w-4 shrink-0 text-success" />
-                  ) : (
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                  <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-                    {f.kind === "delivery" ? "Completed work" : "Your upload"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        <h2 className="text-lg font-semibold">Files & deliverables</h2>
+        <ul className="mt-3 space-y-2">
+          {data.files.length === 0 && <li className="text-sm text-muted-foreground">No files.</li>}
+          {data.files.map((f) => (
+            <li key={f.id}>
+              <button
+                onClick={() => openFile(f.path)}
+                className="flex min-w-0 w-full items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left text-sm hover:bg-muted sm:px-4"
+              >
+                {f.kind === "delivery" ? (
+                  <Download className="h-4 w-4 shrink-0 text-success" />
+                ) : (
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+                  {f.kind === "delivery" ? "Completed work" : "Your upload"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

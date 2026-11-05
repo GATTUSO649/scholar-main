@@ -8,7 +8,9 @@ const destinationRoot = path.resolve(process.cwd(), "data", "uploads");
 const legacyRoot = path.resolve(process.cwd(), "data", "uploads");
 const result = await migrateLegacyPrivateFiles(legacyRoot, destinationRoot);
 
-console.log(`Legacy upload scan complete: ${result.scanned} file(s) found in ${result.sourceRoot}.`);
+console.log(
+  `Legacy upload scan complete: ${result.scanned} file(s) found in ${result.sourceRoot}.`,
+);
 if (result.copied > 0) {
   console.log(`Migrated ${result.copied} file(s) to ${result.destinationRoot}.`);
 }

@@ -302,7 +302,8 @@ function Manage() {
                       {files.length ? `${files.length} file(s) selected` : "Choose delivery files"}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      PDF, Word, Excel, PowerPoint, or text files; uploading marks the request complete
+                      PDF, Word, Excel, PowerPoint, or text files; uploading marks the request
+                      complete
                     </span>
                   </span>
                   <input
