@@ -49,7 +49,7 @@ npm run build
 npm start
 ```
 
-Set `DATABASE_URL` to a reachable PostgreSQL connection string. On Render, use a Supabase session-pooler URL when the direct endpoint is not reachable; production connections use TLS. Optionally set `DATABASE_MIGRATION_URL` for a separate migration role. Review migrations and run `npm run db:migrate` before serving traffic. Set `APP_URL` to the public HTTPS URL. Set `ADMIN_SIGNUP_SECRET` to a private random value of at least 32 characters to enable administrator signups. Each signup requires this key; remove it from the server environment to disable further signups. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails. `FILE_STORAGE_DIR` must point to persistent private storage; back it up separately from the database.
+Set `DATABASE_URL` to a reachable PostgreSQL connection string. On Render, use a Supabase session-pooler URL when the direct endpoint is not reachable; production connections use TLS. Optionally set `DATABASE_MIGRATION_URL` for a separate migration role. Review migrations and run `npm run db:migrate` before serving traffic. Set `APP_URL` to the public HTTPS URL. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` for private document storage. The service role key is server-only and must never be exposed to browser code. Set `ADMIN_SIGNUP_SECRET` to a private random value of at least 32 characters to enable administrator signups. Each signup requires this key; remove it from the server environment to disable further signups. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE` to enable password reset emails.
 
 Library purchases and quoted service requests use Safaricom Daraja production STK Push. Add these values only in the hosting provider's server-side environment settings:
 
@@ -74,17 +74,17 @@ Run `npm run db:check` to execute `SELECT 1` against the configured database. Th
 
 ### Render
 
-`render.yaml` defines the Node runtime, npm build, Nitro start command, health check, and persistent upload disk mounted at `/var/data`. Database migrations are a manual, reviewed deployment step. Deploy it as a Render Blueprint, or copy its settings into an existing dashboard-created service; pushing this file alone does not change that service's settings. Render hosts the app; Supabase hosts PostgreSQL. Set `DATABASE_URL`, optional `DATABASE_MIGRATION_URL`, and `APP_URL` in the service's Environment settings, and configure SMTP credentials for password reset emails. Set `FILE_STORAGE_DIR=/var/data/uploads`; uploaded files remain private and are served only through authenticated routes.
+`render.yaml` defines the Node runtime, npm build, Nitro start command, and health check; no Render disk is required. Database migrations are a manual, reviewed deployment step. Deploy it as a Render Blueprint, or copy its settings into an existing dashboard-created service; pushing this file alone does not change that service's settings. Render hosts the app; Supabase hosts PostgreSQL and private file objects. Set `DATABASE_URL`, optional `DATABASE_MIGRATION_URL`, `APP_URL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` in the service environment. The configured bucket defaults to `private-uploads` and must be private. Configure SMTP credentials for password reset emails. Uploaded files are streamed only through authenticated server routes.
 
 Upload limits are configurable with `REQUEST_MAX_FILE_BYTES`, `REQUEST_MAX_TOTAL_BYTES`, `DOCUMENT_MAX_FILE_BYTES`, and `DOCUMENT_MAX_TOTAL_BYTES`. The document manager accepts PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, and TXT files. Keep the Render disk mounted and include its contents in backups.
 
 ### Railway
 
-`railway.json` configures the npm production build and starts the Nitro Node server. Database migrations are a manual, reviewed deployment step. Configure `DATABASE_URL` with the PostgreSQL connection URL, `APP_URL` with the deployed HTTPS domain, SMTP variables, and `FILE_STORAGE_DIR` with the mounted persistent volume path.
+`railway.json` configures the npm production build and starts the Nitro Node server. Database migrations are a manual, reviewed deployment step. Configure `DATABASE_URL` with the PostgreSQL connection URL, `APP_URL` with the deployed HTTPS domain, SMTP variables, and the same server-only Supabase Storage variables used for Render.
 
 To test from Railway's app service shell, run `npm run db:check`; to create/update tables, run `npm run db:migrate` (also configured as the pre-deploy command). Keep `.env` local and set deployment values in Railway Variables.
 
-Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DIR=/data/uploads` so uploaded files survive deployments.
+No platform disk is required for file storage when using the private Supabase Storage bucket.
 
 ## Data and access
 
@@ -94,7 +94,7 @@ Attach a persistent Railway volume mounted at `/data`, then set `FILE_STORAGE_DI
 - Administrators manage documents from **Library** in the admin workspace, including categories, descriptions, replacements, and existing whole-KES prices. Students use the protected `/portal/library` page to search, preview PDFs, purchase, and download authorized resources; visitors can browse the separate public `/library` catalog (`/downloads` remains a redirect for older links). Paid files are never returned until a matching purchase is confirmed server-side. Request and library file downloads are streamed through the application after server-side authorization; back up the persistent `FILE_STORAGE_DIR` alongside PostgreSQL.
 - KES is the standard currency for new quotes. Existing quotes and paid totals retain their saved currency; changing an existing request to KES does not automatically convert its amount. The admin dashboard shows paid totals grouped by currency, request workload, six-month request volume, students, and deadlines.
 - The service catalog includes Microsoft Word, Excel, PowerPoint, Outlook, Teams, OneDrive, OneNote, Forms, SharePoint, Access and Microsoft 365 setup/support, alongside academic proofreading, project and research support.
-- Student request/file ownership and administrator access are checked in server-only handlers; never expose database credentials to browser code.
+- Student request/file ownership and administrator access are checked in server-only handlers; never expose database credentials or the Supabase service role key to browser code. PostgreSQL stores file metadata and Supabase Storage stores private file bytes; back up both separately.
 - Student sign-in accepts student accounts only; accounts with the administrator role must use the separate admin sign-in page. Changing a password signs out other active sessions.
 - Administrator signup requires the server-only `ADMIN_SIGNUP_SECRET`; admin sign-in verifies each account's database-backed admin role.
 - Administrator login and every admin operation require the `admin` entry in `user_roles`; ordinary student registrations cannot enter the admin workspace. Only administrators can manage library resources or request statuses. New requests display as **Received**; administrators can move them to **Declined** or **Cancelled**, and students receive a notification when the status changes.

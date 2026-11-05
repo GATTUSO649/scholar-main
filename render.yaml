@@ -6,10 +6,6 @@ services:
     buildCommand: npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /
-    disk:
-      name: scholar-desk-uploads
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: 24.21.0
@@ -23,6 +19,12 @@ services:
         value: production
       - key: APP_URL
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: private-uploads
       - key: MPESA_ENV
         value: production
       - key: MPESA_TRANSACTION_TYPE

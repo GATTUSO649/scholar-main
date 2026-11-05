@@ -44,11 +44,18 @@ npm run db:seed
 
 The seed command inserts missing catalog/settings rows only. It creates no users and does not overwrite existing rows. Do not seed a migration destination before data import.
 
+## Private file storage
+
+1. In Supabase **Storage**, create a bucket named `private-uploads` and leave **Public bucket** disabled.
+2. Set `SUPABASE_URL` to the project's HTTPS URL, `SUPABASE_SERVICE_ROLE_KEY` to the server-only service role key, and `SUPABASE_STORAGE_BUCKET=private-uploads` in the hosting provider's environment settings.
+3. Keep the service role key exclusively on the server. Do not add it to `VITE_*` variables, client code, logs, or source control. The app verifies the bucket exists and is private when the production server starts.
+4. PostgreSQL stores only file metadata and storage keys. Uploads and downloads go through server handlers that check the current session, ownership/admin role, and payment status before accessing the private bucket.
+
+Render does not need a persistent disk for uploads with this setup. Existing files can be copied into the bucket with `npm run files:migrate-to-object-storage`; set `LEGACY_FILE_STORAGE_DIR` to the old file directory for that one-time migration. Back up the bucket objects separately from PostgreSQL, as explained in [DATABASE_BACKUP_AND_RESTORE.md](DATABASE_BACKUP_AND_RESTORE.md).
+
 ## Render configuration
 
-Configure `DATABASE_URL`, `APP_URL`, and `FILE_STORAGE_DIR` in the Render service environment. Set `DATABASE_MIGRATION_URL` only when using a separate migration account. Keep SMTP, admin-signup, and M-PESA secrets in Render's environment settings. `render.yaml` declares environment values as unsynchronized placeholders; it does not provision a Supabase project or migrate existing data.
-
-Use a persistent private disk for uploads. Back up that disk separately from PostgreSQL, as explained in [DATABASE_BACKUP_AND_RESTORE.md](DATABASE_BACKUP_AND_RESTORE.md).
+Configure `DATABASE_URL`, `APP_URL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` in the Render service environment. Set `DATABASE_MIGRATION_URL` only when using a separate migration account. Keep SMTP, admin-signup, and M-PESA secrets in Render's environment settings. `render.yaml` declares environment values as unsynchronized placeholders; it does not provision a Supabase project, bucket, or migrate existing data.
 
 ## Diagnostics
 

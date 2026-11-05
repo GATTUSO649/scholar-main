@@ -68,6 +68,9 @@ beforeEach(async () => {
   storageRoot = await mkdtemp(path.join(tmpdir(), "scholardesk-file-api-"));
   vi.stubEnv("NODE_ENV", "test");
   vi.stubEnv("FILE_STORAGE_DIR", storageRoot);
+  vi.stubEnv("SUPABASE_URL", "");
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+  vi.stubEnv("SUPABASE_STORAGE_BUCKET", "");
   mocks.authorizedUploadTarget.mockResolvedValue({ userId: "student-id" });
   mocks.getAuthorizedFile.mockResolvedValue(null);
   mocks.addRequestFile.mockResolvedValue(undefined);

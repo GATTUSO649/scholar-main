@@ -1,6 +1,6 @@
 # Database Backup and Restore
 
-Database backups do not include private uploads. Back up the PostgreSQL database and `FILE_STORAGE_DIR` separately, encrypt both at rest, restrict access, and periodically test restores into a separate database/project.
+PostgreSQL backups do not include private file bytes. Back up the database and the private Supabase Storage bucket separately, encrypt both at rest, restrict access, and periodically test restores into a separate project.
 
 ## PostgreSQL backup
 
@@ -30,7 +30,7 @@ Then run `npm run db:check`, verify representative counts and relationships, and
 
 ## Private upload backup
 
-Stop application writes or take a filesystem-consistent snapshot. Archive the configured `FILE_STORAGE_DIR` including its relative directory structure and file permissions, encrypt it, and record a checksum manifest. Restore it to persistent private storage at the same configured path, then verify every database-referenced storage key resolves to the expected file before enabling downloads. Never place uploads under `public/` or expose the archive over HTTP.
+Storage objects are held in the private Supabase Storage bucket, not in PostgreSQL. Back up or replicate every object in the configured bucket using Supabase's supported Storage/S3-compatible tooling, preserving each object path (`requests/<prefix>/<uuid>` or `library/<prefix>/<uuid>`). Encrypt the backup and record a checksum manifest. Restore objects to a private bucket before enabling downloads, then verify database-referenced storage keys resolve to the expected objects. Never make the bucket public or expose a backup archive over HTTP.
 
 ## Retention and recovery drills
 
