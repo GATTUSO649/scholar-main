@@ -50,7 +50,7 @@ const categories: { id: LibraryCategory; label: string }[] = [
   { id: "novel", label: "Novels" },
   { id: "business_plan", label: "Business plans" },
   { id: "lesson_plan", label: "Lesson plans" },
-  { id: "working_scheme", label: "Working schemes" },
+  { id: "working_scheme", label: "Schemes of work" },
 ];
 
 function formatBytes(bytes: number) {
@@ -201,7 +201,7 @@ function StudentLibraryPage() {
             setPurchaseFailureReason(state.reason ?? null);
             toast.error(
               expired
-                ? "Payment request expired after 60 seconds. You can retry."
+                ? "Payment request expired after 3 minutes. You can retry."
                 : (state.reason ?? "Payment was not completed. You can try again."),
             );
             return;
@@ -214,7 +214,7 @@ function StudentLibraryPage() {
         }
         setPurchaseStatus("expired");
         await queryClient.invalidateQueries({ queryKey: ["library-resources"] });
-        toast.error("Payment request expired after 60 seconds. You can retry.");
+        toast.error("Payment request expired after 3 minutes. You can retry.");
       }
     } catch (error) {
       setPurchaseStatus("failed");
@@ -230,11 +230,11 @@ function StudentLibraryPage() {
     <section className="space-y-7">
       <header className="rounded-2xl bg-hero px-6 py-8 text-ink-foreground shadow-soft sm:px-8">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
-          Student workspace
+          Library resources
         </p>
         <h1 className="mt-3 font-display text-3xl font-semibold sm:text-4xl">Library</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-foreground/75">
-          Browse and download novels, business plans, and articles from your student portal.
+          Browse novels, business plans, articles, lesson plans, and schemes of work.
         </p>
       </header>
 
@@ -338,7 +338,9 @@ function StudentLibraryPage() {
                   )}
                 </span>
                 <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {resource.category.replace("_", " ")}
+                  {resource.category === "working_scheme"
+                    ? "Scheme of work"
+                    : resource.category.replace("_", " ")}
                 </span>
               </div>
               <h2 className="mt-5 text-xl font-semibold leading-snug">{resource.title}</h2>
@@ -443,7 +445,7 @@ function StudentLibraryPage() {
                     : purchaseStatus === "cancelled"
                       ? "Payment cancelled. No payment was confirmed. You can retry."
                       : purchaseStatus === "expired"
-                        ? "The M-PESA request expired after 60 seconds. You can retry the payment."
+                        ? "The M-PESA request expired after 3 minutes. You can retry the payment."
                         : "An M-PESA prompt will be sent to your phone. The download unlocks after payment is confirmed."}
               </DialogDescription>
             </DialogHeader>
@@ -532,7 +534,7 @@ function StudentLibraryPage() {
                     {purchaseStatus === "cancelled"
                       ? "Payment cancelled. The M-PESA prompt was cancelled, and you can safely retry."
                       : purchaseStatus === "expired"
-                        ? "Payment request expired after 60 seconds. You can retry now."
+                        ? "Payment request expired after 3 minutes. You can retry now."
                         : (purchaseFailureReason ??
                           "Payment was not confirmed. Check your M-PESA balance or number, then retry.")}
                   </p>

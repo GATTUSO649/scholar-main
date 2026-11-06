@@ -15,13 +15,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { changePasswordFn, saveProfileFn } from "@/lib/backend";
 import { useProfile } from "@/lib/auth";
 
@@ -105,8 +98,6 @@ const KENYAN_UNIVERSITIES = [
   "Uzima University",
   "Zetech University",
 ] as const;
-const STUDY_YEARS = ["1st year", "2nd year", "3rd year", "4th year", "Other"] as const;
-
 function InstitutionCombobox({ value }: { value: string }) {
   const [open, setOpen] = useState(false);
   const [institution, setInstitution] = useState(value);
@@ -200,17 +191,9 @@ export function ProfileSettings({ userId, isAdmin }: { userId: string; isAdmin: 
   const [passwordBusy, setPasswordBusy] = useState(false);
   if (isLoading || !p) return <p className="text-muted-foreground">Loading…</p>;
   const profile = p;
-  const currentStudyYear =
-    STUDY_YEARS.find((year) => year === p.year_of_study) ?? (p.year_of_study ? "Other" : undefined);
-
   async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
-    const yearOfStudy = STUDY_YEARS.find((year) => year === fd["year_of_study"]);
-    if (!isAdmin && !yearOfStudy) {
-      toast.error("Select your year of study.");
-      return;
-    }
     const patch = {
       full_name: fd["full_name"]?.trim().slice(0, 100) ?? "",
       phone: fd["phone"]?.trim().slice(0, 40) ?? "",
@@ -218,8 +201,6 @@ export function ProfileSettings({ userId, isAdmin }: { userId: string; isAdmin: 
       institution: isAdmin
         ? (profile.institution ?? "")
         : (fd["institution"]?.trim().slice(0, 120) ?? ""),
-      year_of_study:
-        yearOfStudy ?? STUDY_YEARS.find((year) => year === profile.year_of_study) ?? "Other",
     };
     if (!patch["full_name"]) {
       toast.error("Name is required");
@@ -275,7 +256,7 @@ export function ProfileSettings({ userId, isAdmin }: { userId: string; isAdmin: 
         <p className="mt-2 text-sm text-muted-foreground">
           {isAdmin
             ? "Manage your administrator contact details and account security."
-            : "Manage your contact and study details, and keep your account secure."}
+            : "Manage your contact details and keep your account secure."}
         </p>
       </header>
 
@@ -310,21 +291,6 @@ export function ProfileSettings({ userId, isAdmin }: { userId: string; isAdmin: 
               <div>
                 <Label htmlFor="institution">Institution</Label>
                 <InstitutionCombobox value={p.institution ?? ""} />
-              </div>
-              <div>
-                <Label htmlFor="year_of_study">Year of study</Label>
-                <Select name="year_of_study" defaultValue={currentStudyYear}>
-                  <SelectTrigger id="year_of_study" className="mt-1.5 w-full">
-                    <SelectValue placeholder="Select year of study" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STUDY_YEARS.map((year) => (
-                      <SelectItem key={year} value={year}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </>
           )}

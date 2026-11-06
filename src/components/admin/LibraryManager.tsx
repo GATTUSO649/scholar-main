@@ -52,7 +52,7 @@ const sections: { id: AdminLibraryCategory; label: string; to: string }[] = [
   { id: "novel", label: "Novels", to: "/admin/resources/novels" },
   { id: "business_plan", label: "Business plans", to: "/admin/resources/business-plans" },
   { id: "lesson_plan", label: "Lesson plans", to: "/admin/resources/lesson-plans" },
-  { id: "working_scheme", label: "Working schemes", to: "/admin/resources/working-schemes" },
+  { id: "working_scheme", label: "Schemes of work", to: "/admin/resources/working-schemes" },
 ];
 
 function formatBytes(bytes: number) {
@@ -308,7 +308,7 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                 <option value="novel">Novel</option>
                 <option value="business_plan">Business plan</option>
                 <option value="lesson_plan">Lesson plan</option>
-                <option value="working_scheme">Working scheme</option>
+                <option value="working_scheme">Scheme of work</option>
               </select>
             ) : (
               <>
@@ -575,7 +575,7 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                   <option value="novel">Novel</option>
                   <option value="business_plan">Business plan</option>
                   <option value="lesson_plan">Lesson plan</option>
-                  <option value="working_scheme">Working scheme</option>
+                  <option value="working_scheme">Scheme of work</option>
                 </select>
               </div>
               <div>

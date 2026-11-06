@@ -42,6 +42,12 @@ import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { PortalFooter } from "@/components/PublicPage";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -67,6 +73,7 @@ const studentNav = [
   { to: "/submit", label: "Submit request", icon: FilePlus2 },
   { to: "/requests", label: "My requests", icon: FolderOpen },
   { to: "/portal/library", label: "Library", icon: BookOpen },
+  { to: "/portal/services", label: "Services", icon: BriefcaseBusiness },
   { to: "/profile", label: "Account & profile", icon: User },
   { to: "/support", label: "Help & support", icon: LifeBuoy },
 ] as const;
@@ -89,7 +96,7 @@ const adminNavGroups = [
       { to: "/admin/resources/novels", label: "Novels", icon: BookOpen },
       { to: "/admin/resources/business-plans", label: "Business plans", icon: BriefcaseBusiness },
       { to: "/admin/resources/lesson-plans", label: "Lesson plans", icon: FileText },
-      { to: "/admin/resources/working-schemes", label: "Working schemes", icon: ClipboardList },
+      { to: "/admin/resources/working-schemes", label: "Schemes of work", icon: ClipboardList },
     ],
   },
   {
@@ -132,7 +139,7 @@ function Shell() {
             : path === "/admin/resources/lesson-plans"
               ? "Lesson plan library"
               : path === "/admin/resources/working-schemes"
-                ? "Working scheme library"
+                ? "Schemes of work library"
                 : path.startsWith("/admin/resources")
                   ? "Library management"
                   : path === "/admin/content"
@@ -462,6 +469,8 @@ function Shell() {
               name={profile?.full_name}
               to="/admin/profile"
               className="text-white hover:bg-white/10"
+              onLogout={() => void leavePortal("/auth")}
+              disabled={leavingPortal}
             />
             <button
               type="button"
@@ -488,7 +497,7 @@ function Shell() {
               role="dialog"
               aria-modal="true"
               aria-label="Admin navigation"
-              className="fixed inset-y-0 left-0 z-50 h-dvh w-[min(22rem,88vw)] overflow-hidden border-r border-[#28534b] bg-[#123b34] shadow-2xl lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 h-dvh w-[min(22rem,50vw)] overflow-hidden border-r border-[#28534b] bg-[#123b34] shadow-2xl lg:hidden"
             >
               <div className="flex h-full flex-col">
                 <div className="flex shrink-0 justify-end border-b border-white/10 px-3 py-2">
@@ -520,6 +529,8 @@ function Shell() {
                 name={profile?.full_name}
                 to="/admin/profile"
                 className="text-[#1b2b40] hover:bg-[#edf1f5]"
+                onLogout={() => void leavePortal("/auth")}
+                disabled={leavingPortal}
               />
             </div>
           </div>
@@ -547,6 +558,8 @@ function Shell() {
             name={profile?.full_name}
             to="/profile"
             className="text-sidebar-foreground hover:bg-sidebar-accent"
+            onLogout={() => void leavePortal("/auth")}
+            disabled={leavingPortal}
           />
           <button
             type="button"
@@ -573,7 +586,7 @@ function Shell() {
             role="dialog"
             aria-modal="true"
             aria-label="Student navigation"
-            className="fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(22rem,88vw)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(22rem,50vw)] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl lg:hidden"
           >
             <div className="mb-5 flex shrink-0 items-center justify-between border-b border-sidebar-border pb-4">
               <Logo light onClick={handlePublicNavigation} />
@@ -622,6 +635,8 @@ function Shell() {
               name={profile?.full_name}
               to="/profile"
               className="text-foreground hover:bg-muted"
+              onLogout={() => void leavePortal("/auth")}
+              disabled={leavingPortal}
             />
           </div>
         </div>
@@ -639,10 +654,14 @@ function ProfileShortcut({
   name,
   to,
   className,
+  onLogout,
+  disabled,
 }: {
   name?: string | null | undefined;
   to: "/admin/profile" | "/profile";
   className: string;
+  onLogout: () => void;
+  disabled: boolean;
 }) {
   const initials =
     name
@@ -654,17 +673,31 @@ function ProfileShortcut({
       .toUpperCase() || "P";
 
   return (
-    <Link
-      to={to}
-      aria-label="Open profile"
-      title="Profile"
-      className={cn(
-        "grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors",
-        className,
-      )}
-    >
-      {initials}
-    </Link>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Open profile menu"
+          title="Profile and logout"
+          className={cn(
+            "grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors",
+            className,
+          )}
+        >
+          {initials}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem asChild>
+          <Link to={to}>
+            <User className="h-4 w-4" /> Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onLogout} disabled={disabled}>
+          <LogOut className="h-4 w-4" /> Logout
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

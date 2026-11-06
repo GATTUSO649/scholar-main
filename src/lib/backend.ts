@@ -162,7 +162,7 @@ export const saveProfileFn = createServerFn({ method: "POST" })
       phone: z.string().max(40),
       country: z.string().max(60),
       institution: z.string().max(120),
-      year_of_study: z.enum(["1st year", "2nd year", "3rd year", "4th year", "Other"]),
+      year_of_study: z.enum(["1st year", "2nd year", "3rd year", "4th year", "Other"]).optional(),
     }),
   )
   .handler(async ({ data }) => {

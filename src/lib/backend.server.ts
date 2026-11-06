@@ -76,7 +76,7 @@ const EMAIL_REQUEST_WINDOW_MINUTES = 15;
 const MAX_EMAIL_REQUESTS = 3;
 const LOGIN_WINDOW_MINUTES = 15;
 const MAX_LOGIN_ATTEMPTS = 8;
-const MPESA_PAYMENT_EXPIRED_REASON = "M-PESA prompt expired after 60 seconds. Retry payment.";
+const MPESA_PAYMENT_EXPIRED_REASON = "M-PESA prompt expired after 3 minutes. Retry payment.";
 
 export type SessionUser = { id: string; email: string };
 export type ProfileDto = {
@@ -904,7 +904,7 @@ export async function saveProfile(input: {
   phone: string;
   country: string;
   institution: string;
-  year_of_study: string;
+  year_of_study?: string;
 }) {
   const user = await requireUser();
   const values = {
@@ -912,7 +912,9 @@ export async function saveProfile(input: {
     phone: input.phone.trim() || null,
     country: input.country.trim() || null,
     institution: input.institution.trim() || null,
-    yearOfStudy: input.year_of_study.trim() || null,
+    ...(input.year_of_study === undefined
+      ? {}
+      : { yearOfStudy: input.year_of_study.trim() || null }),
     updatedAt: new Date(),
   };
   await getDatabase().update(profiles).set(values).where(eq(profiles.id, user.id));

@@ -101,7 +101,7 @@ function ServicesPage() {
                 Downloadable articles and resources
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Browse free articles, novels, business plans, lesson plans, and working schemes.
+                Browse free articles, novels, business plans, lesson plans, and schemes of work.
               </p>
             </div>
             <Link
@@ -129,7 +129,9 @@ function ServicesPage() {
                   <FileText className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {resource.category.replace("_", " ")}
+                      {resource.category === "working_scheme"
+                        ? "Scheme of work"
+                        : resource.category.replace("_", " ")}
                     </p>
                     <h3 className="mt-1 font-semibold">{resource.title}</h3>
                     {resource.description && (

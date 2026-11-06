@@ -223,9 +223,6 @@ function AuthPage() {
         </div>
         <section className="overflow-hidden rounded-xl border border-[#d6e3dc] bg-white shadow-[0_24px_70px_-42px_rgba(16,47,43,0.32)]">
           <div className="border-b border-[#e3ebe6] bg-[#fbfcfb] px-5 py-5 sm:px-8 sm:py-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#547064]">
-              Student portal
-            </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[#183c34]">
               {mode === "register"
                 ? "Create your account"

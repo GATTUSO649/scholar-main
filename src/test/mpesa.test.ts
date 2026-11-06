@@ -359,13 +359,13 @@ describe("M-Pesa checkout result mapping", () => {
 });
 
 describe("M-PESA payment request expiry", () => {
-  it("expires at 60 seconds and remains active before the deadline", () => {
+  it("expires at three minutes and remains active before the deadline", () => {
     const startedAt = 1_800_000_000_000;
     const expiresAt = new Date(startedAt + MPESA_PAYMENT_EXPIRY_MS);
 
-    expect(MPESA_PAYMENT_EXPIRY_MS).toBe(60_000);
-    expect(hasMpesaPaymentExpired(expiresAt, startedAt + 59_999)).toBe(false);
-    expect(hasMpesaPaymentExpired(expiresAt, startedAt + 60_000)).toBe(true);
-    expect(hasMpesaPaymentExpired(null, startedAt + 60_000)).toBe(false);
+    expect(MPESA_PAYMENT_EXPIRY_MS).toBe(180_000);
+    expect(hasMpesaPaymentExpired(expiresAt, startedAt + 179_999)).toBe(false);
+    expect(hasMpesaPaymentExpired(expiresAt, startedAt + 180_000)).toBe(true);
+    expect(hasMpesaPaymentExpired(null, startedAt + 180_000)).toBe(false);
   });
 });

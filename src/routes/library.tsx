@@ -16,7 +16,7 @@ const categories: { id: LibraryCategory; label: string }[] = [
   { id: "novel", label: "Novels" },
   { id: "business_plan", label: "Business plans" },
   { id: "lesson_plan", label: "Lesson plans" },
-  { id: "working_scheme", label: "Working schemes" },
+  { id: "working_scheme", label: "Schemes of work" },
 ];
 
 function formatBytes(bytes: number) {
@@ -210,7 +210,9 @@ function LibraryPage() {
                       )}
                     </span>
                     <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                      {resource.category.replace("_", " ")}
+                      {resource.category === "working_scheme"
+                        ? "Scheme of work"
+                        : resource.category.replace("_", " ")}
                     </span>
                   </div>
                   <h2 className="mt-5 text-xl font-semibold leading-snug">{resource.title}</h2>

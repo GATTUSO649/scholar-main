@@ -168,8 +168,9 @@ function Submit() {
 
         <div className="sm:col-span-2">
           <Label htmlFor="description">
-            Instructions — what exactly do you need done? (Include course/unit and lecturer/tutor
-            name here, if applicable.)
+            Instructions — what exactly do you need done? (Include the course/unit, lecturer/tutor
+            name, scheme of work details, and formatting such as font and body text, e.g. Times New
+            Roman, if applicable.)
           </Label>
           <Textarea id="description" name="description" rows={6} className="mt-1.5" />
           {err("description")}

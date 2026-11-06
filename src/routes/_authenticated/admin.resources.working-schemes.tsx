@@ -3,7 +3,7 @@ import { AdminGate } from "@/components/AdminGate";
 import { LibraryManager } from "@/components/admin/LibraryManager";
 
 export const Route = createFileRoute("/_authenticated/admin/resources/working-schemes")({
-  head: () => ({ meta: [{ title: "Working schemes — Library management — ScholarDesk" }] }),
+  head: () => ({ meta: [{ title: "Schemes of work — Library management — ScholarDesk" }] }),
   component: WorkingSchemesRoute,
 });
 

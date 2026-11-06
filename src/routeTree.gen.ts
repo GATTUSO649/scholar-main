@@ -41,6 +41,7 @@ import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminResourcesRouteImport } from './routes/_authenticated/admin.resources'
 import { Route as AuthenticatedManageIdRouteImport } from './routes/_authenticated/manage.$id'
 import { Route as AuthenticatedPortalLibraryRouteImport } from './routes/_authenticated/portal.library'
+import { Route as AuthenticatedPortalServicesRouteImport } from './routes/_authenticated/portal.services'
 import { Route as AuthenticatedRequestIdRouteImport } from './routes/_authenticated/request.$id'
 import { Route as ApiLibraryCallbackRouteImport } from './routes/api.library.callback'
 import { Route as ApiLibraryPurchaseRouteImport } from './routes/api.library.purchase'
@@ -217,6 +218,12 @@ const AuthenticatedPortalLibraryRoute =
     path: '/portal/library',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPortalServicesRoute =
+  AuthenticatedPortalServicesRouteImport.update({
+    id: '/portal/services',
+    path: '/portal/services',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRequestIdRoute = AuthenticatedRequestIdRouteImport.update({
   id: '/request/$id',
   path: '/request/$id',
@@ -295,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
+  '/portal/services': typeof AuthenticatedPortalServicesRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
   '/api/library/callback': typeof ApiLibraryCallbackRoute
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
@@ -336,6 +344,7 @@ export interface FileRoutesByTo {
   '/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/manage/$id': typeof AuthenticatedManageIdRoute
   '/portal/library': typeof AuthenticatedPortalLibraryRoute
+  '/portal/services': typeof AuthenticatedPortalServicesRoute
   '/request/$id': typeof AuthenticatedRequestIdRoute
   '/api/library/callback': typeof ApiLibraryCallbackRoute
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
@@ -379,6 +388,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/resources': typeof AuthenticatedAdminResourcesRouteWithChildren
   '/_authenticated/manage/$id': typeof AuthenticatedManageIdRoute
   '/_authenticated/portal/library': typeof AuthenticatedPortalLibraryRoute
+  '/_authenticated/portal/services': typeof AuthenticatedPortalServicesRoute
   '/_authenticated/request/$id': typeof AuthenticatedRequestIdRoute
   '/api/library/callback': typeof ApiLibraryCallbackRoute
   '/api/library/purchase': typeof ApiLibraryPurchaseRoute
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/admin/resources'
     | '/manage/$id'
     | '/portal/library'
+    | '/portal/services'
     | '/request/$id'
     | '/api/library/callback'
     | '/api/library/purchase'
@@ -463,6 +474,7 @@ export interface FileRouteTypes {
     | '/admin/resources'
     | '/manage/$id'
     | '/portal/library'
+    | '/portal/services'
     | '/request/$id'
     | '/api/library/callback'
     | '/api/library/purchase'
@@ -505,6 +517,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/resources'
     | '/_authenticated/manage/$id'
     | '/_authenticated/portal/library'
+    | '/_authenticated/portal/services'
     | '/_authenticated/request/$id'
     | '/api/library/callback'
     | '/api/library/purchase'
@@ -760,6 +773,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalLibraryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/portal/services': {
+      id: '/_authenticated/portal/services'
+      path: '/portal/services'
+      fullPath: '/portal/services'
+      preLoaderRoute: typeof AuthenticatedPortalServicesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/request/$id': {
       id: '/_authenticated/request/$id'
       path: '/request/$id'
@@ -881,6 +901,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
   AuthenticatedManageIdRoute: typeof AuthenticatedManageIdRoute
   AuthenticatedPortalLibraryRoute: typeof AuthenticatedPortalLibraryRoute
+  AuthenticatedPortalServicesRoute: typeof AuthenticatedPortalServicesRoute
   AuthenticatedRequestIdRoute: typeof AuthenticatedRequestIdRoute
 }
 
@@ -894,6 +915,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSupportRoute: AuthenticatedSupportRoute,
   AuthenticatedManageIdRoute: AuthenticatedManageIdRoute,
   AuthenticatedPortalLibraryRoute: AuthenticatedPortalLibraryRoute,
+  AuthenticatedPortalServicesRoute: AuthenticatedPortalServicesRoute,
   AuthenticatedRequestIdRoute: AuthenticatedRequestIdRoute,
 }
 

@@ -116,16 +116,16 @@ export function PortalFooter() {
   const phoneHref = content.contactPhone.replace(/[^\d+]/g, "");
 
   return (
-    <footer className="mt-12 border-t border-[#dfe8e3] bg-white/70 text-[#71817a]">
-      <div className="grid gap-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <footer className="mt-8 border-t border-[#d7e4dc] bg-[#f1f6f2] text-[#61736a]">
+      <div className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#31574b]">
+          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#31574b]">
             ScholarDesk support
           </p>
-          <p className="mt-1 max-w-xl text-xs leading-5">{content.footerMessage}</p>
+          <p className="mt-1 max-w-xl text-[11px] leading-4">{content.footerMessage}</p>
         </div>
         <nav
-          className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium"
+          className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] font-medium"
           aria-label="Portal support"
         >
           {content.contactEmail && (
@@ -146,7 +146,7 @@ export function PortalFooter() {
           </Link>
         </nav>
       </div>
-      <div className="flex flex-col gap-1 border-t border-[#e8eeea] py-3 text-[11px] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-1 border-t border-[#dfe9e2] py-2 text-[10px] sm:flex-row sm:items-center sm:justify-between">
         <p>
           © {new Date().getFullYear()} {BRAND}
         </p>
