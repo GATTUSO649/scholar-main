@@ -15,6 +15,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LazySection } from "@/components/LazySection";
 import { SiteHeader } from "@/components/SiteHeader";
 import hero from "@/assets/WhatsApp Image 2026-10-17 at 1.31.14 PM.jpeg";
 
@@ -108,6 +109,7 @@ function Home() {
               alt="Students working together on a laptop on campus"
               width={1536}
               height={1024}
+              loading="lazy"
               className="relative aspect-[3/2] w-full rounded-3xl object-cover shadow-2xl ring-1 ring-ink-foreground/10"
             />
             <div className="absolute -bottom-7 -left-4 rounded-2xl bg-card p-4 text-card-foreground shadow-soft animate-float sm:-left-10">
@@ -227,50 +229,52 @@ function Home() {
       </section>
 
       {/* Testimonials */}
-      <section className="relative overflow-hidden bg-hero py-24 text-ink-foreground">
-        <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-accent/20 blur-3xl animate-blob" />
-        <div className="relative mx-auto max-w-6xl px-5">
-          <div className="text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-              Student stories
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">
-              Loved by students who hate stress
-            </h2>
+      <LazySection className="relative overflow-hidden bg-hero py-24 text-ink-foreground" label="Loading stories">
+        <section className="relative overflow-hidden bg-hero py-24 text-ink-foreground">
+          <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-accent/20 blur-3xl animate-blob" />
+          <div className="relative mx-auto max-w-6xl px-5">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+                Student stories
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">
+                Loved by students who hate stress
+              </h2>
+            </div>
+            <div className="mt-14 grid gap-6 md:grid-cols-3">
+              {[
+                [
+                  "The tracking is amazing — I always knew exactly where my request was. Feedback came a day early.",
+                  "Amina M.",
+                  "Nursing, Year 3",
+                ],
+                [
+                  "Paid with M-Pesa in seconds. The proofreading made my report so much clearer.",
+                  "Kevin O.",
+                  "Business, Year 2",
+                ],
+                [
+                  "My tutor explained statistics better than any lecture. Worth every shilling.",
+                  "Joy N.",
+                  "Economics, Year 4",
+                ],
+              ].map(([q, n, c], i) => (
+                <figure
+                  key={n}
+                  className={`glass rounded-3xl p-7 transition-transform duration-300 hover:-translate-y-1 ${i === 1 ? "md:-translate-y-4" : ""}`}
+                >
+                  <p className="text-accent">★★★★★</p>
+                  <blockquote className="mt-4 font-display text-lg leading-relaxed">“{q}”</blockquote>
+                  <figcaption className="mt-6 text-sm">
+                    <span className="font-semibold">{n}</span>
+                    <span className="text-ink-foreground/60"> · {c}</span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {[
-              [
-                "The tracking is amazing — I always knew exactly where my request was. Feedback came a day early.",
-                "Amina M.",
-                "Nursing, Year 3",
-              ],
-              [
-                "Paid with M-Pesa in seconds. The proofreading made my report so much clearer.",
-                "Kevin O.",
-                "Business, Year 2",
-              ],
-              [
-                "My tutor explained statistics better than any lecture. Worth every shilling.",
-                "Joy N.",
-                "Economics, Year 4",
-              ],
-            ].map(([q, n, c], i) => (
-              <figure
-                key={n}
-                className={`glass rounded-3xl p-7 transition-transform duration-300 hover:-translate-y-1 ${i === 1 ? "md:-translate-y-4" : ""}`}
-              >
-                <p className="text-accent">★★★★★</p>
-                <blockquote className="mt-4 font-display text-lg leading-relaxed">“{q}”</blockquote>
-                <figcaption className="mt-6 text-sm">
-                  <span className="font-semibold">{n}</span>
-                  <span className="text-ink-foreground/60"> · {c}</span>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      </LazySection>
     </div>
   );
 }

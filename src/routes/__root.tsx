@@ -8,8 +8,9 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { PageLoader } from "@/components/PageLoader";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -123,7 +124,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <Suspense fallback={<PageLoader label="Loading website" className="min-h-screen" />}>
+        <Outlet />
+      </Suspense>
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );

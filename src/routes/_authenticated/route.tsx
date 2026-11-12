@@ -518,7 +518,7 @@ function Shell() {
             </div>
           </>
         )}
-        <main className="admin-workspace-main min-w-0">
+        <main className="admin-workspace-main flex min-w-0 flex-1 flex-col">
           <div className="sticky top-0 z-10 hidden h-17 items-center justify-between border-b border-[#263f5e] bg-[#17263c] px-8 text-white lg:flex">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">
@@ -537,7 +537,7 @@ function Shell() {
               />
             </div>
           </div>
-          <div className="admin-page-wrap mx-auto max-w-7xl px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
+          <div className="admin-page-wrap mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-7 sm:py-8 xl:px-10">
             <Outlet />
             <PortalFooter />
           </div>
@@ -547,7 +547,7 @@ function Shell() {
   }
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+    <div className="flex min-h-screen flex-col lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="sticky top-0 hidden h-screen flex-col gap-8 bg-sidebar p-5 text-sidebar-foreground lg:flex">
         <Logo light onClick={handlePublicNavigation} />
         <NavLinks />
@@ -626,7 +626,7 @@ function Shell() {
         </>
       )}
 
-      <main className="min-w-0">
+      <main className="flex min-w-0 flex-1 flex-col">
         <div className="sticky top-0 z-10 hidden h-18 items-center justify-between border-b border-[#263f5e] bg-[#17263c] px-8 text-white lg:flex">
           <div className="text-sm text-white/70">
             Welcome back, <span className="font-semibold text-white">{profile?.full_name}</span>
@@ -642,7 +642,7 @@ function Shell() {
             />
           </div>
         </div>
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-8 sm:py-10">
           <p className="mb-1 text-sm text-muted-foreground">{profile?.email}</p>
           <Outlet />
           <PortalFooter />

@@ -134,7 +134,7 @@ export function PortalFooter() {
   const phoneHref = content.contactPhone.replace(/[^\d+]/g, "");
 
   return (
-    <footer className="mt-10 border-t border-[#d9e5de] bg-[#f4f8f5] text-[#546a62]">
+    <footer className="mt-auto border-t border-[#d9e5de] bg-[#f4f8f5] text-[#546a62]">
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-xl">
@@ -181,7 +181,6 @@ export function PortalFooter() {
           <p>
             © {new Date().getFullYear()} {BRAND}
           </p>
-          <p>Private support, clear communication.</p>
         </div>
       </div>
     </footer>
