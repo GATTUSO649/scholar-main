@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Mail, Phone, Save, Upload, UserRound } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Save, Trash2, Upload, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ function Manage() {
   const { data, isLoading, isError, error } = useRequest(id);
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [removingFile, setRemovingFile] = useState<string | null>(null);
   const studentId = data?.req?.student_id;
   const {
     data: student,
@@ -124,6 +125,29 @@ function Manage() {
       toast.error(saveError instanceof Error ? saveError.message : "Could not update the request.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function removeDeliveryFile(file: { path: string; name: string }) {
+    if (!window.confirm(`Delete completed work file "${file.name}"? This cannot be undone.`)) {
+      return;
+    }
+    setRemovingFile(file.path);
+    try {
+      const response = await fetch(`/api/files?key=${encodeURIComponent(file.path)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Could not delete the delivery file.");
+      await qc.invalidateQueries({ queryKey: ["request", id] });
+      toast.success("Completed work file deleted.");
+    } catch (removeError) {
+      toast.error(
+        removeError instanceof Error ? removeError.message : "Could not delete the delivery file.",
+      );
+    } finally {
+      setRemovingFile(null);
     }
   }
 
@@ -290,6 +314,29 @@ function Manage() {
               </div>
               <div>
                 <Label htmlFor="delivery-files">Completed work files</Label>
+                {data.files.some((file) => file.kind === "delivery") && (
+                  <ul className="mt-2 divide-y divide-[#e7ede9] rounded-md border border-[#dfe8e3]">
+                    {data.files
+                      .filter((file) => file.kind === "delivery")
+                      .map((file) => (
+                        <li key={file.id} className="flex min-w-0 items-center gap-2 px-3 py-2">
+                          <span className="min-w-0 flex-1 truncate text-sm text-[#31574b]">
+                            {file.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void removeDeliveryFile(file)}
+                            disabled={removingFile !== null}
+                            aria-label={`Delete ${file.name}`}
+                            title="Delete completed work file"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded text-[#8d4b42] transition-colors hover:bg-[#fbefed] disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
                 <label
                   htmlFor="delivery-files"
                   className="mt-1.5 flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-[#cbdcd3] bg-[#f7faf8] px-3 py-3 text-sm transition-colors hover:bg-[#edf5f0]"

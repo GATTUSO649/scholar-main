@@ -10,10 +10,12 @@ const mocks = vi.hoisted(() => ({
   authorizedUploadTarget: vi.fn(),
   completeRequestDelivery: vi.fn(),
   deleteRequestFile: vi.fn(),
+  getAdminDeliveryFileForDeletion: vi.fn(),
   getAuthorizedFile: vi.fn(),
   getDatabaseErrorCode: vi.fn(),
   notifyAdminsOfStudentUpload: vi.fn(),
   parseMultipartFormData: vi.fn(),
+  removeAdminDeliveryFile: vi.fn(),
 }));
 
 vi.mock("@/lib/backend.server", () => mocks);
@@ -38,6 +40,12 @@ const get = (
   }
 ).handlers?.GET;
 if (!get) throw new Error("The file download GET handler is not registered.");
+const remove = (
+  Route.options.server as unknown as {
+    handlers?: { DELETE?: (input: { request: Request }) => Promise<Response> };
+  }
+).handlers?.DELETE;
+if (!remove) throw new Error("The file DELETE handler is not registered.");
 
 let storageRoot = "";
 type StoredRequestFile = { storageKey: string; name: string; mimeType: string };
@@ -126,7 +134,9 @@ beforeEach(async () => {
   vi.stubEnv("SUPABASE_STORAGE_BUCKET", "");
   mocks.authorizedUploadTarget.mockResolvedValue({ userId: "student-id" });
   mocks.getAuthorizedFile.mockResolvedValue(null);
+  mocks.getAdminDeliveryFileForDeletion.mockResolvedValue(null);
   mocks.addRequestFile.mockResolvedValue(undefined);
+  mocks.removeAdminDeliveryFile.mockResolvedValue(true);
   mocks.parseMultipartFormData.mockImplementation(async () => uploadForm([new TestUploadFile()]));
   mocks.notifyAdminsOfStudentUpload.mockRejectedValue(new Error("notification database reset"));
   mocks.getDatabaseErrorCode.mockReturnValue("ECONNRESET");
@@ -620,5 +630,41 @@ describe("private request file uploads", () => {
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "File not found." });
+  });
+});
+
+describe("completed delivery file deletion", () => {
+  it("allows an authorized admin to delete a completed delivery file", async () => {
+    const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
+    mocks.getAdminDeliveryFileForDeletion.mockResolvedValueOnce({
+      requestId: "9f94f2dc-4970-44d3-ae58-2a54e3811f2c",
+      storageKey,
+      name: "final-report.pdf",
+    });
+    const response = await remove({
+      request: new Request(`https://portal.example/api/files?key=${storageKey}`, {
+        method: "DELETE",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true });
+    expect(mocks.getAdminDeliveryFileForDeletion).toHaveBeenCalledWith(storageKey);
+    expect(mocks.removeAdminDeliveryFile).toHaveBeenCalledWith(storageKey);
+  });
+
+  it("does not delete storage when admin authorization fails", async () => {
+    mocks.getAdminDeliveryFileForDeletion.mockRejectedValueOnce(
+      new Error("Administrator access is required."),
+    );
+    const response = await remove({
+      request: new Request(
+        "https://portal.example/api/files?key=1d28d191-bcce-43cf-8d7c-b03c386de3b3",
+        { method: "DELETE" },
+      ),
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.removeAdminDeliveryFile).not.toHaveBeenCalled();
   });
 });

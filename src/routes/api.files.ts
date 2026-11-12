@@ -2,10 +2,12 @@ import { File as NodeFile } from "node:buffer";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   getAuthorizedFile,
+  getAdminDeliveryFileForDeletion,
   authorizedUploadTarget,
   addRequestFile,
   completeRequestDelivery,
   deleteRequestFile,
+  removeAdminDeliveryFile,
   getDatabaseErrorCode,
   notifyAdminsOfStudentUpload,
 } from "@/lib/backend.server";
@@ -58,7 +60,8 @@ function errorResponse(error: unknown, stage: string) {
   const missingStorageFile = error instanceof Error && "code" in error && error.code === "ENOENT";
   const storageError = error instanceof PrivateFileStorageError ? error : null;
   const missingStorageObject =
-    [400, 404].includes(storageError?.httpStatus ?? 0) &&
+    storageError !== null &&
+    [400, 404].includes(storageError.httpStatus ?? 0) &&
     ["NoSuchKey", "ObjectNotFound"].includes(storageError.storageCode ?? "");
   let status: number;
   if (storageError) status = missingStorageObject ? 404 : 503;
@@ -232,6 +235,31 @@ export const Route = createFileRoute("/api/files")({
               "x-content-type-options": "nosniff",
             },
           });
+        } catch (error) {
+          return errorResponse(error, stage);
+        }
+      },
+      DELETE: async ({ request }) => {
+        let stage = "origin validation";
+        try {
+          requireSameOrigin(request);
+          const storageKey = new URL(request.url).searchParams.get("key") ?? "";
+          if (!/^[0-9a-f-]{36}$/i.test(storageKey)) {
+            return Response.json({ error: "Invalid file key." }, { status: 400 });
+          }
+          stage = "delivery file authorization";
+          const file = await getAdminDeliveryFileForDeletion(storageKey);
+          if (!file) {
+            return Response.json({ error: "Completed delivery file not found." }, { status: 404 });
+          }
+          stage = "private storage delete";
+          await deletePrivateFile(file.storageKey);
+          stage = "delivery file metadata delete";
+          const deleted = await removeAdminDeliveryFile(file.storageKey);
+          if (!deleted) {
+            return Response.json({ error: "Completed delivery file not found." }, { status: 404 });
+          }
+          return Response.json({ success: true });
         } catch (error) {
           return errorResponse(error, stage);
         }

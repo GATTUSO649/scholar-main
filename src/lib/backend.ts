@@ -332,6 +332,11 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(async (
   return getMyRequests();
 });
 
+export const getMyDeliveriesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getMyDeliveries } = await import("./backend.server");
+  return getMyDeliveries();
+});
+
 export const getMyUpdateCountFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getMyUpdateCount } = await import("./backend.server");
   return getMyUpdateCount();

@@ -2516,6 +2516,61 @@ export async function getMyRequests() {
   return rows.map(({ request, serviceName }) => mapRequest(request, serviceName));
 }
 
+export async function getMyDeliveries() {
+  const user = await requireUser();
+  const rows = await getDatabase()
+    .select({
+      request: requests,
+      serviceName: services.name,
+      fileId: requestFiles.id,
+      storageKey: requestFiles.storageKey,
+      fileName: requestFiles.name,
+      fileCreatedAt: requestFiles.createdAt,
+    })
+    .from(requestFiles)
+    .innerJoin(requests, eq(requestFiles.requestId, requests.id))
+    .leftJoin(services, eq(requests.serviceId, services.id))
+    .where(
+      and(
+        eq(requests.studentId, user.id),
+        eq(requests.status, "completed"),
+        eq(requestFiles.kind, "delivery"),
+        or(
+          eq(requests.paymentStatus, "paid"),
+          sql`EXISTS (
+            SELECT 1 FROM service_request_payments
+            WHERE request_id = ${requests.id}
+              AND student_id = ${user.id}
+              AND status = 'paid'
+          )`,
+        ),
+      ),
+    )
+    .orderBy(desc(requests.updatedAt), asc(requestFiles.createdAt));
+
+  const deliveries = new Map<
+    string,
+    {
+      request: ReturnType<typeof mapRequest>;
+      files: { id: string; path: string; name: string; created_at: string }[];
+    }
+  >();
+  for (const row of rows) {
+    let delivery = deliveries.get(row.request.id);
+    if (!delivery) {
+      delivery = { request: mapRequest(row.request, row.serviceName), files: [] };
+      deliveries.set(row.request.id, delivery);
+    }
+    delivery.files.push({
+      id: row.fileId,
+      path: row.storageKey,
+      name: row.fileName,
+      created_at: row.fileCreatedAt.toISOString(),
+    });
+  }
+  return [...deliveries.values()];
+}
+
 export async function getMyUpdateCount() {
   const user = await requireUser();
   const [row] = await getDatabase()
@@ -3150,6 +3205,58 @@ export async function getAuthorizedFile(storageKey: string) {
     )
     .limit(1);
   return file ?? null;
+}
+
+export async function getAdminDeliveryFileForDeletion(storageKey: string) {
+  await requireAdmin();
+  const [file] = await getDatabase()
+    .select({
+      requestId: requestFiles.requestId,
+      storageKey: requestFiles.storageKey,
+      name: requestFiles.name,
+    })
+    .from(requestFiles)
+    .innerJoin(requests, eq(requestFiles.requestId, requests.id))
+    .where(
+      and(
+        eq(requestFiles.storageKey, storageKey),
+        eq(requestFiles.kind, "delivery"),
+        eq(requests.status, "completed"),
+      ),
+    )
+    .limit(1);
+  return file ?? null;
+}
+
+export async function removeAdminDeliveryFile(storageKey: string) {
+  const user = await requireAdmin();
+  const db = getDatabase();
+  return db.transaction(async (tx) => {
+    const [file] = await tx
+      .select({ requestId: requestFiles.requestId, name: requestFiles.name })
+      .from(requestFiles)
+      .innerJoin(requests, eq(requestFiles.requestId, requests.id))
+      .where(
+        and(
+          eq(requestFiles.storageKey, storageKey),
+          eq(requestFiles.kind, "delivery"),
+          eq(requests.status, "completed"),
+        ),
+      )
+      .limit(1);
+    if (!file) return false;
+
+    await tx.delete(requestFiles).where(eq(requestFiles.storageKey, storageKey));
+    await tx
+      .insert(adminAuditEvents)
+      .values(
+        makeAdminAuditEvent(user, "request.delivery_file_deleted", "request_file", storageKey, {
+          requestId: file.requestId,
+          name: file.name,
+        }),
+      );
+    return true;
+  });
 }
 
 export async function authorizedUploadTarget(requestId: string, kind: "submission" | "delivery") {
