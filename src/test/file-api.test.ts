@@ -420,7 +420,7 @@ describe("private request file uploads", () => {
     expect(requestHeaders.get("authorization")).toBe("Bearer server-only-storage-key");
   });
 
-  it("returns 404 and logs provider details when the private object is missing", async () => {
+  it("returns 404 when Supabase reports a missing private object with HTTP 400", async () => {
     useSupabaseStorage();
     const storageKey = "1d28d191-bcce-43cf-8d7c-b03c386de3b3";
     mocks.getAuthorizedFile.mockResolvedValue({ storageKey, name: "report.pdf" });
@@ -429,7 +429,7 @@ describe("private request file uploads", () => {
       vi
         .fn()
         .mockResolvedValue(
-          Response.json({ code: "ObjectNotFound", message: "Object not found" }, { status: 404 }),
+          Response.json({ code: "NoSuchKey", message: "Object not found" }, { status: 400 }),
         ),
     );
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -446,9 +446,9 @@ describe("private request file uploads", () => {
       stage: "private storage read",
       originalMessage: "Object not found",
       errorName: "StorageApiError",
-      code: "ENOENT",
-      storageCode: "ObjectNotFound",
-      httpStatus: 404,
+      code: "NoSuchKey",
+      storageCode: "NoSuchKey",
+      httpStatus: 400,
       operation: "download",
       destinationHostname: "project.supabase.co",
       durationMs: expect.any(Number),

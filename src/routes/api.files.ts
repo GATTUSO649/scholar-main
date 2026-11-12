@@ -58,7 +58,7 @@ function errorResponse(error: unknown, stage: string) {
   const missingStorageFile = error instanceof Error && "code" in error && error.code === "ENOENT";
   const storageError = error instanceof PrivateFileStorageError ? error : null;
   const missingStorageObject =
-    storageError?.httpStatus === 404 &&
+    [400, 404].includes(storageError?.httpStatus ?? 0) &&
     ["NoSuchKey", "ObjectNotFound"].includes(storageError.storageCode ?? "");
   let status: number;
   if (storageError) status = missingStorageObject ? 404 : 503;
