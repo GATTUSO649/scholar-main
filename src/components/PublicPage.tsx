@@ -134,51 +134,55 @@ export function PortalFooter() {
   const phoneHref = content.contactPhone.replace(/[^\d+]/g, "");
 
   return (
-    <footer className="mt-8 border-t border-[#d7e4dc] bg-[#f1f6f2] text-[#61736a]">
-      <div className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#31574b]">
-            ScholarDesk support
-          </p>
-          <p className="mt-1 max-w-xl text-[11px] leading-4">{content.footerMessage}</p>
-        </div>
-        <nav
-          className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] font-medium"
-          aria-label="Portal support"
-        >
-          {content.contactEmail && (
-            <a href={`mailto:${content.contactEmail}`} className="hover:text-[#155b4c]">
-              Email support
-            </a>
-          )}
-          {content.contactPhone && phoneHref && (
-            <a href={`tel:${phoneHref}`} className="hover:text-[#155b4c]">
-              Call support
-            </a>
-          )}
-          <Link to="/support" className="hover:text-[#155b4c]">
-            Support center
-          </Link>
-          <Link to="/faq" className="hover:text-[#155b4c]">
-            Help & FAQs
-          </Link>
-          {legalDocuments.map((document) => (
-            <Link
-              key={document.slug}
-              to="/legal/$slug"
-              params={{ slug: document.slug }}
-              className="hover:text-[#155b4c]"
-            >
-              {document.title}
+    <footer className="mt-10 border-t border-[#d9e5de] bg-[#f4f8f5] text-[#546a62]">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-xl">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1d4d3d]">
+              ScholarDesk support
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#4d6057]">{content.footerMessage}</p>
+          </div>
+
+          <nav
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium"
+            aria-label="Portal support"
+          >
+            {content.contactEmail && (
+              <a href={`mailto:${content.contactEmail}`} className="transition hover:text-[#155b4c]">
+                Email support
+              </a>
+            )}
+            {content.contactPhone && phoneHref && (
+              <a href={`tel:${phoneHref}`} className="transition hover:text-[#155b4c]">
+                Call support
+              </a>
+            )}
+            <Link to="/support" className="transition hover:text-[#155b4c]">
+              Support center
             </Link>
-          ))}
-        </nav>
-      </div>
-      <div className="flex flex-col gap-1 border-t border-[#dfe9e2] py-2 text-[10px] sm:flex-row sm:items-center sm:justify-between">
-        <p>
-          © {new Date().getFullYear()} {BRAND}
-        </p>
-        <p>Private support, clear communication.</p>
+            <Link to="/faq" className="transition hover:text-[#155b4c]">
+              Help & FAQs
+            </Link>
+            {legalDocuments.map((document) => (
+              <Link
+                key={document.slug}
+                to="/legal/$slug"
+                params={{ slug: document.slug }}
+                className="transition hover:text-[#155b4c]"
+              >
+                {document.title}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-2 border-t border-[#dfe9e2] pt-4 text-xs text-[#60756c] sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            © {new Date().getFullYear()} {BRAND}
+          </p>
+          <p>Private support, clear communication.</p>
+        </div>
       </div>
     </footer>
   );

@@ -30,7 +30,7 @@ describe("public header mobile actions", () => {
       </QueryClientProvider>,
     );
 
-    const login = screen.getByRole("link", { name: /student login/i });
+    const login = screen.getByRole("link", { name: /login/i });
     expect(login).not.toHaveClass("hidden");
   });
 });

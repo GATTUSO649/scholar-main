@@ -322,106 +322,103 @@ function StudentLibraryPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((resource) => (
-            <article
-              key={resource.id}
-              className="group flex min-h-64 flex-col rounded-2xl border bg-card p-6 shadow-soft transition duration-200 hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent/20 text-primary">
-                  {resource.category === "novel" ? (
-                    <BookOpen className="h-5 w-5" />
-                  ) : resource.category === "business_plan" ? (
-                    <BriefcaseBusiness className="h-5 w-5" />
-                  ) : (
-                    <FileText className="h-5 w-5" />
-                  )}
-                </span>
-                <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {resource.category === "working_scheme"
-                    ? "Scheme of work"
-                    : resource.category.replace("_", " ")}
-                </span>
-              </div>
-              <h2 className="mt-5 text-xl font-semibold leading-snug">{resource.title}</h2>
-              <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-muted-foreground">
-                {resource.description || "A resource shared by the ScholarDesk team."}
-              </p>
-              <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-4 text-xs text-muted-foreground">
-                <span>{resource.name.split(".").pop()?.toUpperCase() ?? "FILE"}</span>
-                <span aria-hidden="true">·</span>
-                <span>{formatBytes(resource.size)}</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-semibold text-foreground">
-                  {resource.price > 0
-                    ? `${resource.currency} ${resource.price.toLocaleString()}`
-                    : "Free"}
-                </span>
-              </div>
-              {resource.purchase_status === "cancelled" && (
-                <p className="mt-3 text-sm font-medium text-amber-700" role="status">
-                  Payment cancelled. Retry whenever you’re ready.
+          {filtered.map((resource) => {
+            const normalizedPurchaseStatus =
+              resource.purchase_status === "failed" || resource.purchase_status === "cancelled"
+                ? "available"
+                : resource.purchase_status;
+
+            return (
+              <article
+                key={resource.id}
+                className="group flex min-h-64 flex-col rounded-2xl border bg-card p-6 shadow-soft transition duration-200 hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent/20 text-primary">
+                    {resource.category === "novel" ? (
+                      <BookOpen className="h-5 w-5" />
+                    ) : resource.category === "business_plan" ? (
+                      <BriefcaseBusiness className="h-5 w-5" />
+                    ) : (
+                      <FileText className="h-5 w-5" />
+                    )}
+                  </span>
+                  <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {resource.category === "working_scheme"
+                      ? "Scheme of work"
+                      : resource.category.replace("_", " ")}
+                  </span>
+                </div>
+                <h2 className="mt-5 text-xl font-semibold leading-snug">{resource.title}</h2>
+                <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-muted-foreground">
+                  {resource.description || "A resource shared by the ScholarDesk team."}
                 </p>
-              )}
-              {resource.purchase_status === "free" || resource.purchase_status === "paid" ? (
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                  {resource.mime_type === "application/pdf" && (
-                    <Button asChild variant="outline" className="w-full">
-                      <a
-                        href={`/api/library?id=${encodeURIComponent(resource.id)}&preview=1`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Eye className="mr-2 h-4 w-4" /> Preview PDF
+                <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-4 text-xs text-muted-foreground">
+                  <span>{resource.name.split(".").pop()?.toUpperCase() ?? "FILE"}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatBytes(resource.size)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-semibold text-foreground">
+                    {resource.price > 0
+                      ? `${resource.currency} ${resource.price.toLocaleString()}`
+                      : "Free"}
+                  </span>
+                </div>
+                {normalizedPurchaseStatus === "free" || normalizedPurchaseStatus === "paid" ? (
+                  <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                    {resource.mime_type === "application/pdf" && (
+                      <Button asChild variant="outline" className="w-full">
+                        <a
+                          href={`/api/library?id=${encodeURIComponent(resource.id)}&preview=1`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Eye className="mr-2 h-4 w-4" /> Preview PDF
+                        </a>
+                      </Button>
+                    )}
+                    <Button asChild className="w-full">
+                      <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
+                        {normalizedPurchaseStatus === "paid" ? (
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                        ) : (
+                          <Download className="mr-2 h-4 w-4" />
+                        )}
+                        {normalizedPurchaseStatus === "paid"
+                          ? "Owned · Download"
+                          : "Download free resource"}
                       </a>
                     </Button>
-                  )}
-                  <Button asChild className="w-full">
-                    <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
-                      {resource.purchase_status === "paid" ? (
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                      ) : (
-                        <Download className="mr-2 h-4 w-4" />
-                      )}
-                      {resource.purchase_status === "paid"
-                        ? "Owned · Download"
-                        : "Download free resource"}
-                    </a>
+                  </div>
+                ) : normalizedPurchaseStatus === "pending" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-5 w-full"
+                    onClick={() => {
+                      const pending = resources.find((candidate) => candidate.id === resource.id);
+                      if (pending) void checkPurchase(pending.id);
+                    }}
+                    disabled={checkingPurchaseId === resource.id}
+                  >
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    {checkingPurchaseId === resource.id ? "Checking payment…" : "Check payment"}
                   </Button>
-                </div>
-              ) : resource.purchase_status === "pending" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-5 w-full"
-                  onClick={() => {
-                    const pending = resources.find((candidate) => candidate.id === resource.id);
-                    if (pending) void checkPurchase(pending.id);
-                  }}
-                  disabled={checkingPurchaseId === resource.id}
-                >
-                  <Smartphone className="mr-2 h-4 w-4" />
-                  {checkingPurchaseId === resource.id ? "Checking payment…" : "Check payment"}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  className="mt-5 w-full"
-                  onClick={() => {
-                    setPurchaseResource(resource);
-                    setPurchaseStatus("idle");
-                  }}
-                >
-                  <Smartphone className="mr-2 h-4 w-4" />
-                  {resource.purchase_status === "cancelled"
-                    ? "Retry payment"
-                    : resource.purchase_status === "failed"
-                      ? "Try payment again"
-                      : "PAY"}
-                </Button>
-              )}
-            </article>
-          ))}
+                ) : (
+                  <Button
+                    type="button"
+                    className="mt-5 w-full"
+                    onClick={() => {
+                      setPurchaseResource(resource);
+                      setPurchaseStatus("idle");
+                    }}
+                  >
+                    <Smartphone className="mr-2 h-4 w-4" /> PAY
+                  </Button>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
       <Dialog
