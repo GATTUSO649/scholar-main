@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/request/$id")({
 function Detail() {
   const { id } = Route.useParams();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useRequest(id);
+  const { data, isLoading } = useRequest(id, 5_000);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
 

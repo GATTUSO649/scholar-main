@@ -6,10 +6,13 @@ import { STATUS_LABEL, STATUS_ORDER } from "@/lib/status";
 import { fmtDate, money, openFile } from "@/lib/requests";
 import { cn } from "@/lib/utils";
 
-export function useRequest(id: string) {
+export function useRequest(id: string, refetchInterval?: number) {
   return useQuery({
     queryKey: ["request", id],
     queryFn: () => getRequestBundleFn({ data: { id } }),
+    ...(refetchInterval
+      ? { refetchInterval, refetchIntervalInBackground: false, staleTime: 0 }
+      : {}),
   });
 }
 
