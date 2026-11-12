@@ -417,7 +417,7 @@ function StudentLibraryPage() {
                     ? "Retry payment"
                     : resource.purchase_status === "failed"
                       ? "Try payment again"
-                      : "Buy document"}
+                      : "PAY"}
                 </Button>
               )}
             </article>
@@ -436,7 +436,7 @@ function StudentLibraryPage() {
         {purchaseResource && (
           <DialogContent className="w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg p-4 sm:w-full sm:p-6">
             <DialogHeader>
-              <DialogTitle>Buy this resource</DialogTitle>
+              <DialogTitle>Pay for this resource</DialogTitle>
               <DialogDescription>
                 {purchaseStatus === "waiting"
                   ? "Complete the M-PESA prompt. Access unlocks after Safaricom confirms payment."

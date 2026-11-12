@@ -104,12 +104,12 @@ export function SiteHeader({ overlay = true }: { overlay?: boolean }) {
             )
           ) : (
             <>
-              <Button asChild variant="heroOutline" size="sm" className="hidden lg:inline-flex">
+              <Button asChild variant="heroOutline" size="sm" className="shrink-0">
                 <Link to="/auth" search={{ mode: "login" }}>
                   Student login
                 </Link>
               </Button>
-              <Button asChild variant="hero" size="sm">
+              <Button asChild variant="hero" size="sm" className="shrink-0">
                 <Link to="/auth" search={{ mode: "register" }}>
                   Register
                 </Link>
