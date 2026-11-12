@@ -383,6 +383,19 @@ export const faqEntries = pgTable(
   (table) => [index("faq_entries_active_sort_idx").on(table.active, table.sort)],
 ).enableRLS();
 
+export const legalDocuments = pgTable(
+  "legal_documents",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    slug: varchar("slug", { length: 120 }).notNull().unique(),
+    title: varchar("title", { length: 160 }).notNull(),
+    content: text("content").notNull(),
+    published: boolean("published").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("legal_documents_published_title_idx").on(table.published, table.title)],
+).enableRLS();
+
 export const siteSettings = pgTable("site_settings", {
   id: integer("id").primaryKey().default(1),
   businessName: varchar("business_name", { length: 120 }).notNull().default("ScholarDesk"),

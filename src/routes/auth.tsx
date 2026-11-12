@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { Logo } from "@/components/Logo";
 import {
   getAdminStateFn,
   getCurrentUserFn,
+  getPublicLegalDocumentsFn,
   loginFn,
   registerFn,
   requestEmailVerificationFn,
@@ -84,6 +86,13 @@ function AuthPage() {
   const { mode = "login", returnTo } = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: legalDocuments = [] } = useQuery({
+    queryKey: ["public-legal-documents"],
+    queryFn: () => getPublicLegalDocumentsFn(),
+  });
+  const termsDocument = legalDocuments.find(
+    (document) => document.slug === "terms-and-conditions" || /\bterms?\b/i.test(document.title),
+  );
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -129,6 +138,10 @@ function AuthPage() {
   };
 
   async function onRegister(fd: FormData) {
+    if (termsDocument && fd.get("termsAccepted") !== "on") {
+      setErrors({ termsAccepted: "You must accept the Terms and Conditions to register." });
+      return;
+    }
     const parsed = registerSchema.safeParse(Object.fromEntries(fd));
     if (!parsed.success) {
       setErrors(
@@ -309,6 +322,61 @@ function AuthPage() {
                         </div>
                       ))}
                     </div>
+                    {legalDocuments.length > 0 && (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Please review our{" "}
+                        {legalDocuments.map((document, index) => (
+                          <span key={document.slug}>
+                            {index > 0
+                              ? index === legalDocuments.length - 1
+                                ? " and "
+                                : ", "
+                              : ""}
+                            <Link
+                              to="/legal/$slug"
+                              params={{ slug: document.slug }}
+                              className="font-medium text-primary underline underline-offset-2"
+                            >
+                              {document.title}
+                            </Link>
+                          </span>
+                        ))}
+                        .
+                      </p>
+                    )}
+                    {termsDocument && (
+                      <div>
+                        <div className="flex items-start gap-2 text-sm">
+                          <input
+                            id="termsAccepted"
+                            name="termsAccepted"
+                            type="checkbox"
+                            aria-invalid={Boolean(errors["termsAccepted"])}
+                            aria-describedby={errors["termsAccepted"] ? "terms-error" : undefined}
+                            className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                          />
+                          <label
+                            htmlFor="termsAccepted"
+                            className="leading-5 text-muted-foreground"
+                          >
+                            I agree to the{" "}
+                            <Link
+                              to="/legal/$slug"
+                              params={{ slug: termsDocument.slug }}
+                              className="font-medium text-primary underline underline-offset-2"
+                            >
+                              {termsDocument.title}
+                            </Link>
+                            .
+                          </label>
+                        </div>
+                        {errors["termsAccepted"] && (
+                          <p id="terms-error" className="mt-1 text-xs text-destructive">
+                            {errors["termsAccepted"]}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

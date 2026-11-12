@@ -5,12 +5,13 @@ import {
   timingSafeEqual,
   createHash,
 } from "node:crypto";
-import { and, count, desc, eq, gt, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import {
   adminAuditEvents,
   emailVerificationTokens,
   faqEntries,
+  legalDocuments,
   loginAttempts,
   libraryPurchases,
   libraryResources,
@@ -1090,6 +1091,73 @@ export async function savePublicSiteContent(input: {
     );
   });
   return { success: true };
+}
+
+export async function getPublicLegalDocuments() {
+  return getDatabase()
+    .select({ title: legalDocuments.title, slug: legalDocuments.slug })
+    .from(legalDocuments)
+    .where(eq(legalDocuments.published, true))
+    .orderBy(asc(legalDocuments.title));
+}
+
+export async function getPublicLegalDocument(slug: string) {
+  const [document] = await getDatabase()
+    .select({
+      title: legalDocuments.title,
+      content: legalDocuments.content,
+      updatedAt: legalDocuments.updatedAt,
+    })
+    .from(legalDocuments)
+    .where(and(eq(legalDocuments.slug, slug), eq(legalDocuments.published, true)))
+    .limit(1);
+  return document ?? null;
+}
+
+export async function getAdminLegalDocuments() {
+  await requireAdmin();
+  return getDatabase().select().from(legalDocuments).orderBy(asc(legalDocuments.title));
+}
+
+export async function saveLegalDocument(input: {
+  id?: string | undefined;
+  slug: string;
+  title: string;
+  content: string;
+  published: boolean;
+}) {
+  const actor = await requireAdmin();
+  if (input.published && input.content.trim().length < 20) {
+    throw new Error("Add at least 20 characters before publishing this document.");
+  }
+  const db = getDatabase();
+  const id = input.id ?? randomUUID();
+  const values = {
+    slug: input.slug.trim().toLowerCase(),
+    title: input.title.trim(),
+    content: input.content.trim(),
+    published: input.published,
+    updatedAt: new Date(),
+  };
+  await db.transaction(async (tx) => {
+    if (input.id) {
+      const [updated] = await tx
+        .update(legalDocuments)
+        .set(values)
+        .where(eq(legalDocuments.id, input.id))
+        .returning({ id: legalDocuments.id });
+      if (!updated) throw new Error("This legal document no longer exists.");
+    } else {
+      await tx.insert(legalDocuments).values({ id, ...values });
+    }
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(actor, "content.legal_document_saved", "legal_documents", id, {
+        slug: values.slug,
+        published: values.published,
+      }),
+    );
+  });
+  return { success: true, id };
 }
 
 export async function saveFaqEntry(input: {

@@ -32,9 +32,11 @@ import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as ApiFilesRouteImport } from './routes/api.files'
 import { Route as ApiLibraryRouteImport } from './routes/api.library'
 import { Route as ApiRequestPaymentRouteImport } from './routes/api.request-payment'
+import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as AuthenticatedAdminBusinessSettingsRouteImport } from './routes/_authenticated/admin.business-settings'
 import { Route as AuthenticatedAdminContentRouteImport } from './routes/_authenticated/admin.content'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
+import { Route as AuthenticatedAdminLegalDocumentsRouteImport } from './routes/_authenticated/admin.legal-documents'
 import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authenticated/admin.payments'
 import { Route as AuthenticatedAdminPricingRouteImport } from './routes/_authenticated/admin.pricing'
 import { Route as AuthenticatedAdminProfileRouteImport } from './routes/_authenticated/admin.profile'
@@ -165,6 +167,11 @@ const ApiRequestPaymentRoute = ApiRequestPaymentRouteImport.update({
   path: '/api/request-payment',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalSlugRoute = LegalSlugRouteImport.update({
+  id: '/legal/$slug',
+  path: '/legal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminBusinessSettingsRoute =
   AuthenticatedAdminBusinessSettingsRouteImport.update({
     id: '/business-settings',
@@ -181,6 +188,12 @@ const AuthenticatedAdminDashboardRoute =
   AuthenticatedAdminDashboardRouteImport.update({
     id: '/dashboard',
     path: '/dashboard',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminLegalDocumentsRoute =
+  AuthenticatedAdminLegalDocumentsRouteImport.update({
+    id: '/legal-documents',
+    path: '/legal-documents',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminPaymentsRoute =
@@ -293,9 +306,11 @@ export interface FileRoutesByFullPath {
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/api/request-payment': typeof ApiRequestPaymentRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/admin/business-settings': typeof AuthenticatedAdminBusinessSettingsRoute
   '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/legal-documents': typeof AuthenticatedAdminLegalDocumentsRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/pricing': typeof AuthenticatedAdminPricingRoute
   '/admin/profile': typeof AuthenticatedAdminProfileRoute
@@ -335,9 +350,11 @@ export interface FileRoutesByTo {
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/api/request-payment': typeof ApiRequestPaymentRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/admin/business-settings': typeof AuthenticatedAdminBusinessSettingsRoute
   '/admin/content': typeof AuthenticatedAdminContentRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/legal-documents': typeof AuthenticatedAdminLegalDocumentsRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/pricing': typeof AuthenticatedAdminPricingRoute
   '/admin/profile': typeof AuthenticatedAdminProfileRoute
@@ -379,9 +396,11 @@ export interface FileRoutesById {
   '/api/files': typeof ApiFilesRoute
   '/api/library': typeof ApiLibraryRouteWithChildren
   '/api/request-payment': typeof ApiRequestPaymentRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/_authenticated/admin/business-settings': typeof AuthenticatedAdminBusinessSettingsRoute
   '/_authenticated/admin/content': typeof AuthenticatedAdminContentRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/_authenticated/admin/legal-documents': typeof AuthenticatedAdminLegalDocumentsRoute
   '/_authenticated/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/_authenticated/admin/pricing': typeof AuthenticatedAdminPricingRoute
   '/_authenticated/admin/profile': typeof AuthenticatedAdminProfileRoute
@@ -423,9 +442,11 @@ export interface FileRouteTypes {
     | '/api/files'
     | '/api/library'
     | '/api/request-payment'
+    | '/legal/$slug'
     | '/admin/business-settings'
     | '/admin/content'
     | '/admin/dashboard'
+    | '/admin/legal-documents'
     | '/admin/payments'
     | '/admin/pricing'
     | '/admin/profile'
@@ -465,9 +486,11 @@ export interface FileRouteTypes {
     | '/api/files'
     | '/api/library'
     | '/api/request-payment'
+    | '/legal/$slug'
     | '/admin/business-settings'
     | '/admin/content'
     | '/admin/dashboard'
+    | '/admin/legal-documents'
     | '/admin/payments'
     | '/admin/pricing'
     | '/admin/profile'
@@ -508,9 +531,11 @@ export interface FileRouteTypes {
     | '/api/files'
     | '/api/library'
     | '/api/request-payment'
+    | '/legal/$slug'
     | '/_authenticated/admin/business-settings'
     | '/_authenticated/admin/content'
     | '/_authenticated/admin/dashboard'
+    | '/_authenticated/admin/legal-documents'
     | '/_authenticated/admin/payments'
     | '/_authenticated/admin/pricing'
     | '/_authenticated/admin/profile'
@@ -545,6 +570,7 @@ export interface RootRouteChildren {
   ApiFilesRoute: typeof ApiFilesRoute
   ApiLibraryRoute: typeof ApiLibraryRouteWithChildren
   ApiRequestPaymentRoute: typeof ApiRequestPaymentRoute
+  LegalSlugRoute: typeof LegalSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -710,6 +736,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRequestPaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/$slug': {
+      id: '/legal/$slug'
+      path: '/legal/$slug'
+      fullPath: '/legal/$slug'
+      preLoaderRoute: typeof LegalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/business-settings': {
       id: '/_authenticated/admin/business-settings'
       path: '/business-settings'
@@ -729,6 +762,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/admin/dashboard'
       preLoaderRoute: typeof AuthenticatedAdminDashboardRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/legal-documents': {
+      id: '/_authenticated/admin/legal-documents'
+      path: '/legal-documents'
+      fullPath: '/admin/legal-documents'
+      preLoaderRoute: typeof AuthenticatedAdminLegalDocumentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/payments': {
@@ -870,6 +910,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBusinessSettingsRoute: typeof AuthenticatedAdminBusinessSettingsRoute
   AuthenticatedAdminContentRoute: typeof AuthenticatedAdminContentRoute
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
+  AuthenticatedAdminLegalDocumentsRoute: typeof AuthenticatedAdminLegalDocumentsRoute
   AuthenticatedAdminPaymentsRoute: typeof AuthenticatedAdminPaymentsRoute
   AuthenticatedAdminPricingRoute: typeof AuthenticatedAdminPricingRoute
   AuthenticatedAdminProfileRoute: typeof AuthenticatedAdminProfileRoute
@@ -881,6 +922,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
     AuthenticatedAdminBusinessSettingsRoute,
   AuthenticatedAdminContentRoute: AuthenticatedAdminContentRoute,
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
+  AuthenticatedAdminLegalDocumentsRoute: AuthenticatedAdminLegalDocumentsRoute,
   AuthenticatedAdminPaymentsRoute: AuthenticatedAdminPaymentsRoute,
   AuthenticatedAdminPricingRoute: AuthenticatedAdminPricingRoute,
   AuthenticatedAdminProfileRoute: AuthenticatedAdminProfileRoute,
@@ -953,6 +995,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesRoute: ApiFilesRoute,
   ApiLibraryRoute: ApiLibraryRouteWithChildren,
   ApiRequestPaymentRoute: ApiRequestPaymentRoute,
+  LegalSlugRoute: LegalSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

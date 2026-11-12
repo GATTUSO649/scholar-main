@@ -186,6 +186,55 @@ export const getPublicSiteContentFn = createServerFn({ method: "GET" }).handler(
   return getPublicSiteContent();
 });
 
+export const getPublicLegalDocumentsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getPublicLegalDocuments } = await import("./backend.server");
+  return getPublicLegalDocuments();
+});
+
+export const getPublicLegalDocumentFn = createServerFn({ method: "GET" })
+  .validator(
+    z.object({
+      slug: z
+        .string()
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+        .max(120),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { getPublicLegalDocument } = await import("./backend.server");
+    return getPublicLegalDocument(data.slug);
+  });
+
+export const getAdminLegalDocumentsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getAdminLegalDocuments } = await import("./backend.server");
+  return getAdminLegalDocuments();
+});
+
+export const saveLegalDocumentFn = createServerFn({ method: "POST" })
+  .validator(
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        slug: z
+          .string()
+          .trim()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+          .max(120),
+        title: z.string().trim().min(2).max(160),
+        content: z.string().max(100_000),
+        published: z.boolean(),
+      })
+      .refine((document) => !document.published || document.content.trim().length >= 20, {
+        message: "Published documents must contain at least 20 characters.",
+        path: ["content"],
+      }),
+  )
+  .handler(async ({ data }) => {
+    assertSameOrigin();
+    const { saveLegalDocument } = await import("./backend.server");
+    return saveLegalDocument(data);
+  });
+
 export const getPublicPaymentDetailsFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getPublicPaymentDetails } = await import("./backend.server");
   return getPublicPaymentDetails();

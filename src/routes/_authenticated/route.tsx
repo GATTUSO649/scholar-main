@@ -104,6 +104,7 @@ const adminNavGroups = [
     items: [
       { to: "/admin/pricing", label: "Services & offers", icon: Banknote },
       { to: "/admin/content", label: "Website content", icon: FilePenLine },
+      { to: "/admin/legal-documents", label: "Legal documents", icon: FileText },
       { to: "/admin/business-settings", label: "Business settings", icon: Building2 },
       { to: "/admin/profile", label: "Admin profile", icon: User },
     ],
@@ -144,17 +145,19 @@ function Shell() {
                   ? "Library management"
                   : path === "/admin/content"
                     ? "Website content"
-                    : path === "/admin/pricing"
-                      ? "Service pricing"
-                      : path === "/admin/profile"
-                        ? "Admin profile"
-                        : path === "/admin/business-settings"
-                          ? "Business settings"
-                          : path.startsWith("/students")
-                            ? "Student directory"
-                            : path.startsWith("/manage")
-                              ? "Request workspace"
-                              : "Service requests";
+                    : path === "/admin/legal-documents"
+                      ? "Legal documents"
+                      : path === "/admin/pricing"
+                        ? "Service pricing"
+                        : path === "/admin/profile"
+                          ? "Admin profile"
+                          : path === "/admin/business-settings"
+                            ? "Business settings"
+                            : path.startsWith("/students")
+                              ? "Student directory"
+                              : path.startsWith("/manage")
+                                ? "Request workspace"
+                                : "Service requests";
 
   useEffect(
     () =>
@@ -455,7 +458,7 @@ function Shell() {
         <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#28534b] bg-[#123b34] lg:flex">
           {adminLinks}
         </aside>
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#28534b] bg-[#123b34] px-4 py-3 text-white lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#263f5e] bg-[#17263c] px-4 py-3 text-white lg:hidden">
           <div>
             <Logo light onClick={handlePublicNavigation} />
             <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#b9d1c5]">
@@ -516,19 +519,19 @@ function Shell() {
           </>
         )}
         <main className="admin-workspace-main min-w-0">
-          <div className="sticky top-0 z-10 hidden h-17 items-center justify-between border-b border-[#e1e6eb] bg-white/95 px-8 backdrop-blur lg:flex">
+          <div className="sticky top-0 z-10 hidden h-17 items-center justify-between border-b border-[#263f5e] bg-[#17263c] px-8 text-white lg:flex">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#718078]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">
                 ScholarDesk <ChevronRight className="mx-1 inline h-3 w-3" /> Admin workspace
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#1b2b40]">{pageTitle}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{pageTitle}</p>
             </div>
             <div className="flex items-center gap-3">
               <NotificationBell />
               <ProfileShortcut
                 name={profile?.full_name}
                 to="/admin/profile"
-                className="text-[#1b2b40] hover:bg-[#edf1f5]"
+                className="text-white hover:bg-white/10"
                 onLogout={() => void leavePortal("/auth")}
                 disabled={leavingPortal}
               />
@@ -550,21 +553,21 @@ function Shell() {
         <NavLinks />
       </aside>
 
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-[#17263c] px-4 py-3 text-white lg:hidden">
         <Logo light />
-        <div className="flex items-center gap-1 text-sidebar-foreground">
+        <div className="flex items-center gap-1 text-white">
           <NotificationBell />
           <ProfileShortcut
             name={profile?.full_name}
             to="/profile"
-            className="text-sidebar-foreground hover:bg-sidebar-accent"
+            className="text-white hover:bg-white/10"
             onLogout={() => void leavePortal("/auth")}
             disabled={leavingPortal}
           />
           <button
             type="button"
             onClick={() => setOpen(!open)}
-            className="rounded-lg p-2 hover:bg-sidebar-accent"
+            className="rounded-lg p-2 text-white hover:bg-white/10"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             aria-controls="mobile-student-navigation"
@@ -624,17 +627,16 @@ function Shell() {
       )}
 
       <main className="min-w-0">
-        <div className="sticky top-0 z-10 hidden h-18 items-center justify-between border-b bg-white/95 px-8 backdrop-blur lg:flex">
-          <div className="text-sm text-muted-foreground">
-            Welcome back,{" "}
-            <span className="font-semibold text-foreground">{profile?.full_name}</span>
+        <div className="sticky top-0 z-10 hidden h-18 items-center justify-between border-b border-[#263f5e] bg-[#17263c] px-8 text-white lg:flex">
+          <div className="text-sm text-white/70">
+            Welcome back, <span className="font-semibold text-white">{profile?.full_name}</span>
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
             <ProfileShortcut
               name={profile?.full_name}
               to="/profile"
-              className="text-foreground hover:bg-muted"
+              className="text-white hover:bg-white/10"
               onLogout={() => void leavePortal("/auth")}
               disabled={leavingPortal}
             />

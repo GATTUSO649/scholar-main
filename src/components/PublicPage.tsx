@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Clock3, Mail, Phone } from "lucide-react";
 import { Logo, BRAND } from "@/components/Logo";
 import { SiteHeader } from "@/components/SiteHeader";
-import { getPublicSiteContentFn } from "@/lib/backend";
+import { getPublicLegalDocumentsFn, getPublicSiteContentFn } from "@/lib/backend";
 
 const defaultFooterContent = {
   contactEmail: "support@scholardesk.app",
@@ -21,6 +21,10 @@ export function PublicPage({ children }: { children: ReactNode }) {
   const { data } = useQuery({
     queryKey: ["public-site-content"],
     queryFn: () => getPublicSiteContentFn(),
+  });
+  const { data: legalDocuments = [] } = useQuery({
+    queryKey: ["public-legal-documents"],
+    queryFn: () => getPublicLegalDocumentsFn(),
   });
   const content = data ?? defaultFooterContent;
   const phoneHref = content.contactPhone.replace(/[^\d+]/g, "");
@@ -54,6 +58,16 @@ export function PublicPage({ children }: { children: ReactNode }) {
               <Link to="/faq" className="hover:text-white">
                 FAQ
               </Link>
+              {legalDocuments.map((document) => (
+                <Link
+                  key={document.slug}
+                  to="/legal/$slug"
+                  params={{ slug: document.slug }}
+                  className="hover:text-white"
+                >
+                  {document.title}
+                </Link>
+              ))}
             </div>
           </nav>
           <div>
@@ -112,6 +126,10 @@ export function PortalFooter() {
     queryKey: ["public-site-content"],
     queryFn: () => getPublicSiteContentFn(),
   });
+  const { data: legalDocuments = [] } = useQuery({
+    queryKey: ["public-legal-documents"],
+    queryFn: () => getPublicLegalDocumentsFn(),
+  });
   const content = data ?? defaultFooterContent;
   const phoneHref = content.contactPhone.replace(/[^\d+]/g, "");
 
@@ -144,6 +162,16 @@ export function PortalFooter() {
           <Link to="/faq" className="hover:text-[#155b4c]">
             Help & FAQs
           </Link>
+          {legalDocuments.map((document) => (
+            <Link
+              key={document.slug}
+              to="/legal/$slug"
+              params={{ slug: document.slug }}
+              className="hover:text-[#155b4c]"
+            >
+              {document.title}
+            </Link>
+          ))}
         </nav>
       </div>
       <div className="flex flex-col gap-1 border-t border-[#dfe9e2] py-2 text-[10px] sm:flex-row sm:items-center sm:justify-between">
