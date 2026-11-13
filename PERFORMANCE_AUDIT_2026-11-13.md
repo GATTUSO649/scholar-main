@@ -119,6 +119,7 @@ Changes made after the audit:
 - `src/styles.css` honors `prefers-reduced-motion` for the progress indicator, spinners, transitions, and existing animations.
 - `src/lib/auth.ts`, auth routes, and `src/lib/backend.ts` use the combined current-user/admin session state. The public header no longer waits for a second role request, login checks avoid the prior sequential user/role lookup, obsolete server-function wrappers and cache writes were removed, and the non-persistent query cache is still cleared on session changes.
 - `src/routes/_authenticated/deliveries.tsx` now refreshes every 30 seconds instead of every 5 seconds and refreshes on focus. `src/components/NotificationBell.tsx` uses client-side routing for internal destinations.
+- `src/server.ts` permits same-origin framing only for successful PDF responses to `/api/library?preview=1`; private file downloads, errors, and all other routes retain `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
 - No database schema, production secrets, or file-ownership rules were changed. The unbounded admin/student/request lists remain a known scale issue; paginating them requires a separate UI/export contract change.
 
 Verification after changes:

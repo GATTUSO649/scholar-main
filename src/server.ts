@@ -44,15 +44,24 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
-export function addSecurityHeaders(response: Response) {
+export function addSecurityHeaders(response: Response, request?: Request) {
   const headers = new Headers(response.headers);
+  const isLibraryPdfPreview =
+    response.ok &&
+    response.headers.get("content-type")?.split(";", 1)[0]?.trim() === "application/pdf" &&
+    request?.method === "GET" &&
+    (() => {
+      const url = new URL(request.url);
+      return url.pathname === "/api/library" && url.searchParams.get("preview") === "1";
+    })();
+  const frameAncestors = isLibraryPdfPreview ? "'self'" : "'none'";
   headers.set(
     "content-security-policy",
-    "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+    `frame-ancestors ${frameAncestors}; base-uri 'self'; object-src 'none'`,
   );
   headers.set("referrer-policy", "strict-origin-when-cross-origin");
   headers.set("x-content-type-options", "nosniff");
-  headers.set("x-frame-options", "DENY");
+  headers.set("x-frame-options", isLibraryPdfPreview ? "SAMEORIGIN" : "DENY");
   headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
   if (process.env["NODE_ENV"] === "production") {
     headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
@@ -69,7 +78,7 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return addSecurityHeaders(await normalizeCatastrophicSsrResponse(response));
+      return addSecurityHeaders(await normalizeCatastrophicSsrResponse(response), request);
     } catch (error) {
       console.error(error);
       return addSecurityHeaders(
@@ -77,6 +86,7 @@ export default {
           status: 500,
           headers: { "content-type": "text/html; charset=utf-8" },
         }),
+        request,
       );
     }
   },
