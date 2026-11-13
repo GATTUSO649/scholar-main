@@ -40,6 +40,7 @@ type LibraryResource = {
   category: ResourceCategory;
   name: string;
   mime_type: string;
+  preview_supported: boolean;
   size: number;
   preview_page: number;
   price: number;
@@ -462,7 +463,7 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                     <p className="mt-1 text-xs font-medium text-[#55766a]">
                       {categoryLabel(resource.category)} <span className="px-1">·</span>
                       {resource.price > 0 ? `${resource.currency} ${resource.price}` : "Free"}
-                      {resource.mime_type === "application/pdf" && (
+                      {resource.preview_supported && (
                         <>
                           <span className="px-1">·</span>Preview page {resource.preview_page}
                         </>
@@ -599,7 +600,7 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                   className="mt-1.5"
                 />
               </div>
-              {editingResource.mime_type === "application/pdf" && (
+              {editingResource.preview_supported && (
                 <div>
                   <Label htmlFor="edit-preview-page">Student preview page</Label>
                   <Input

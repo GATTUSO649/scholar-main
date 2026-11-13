@@ -1224,6 +1224,12 @@ export async function setFaqEntryActive(input: { id: string; active: boolean }) 
 }
 
 function mapLibraryResource(row: typeof libraryResources.$inferSelect) {
+  const previewSupported =
+    row.mimeType === "application/pdf" ||
+    row.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    row.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    row.mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    row.mimeType === "text/plain";
   return {
     id: row.id,
     title: row.title,
@@ -1231,6 +1237,7 @@ function mapLibraryResource(row: typeof libraryResources.$inferSelect) {
     category: row.category,
     name: row.name,
     mime_type: row.mimeType,
+    preview_supported: previewSupported,
     size: row.size,
     preview_page: row.previewPage,
     price: row.price,
@@ -1433,6 +1440,7 @@ export async function getLibraryResourceForDownload(id: string, preview = false)
     .where(eq(libraryResources.id, id))
     .limit(1);
   if (!resource) return null;
+  let hasFullAccess = resource.price <= 0;
   if (preview || resource.price > 0) {
     const user = await requireUser();
     const roles = await db
@@ -1445,7 +1453,8 @@ export async function getLibraryResourceForDownload(id: string, preview = false)
       if (preview) throw new Error("Student library access is required.");
       throw new Error("Purchase this resource before downloading it.");
     }
-    if (!preview && resource.price > 0 && canUseStudent) {
+    if (canUseAdmin && !canUseStudent) hasFullAccess = true;
+    if (resource.price > 0 && canUseStudent) {
       const [purchase] = await db
         .select({ id: libraryPurchases.id })
         .from(libraryPurchases)
@@ -1457,10 +1466,12 @@ export async function getLibraryResourceForDownload(id: string, preview = false)
           ),
         )
         .limit(1);
-      if (!purchase) throw new Error("Purchase this resource before downloading it.");
+      hasFullAccess = Boolean(purchase);
     }
+    if (!preview && !hasFullAccess)
+      throw new Error("Purchase this resource before downloading it.");
   }
-  return resource;
+  return { ...resource, hasFullAccess };
 }
 
 export async function startLibraryPurchase(input: { resourceId: string; phoneNumber: string }) {

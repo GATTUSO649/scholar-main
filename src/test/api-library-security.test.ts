@@ -1,4 +1,5 @@
 import { File as NodeFile } from "node:buffer";
+import { OfficeConverter } from "officeparser";
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
 
@@ -327,7 +328,7 @@ describe("private library documents", () => {
     expect(mocks.deletePrivateFile).toHaveBeenCalledWith("file-key", "library");
   });
 
-  it("returns only the configured PDF page inline and downloads the full file by default", async () => {
+  it("returns every PDF page with only the configured page readable", async () => {
     const resourceId = "9f94f2dc-4970-44d3-ae58-2a54e3811f2c";
     const sourcePdf = await PDFDocument.create();
     sourcePdf.addPage([300, 400]);
@@ -339,6 +340,9 @@ describe("private library documents", () => {
       name: "guide.pdf",
       mimeType: "application/pdf",
       previewPage: 2,
+      price: 250,
+      currency: "KES",
+      hasFullAccess: false,
     });
 
     const preview = await get({
@@ -354,11 +358,118 @@ describe("private library documents", () => {
     const previewPdf = await PDFDocument.load(new Uint8Array(previewBytes));
     expect(preview.headers.get("content-type")).toBe("application/pdf");
     expect(preview.headers.get("content-disposition")).toContain("inline");
-    expect(previewPdf.getPageCount()).toBe(1);
-    expect(previewPdf.getPage(0)?.getWidth()).toBe(500);
+    expect(previewPdf.getPageCount()).toBe(2);
+    expect(previewPdf.getPage(1)?.getWidth()).toBe(500);
     expect(mocks.getLibraryResourceForDownload).toHaveBeenNthCalledWith(1, resourceId, true);
     expect(download.headers.get("content-disposition")).toContain("attachment");
     expect(Buffer.from(await download.arrayBuffer())).toEqual(sourceBytes);
+  });
+
+  it("converts DOCX resources into a locked multi-page PDF preview", async () => {
+    const markdown = `# Resource preview\n\n${"A document paragraph for preview conversion.\\n\\n".repeat(180)}`;
+    const { value: docxBytes } = await OfficeConverter.convert(Buffer.from(markdown), "docx", {
+      parseConfig: { fileType: "md" },
+    });
+    mocks.readPrivateFile.mockImplementation(async () => Buffer.from(docxBytes));
+    mocks.getLibraryResourceForDownload.mockResolvedValue({
+      storageKey: "docx-file-key",
+      name: "guide.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      previewPage: 1,
+      price: 250,
+      currency: "KES",
+      hasFullAccess: false,
+    });
+
+    const response = await get({
+      request: new Request(
+        "https://portal.example/api/library?id=9f94f2dc-4970-44d3-ae58-2a54e3811f2c&preview=1",
+      ),
+    });
+    const previewPdf = await PDFDocument.load(new Uint8Array(await response.arrayBuffer()));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(previewPdf.getPageCount()).toBeGreaterThan(1);
+  });
+
+  it("paginates TXT resources into a locked preview PDF", async () => {
+    const text = Array.from(
+      { length: 140 },
+      (_, index) => `Line ${index + 1} of the document.`,
+    ).join("\n");
+    mocks.readPrivateFile.mockImplementation(async () => Buffer.from(text));
+    mocks.getLibraryResourceForDownload.mockResolvedValue({
+      storageKey: "text-file-key",
+      name: "notes.txt",
+      mimeType: "text/plain",
+      previewPage: 2,
+      price: 250,
+      currency: "KES",
+      hasFullAccess: false,
+    });
+
+    const response = await get({
+      request: new Request(
+        "https://portal.example/api/library?id=9f94f2dc-4970-44d3-ae58-2a54e3811f2c&preview=1",
+      ),
+    });
+    const previewPdf = await PDFDocument.load(new Uint8Array(await response.arrayBuffer()));
+
+    expect(response.status).toBe(200);
+    expect(previewPdf.getPageCount()).toBeGreaterThan(1);
+  });
+
+  it("reports an invalid admin-selected page instead of a server error", async () => {
+    const sourcePdf = await PDFDocument.create();
+    sourcePdf.addPage([300, 400]);
+    mocks.readPrivateFile.mockImplementation(async () => Buffer.from(await sourcePdf.save()));
+    mocks.getLibraryResourceForDownload.mockResolvedValue({
+      storageKey: "pdf-file-key",
+      name: "guide.pdf",
+      mimeType: "application/pdf",
+      previewPage: 2,
+      price: 250,
+      currency: "KES",
+      hasFullAccess: false,
+    });
+
+    const response = await get({
+      request: new Request(
+        "https://portal.example/api/library?id=9f94f2dc-4970-44d3-ae58-2a54e3811f2c&preview=1",
+      ),
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ error: "The configured preview page does not exist." });
+  });
+
+  it("returns the full PDF preview after payment is confirmed", async () => {
+    const resourceId = "9f94f2dc-4970-44d3-ae58-2a54e3811f2c";
+    const sourcePdf = await PDFDocument.create();
+    sourcePdf.addPage([300, 400]);
+    sourcePdf.addPage([500, 600]);
+    const sourceBytes = Buffer.from(await sourcePdf.save());
+    mocks.readPrivateFile.mockImplementation(async () => sourceBytes);
+    mocks.getLibraryResourceForDownload.mockResolvedValue({
+      storageKey: "paid-pdf-key",
+      name: "owned.pdf",
+      mimeType: "application/pdf",
+      previewPage: 1,
+      price: 250,
+      currency: "KES",
+      hasFullAccess: true,
+    });
+
+    const response = await get({
+      request: new Request(`https://portal.example/api/library?id=${resourceId}&preview=1`),
+    });
+    const previewBytes = Buffer.from(await response.arrayBuffer());
+    const previewPdf = await PDFDocument.load(new Uint8Array(previewBytes));
+
+    expect(response.status).toBe(200);
+    expect(previewPdf.getPageCount()).toBe(2);
+    expect(previewBytes).toEqual(sourceBytes);
   });
 
   it("does not return a document when server authorization fails", async () => {

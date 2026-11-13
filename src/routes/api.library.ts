@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import path from "node:path";
-import { PDFDocument } from "pdf-lib";
+import { OfficeConverter } from "officeparser";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   createLibraryResources,
   deleteLibraryResource,
@@ -31,7 +32,9 @@ import {
 const MAX_FILE_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_FILE_BYTES", 25 * 1024 * 1024);
 const MAX_REQUEST_BYTES = getConfiguredFileLimit("DOCUMENT_MAX_TOTAL_BYTES", 50 * 1024 * 1024);
 const MAX_FILES = 10;
+const MAX_PREVIEW_PAGES = 500;
 const CATEGORIES = new Set(["novel", "business_plan", "article", "lesson_plan", "working_scheme"]);
+const PREVIEWABLE_EXTENSIONS = new Set([".pdf", ".docx", ".xlsx", ".pptx", ".txt"]);
 const RETRYABLE_DATABASE_CONNECTION_CODES = new Set([
   "ECONNRESET",
   "ECONNREFUSED",
@@ -59,6 +62,152 @@ function sanitizeFileName(name: string) {
       .join("")
       .slice(0, 255) || "document"
   );
+}
+
+function isPreviewSupported(name: string) {
+  return PREVIEWABLE_EXTENSIONS.has(path.extname(name).toLowerCase());
+}
+
+async function createTextPdf(content: Buffer) {
+  const document = await PDFDocument.create();
+  const font = await document.embedFont(StandardFonts.Helvetica);
+  const pageSize: [number, number] = [595.28, 841.89];
+  const margin = 44;
+  const fontSize = 10;
+  const lineHeight = 14;
+  const maxWidth = pageSize[0] - margin * 2;
+  const lines: string[] = [];
+  const newline = String.fromCharCode(10);
+  const carriageReturn = String.fromCharCode(13);
+  const tab = String.fromCharCode(9);
+
+  for (const sourceLine of content.toString("utf8").split(newline)) {
+    const lineWithoutCarriageReturn = sourceLine.endsWith(carriageReturn)
+      ? sourceLine.slice(0, -1)
+      : sourceLine;
+    const safeCharacters: string[] = [];
+    for (const character of lineWithoutCarriageReturn) {
+      const codePoint = character.codePointAt(0) ?? 0;
+      safeCharacters.push(
+        (codePoint >= 0x20 && codePoint <= 0x7e) || character === tab ? character : "?",
+      );
+    }
+    const safeLine = safeCharacters.join("");
+    let line = "";
+    for (const word of safeLine.split(/\s+/)) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && font.widthOfTextAtSize(candidate, fontSize) > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    lines.push(line);
+  }
+
+  let page = document.addPage(pageSize);
+  let y = pageSize[1] - margin - fontSize;
+  for (const line of lines) {
+    if (y < margin) {
+      if (document.getPageCount() >= MAX_PREVIEW_PAGES) {
+        throw new Error("This document is too long to preview.");
+      }
+      page = document.addPage(pageSize);
+      y = pageSize[1] - margin - fontSize;
+    }
+    if (line) page.drawText(line, { x: margin, y, size: fontSize, font });
+    y -= lineHeight;
+  }
+  return Buffer.from(await document.save());
+}
+
+async function createSourcePdf(resource: { name: string; mimeType: string }, content: Buffer) {
+  const extension = path.extname(resource.name).toLowerCase();
+  if (extension === ".pdf") return content;
+  if (extension === ".txt") return createTextPdf(content);
+  if (extension !== ".docx" && extension !== ".xlsx" && extension !== ".pptx") {
+    throw new Error("Page previews are not available for this file format.");
+  }
+
+  const { value } = await OfficeConverter.convert(content, "pdf", {
+    parseConfig: {
+      allowRemoteAssets: false,
+      abortSignal: AbortSignal.timeout(30_000),
+    },
+    generatorConfig: { pdfConfig: { engine: "native" } },
+  });
+  return Buffer.from(value as Uint8Array);
+}
+
+async function createLockedPagesPdf(
+  sourcePdfBytes: Buffer,
+  previewPageNumber: number,
+  price: number,
+  currency: string,
+) {
+  const sourcePdf = await PDFDocument.load(new Uint8Array(sourcePdfBytes));
+  const pageCount = sourcePdf.getPageCount();
+  if (pageCount > MAX_PREVIEW_PAGES) {
+    throw new Error(`Documents over ${MAX_PREVIEW_PAGES} pages cannot be previewed.`);
+  }
+  if (
+    !Number.isInteger(previewPageNumber) ||
+    previewPageNumber < 1 ||
+    previewPageNumber > pageCount
+  ) {
+    throw new Error("The configured preview page does not exist.");
+  }
+
+  const previewPdf = await PDFDocument.create();
+  const font = await previewPdf.embedFont(StandardFonts.Helvetica);
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    if (pageIndex + 1 === previewPageNumber) {
+      const [page] = await previewPdf.copyPages(sourcePdf, [pageIndex]);
+      previewPdf.addPage(page!);
+      continue;
+    }
+
+    const sourcePage = sourcePdf.getPage(pageIndex);
+    const { width, height } = sourcePage.getSize();
+    const page = previewPdf.addPage([width, height]);
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width,
+      height,
+      color: rgb(0.96, 0.97, 0.97),
+    });
+    for (let bar = 0; bar < 7; bar += 1) {
+      page.drawRectangle({
+        x: width * 0.14,
+        y: height * (0.72 - bar * 0.045),
+        width: width * (0.48 + ((bar * 17) % 25) / 100),
+        height: Math.max(5, height * 0.009),
+        color: rgb(0.84, 0.87, 0.87),
+        opacity: 0.7,
+      });
+    }
+    const heading = `PAGE ${pageIndex + 1} LOCKED`;
+    const message = `Pay ${currency} ${price.toLocaleString("en-KE")} to unlock`;
+    const headingSize = Math.min(20, Math.max(12, width / 28));
+    const messageSize = Math.min(13, Math.max(9, width / 44));
+    page.drawText(heading, {
+      x: Math.max(12, (width - font.widthOfTextAtSize(heading, headingSize)) / 2),
+      y: height * 0.5,
+      size: headingSize,
+      font,
+      color: rgb(0.12, 0.27, 0.25),
+    });
+    page.drawText(message, {
+      x: Math.max(12, (width - font.widthOfTextAtSize(message, messageSize)) / 2),
+      y: height * 0.5 - headingSize * 1.8,
+      size: messageSize,
+      font,
+      color: rgb(0.29, 0.38, 0.37),
+    });
+  }
+  return Buffer.from(await previewPdf.save());
 }
 
 function isFileLike(value: unknown): value is File & { arrayBuffer: () => Promise<ArrayBuffer> } {
@@ -99,17 +248,22 @@ function errorResponse(error: unknown) {
               : message.includes("Purchase this resource") ||
                   message.includes("Student library access")
                 ? 403
-                : message.includes("origin is not allowed")
-                  ? 403
-                  : message.includes("Administrator access")
-                    ? 403
-                    : message.includes("not found")
-                      ? 404
-                      : message.includes("payments are not configured")
-                        ? 503
-                        : message === "Invalid file key."
-                          ? 400
-                          : 500;
+                : message === "The configured preview page does not exist."
+                  ? 422
+                  : message.includes("cannot be previewed") ||
+                      message.includes("too long to preview")
+                    ? 413
+                    : message.includes("origin is not allowed")
+                      ? 403
+                      : message.includes("Administrator access")
+                        ? 403
+                        : message.includes("not found")
+                          ? 404
+                          : message.includes("payments are not configured")
+                            ? 503
+                            : message === "Invalid file key."
+                              ? 400
+                              : 500;
   if (storageError) {
     console.error("Library storage operation failed.", {
       operation: storageError.operation,
@@ -384,35 +538,34 @@ export const Route = createFileRoute("/api/library")({
           const preview = url.searchParams.get("preview") === "1";
           const resource = await getLibraryResourceForDownload(id, preview);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
-          if (preview && resource.mimeType !== "application/pdf") {
+          if (preview && !isPreviewSupported(resource.name)) {
             return Response.json(
-              { error: "Only PDF resources support page previews." },
-              { status: 400 },
+              { error: "Page previews are not available for this file format." },
+              { status: 415 },
             );
           }
           const content = await readPrivateFile(resource.storageKey, "library");
-          const asciiName = resource.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           let responseContent = content;
           if (preview) {
-            const sourcePdf = await PDFDocument.load(new Uint8Array(content));
-            const pageIndex = resource.previewPage - 1;
-            if (pageIndex < 0 || pageIndex >= sourcePdf.getPageCount()) {
-              return Response.json(
-                { error: "The configured preview page does not exist." },
-                { status: 422 },
-              );
-            }
-            const previewPdf = await PDFDocument.create();
-            const [page] = await previewPdf.copyPages(sourcePdf, [pageIndex]);
-            previewPdf.addPage(page!);
-            responseContent = Buffer.from(await previewPdf.save());
+            const sourcePdf = await createSourcePdf(resource, content);
+            responseContent = resource.hasFullAccess
+              ? sourcePdf
+              : await createLockedPagesPdf(
+                  sourcePdf,
+                  resource.previewPage ?? 1,
+                  resource.price,
+                  resource.currency,
+                );
           }
+          const fileName = preview ? `${path.parse(resource.name).name}.pdf` : resource.name;
+          const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           return new Response(responseContent, {
             headers: {
-              "content-type":
-                resource.mimeType ||
-                getDocumentMimeType(path.extname(resource.name)) ||
-                "application/octet-stream",
+              "content-type": preview
+                ? "application/pdf"
+                : resource.mimeType ||
+                  getDocumentMimeType(path.extname(resource.name)) ||
+                  "application/octet-stream",
               "content-length": String(responseContent.byteLength),
               "content-disposition": `${preview ? "inline" : "attachment"}; filename="${asciiName}"`,
               "cache-control": "private, no-store",

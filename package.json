@@ -3,7 +3,7 @@
   "private": true,
   "sideEffects": false,
   "engines": {
-    "node": ">=24.21.0 <25"
+    "node": ">=24.22.1 <25"
   },
   "type": "module",
   "scripts": {
@@ -72,6 +72,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
     "nodemailer": "^10.2.1",
+    "officeparser": "^8.7.1",
     "pdf-lib": "^1.17.1",
     "postgres": "^3.4.5",
     "react": "^19.2.0",

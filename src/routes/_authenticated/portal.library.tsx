@@ -37,6 +37,7 @@ type StudentResource = {
   category: Exclude<LibraryCategory, "all">;
   name: string;
   mime_type: string;
+  preview_supported: boolean;
   size: number;
   preview_page: number;
   price: number;
@@ -74,6 +75,7 @@ function StudentLibraryPage() {
   const [category, setCategory] = useState<LibraryCategory>("all");
   const [search, setSearch] = useState("");
   const [purchaseResource, setPurchaseResource] = useState<StudentResource | null>(null);
+  const [previewResource, setPreviewResource] = useState<StudentResource | null>(null);
   const [purchasePhone, setPurchasePhone] = useState("");
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [paymentPhone, setPaymentPhone] = useState("");
@@ -365,15 +367,14 @@ function StudentLibraryPage() {
                       : "Free"}
                   </span>
                 </div>
-                {resource.mime_type === "application/pdf" && (
-                  <Button asChild variant="outline" className="mt-5 w-full">
-                    <a
-                      href={`/api/library?id=${encodeURIComponent(resource.id)}&preview=1`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Eye className="mr-2 h-4 w-4" /> Preview page {resource.preview_page}
-                    </a>
+                {resource.preview_supported && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-5 w-full"
+                    onClick={() => setPreviewResource(resource)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" /> Preview document
                   </Button>
                 )}
                 {normalizedPurchaseStatus === "free" || normalizedPurchaseStatus === "paid" ? (
@@ -422,6 +423,59 @@ function StudentLibraryPage() {
           })}
         </div>
       )}
+      <Dialog
+        open={!!previewResource}
+        onOpenChange={(open) => {
+          if (!open) setPreviewResource(null);
+        }}
+      >
+        {previewResource && (
+          <DialogContent className="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-5xl flex-col gap-3 overflow-hidden p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="pr-8">Preview {previewResource.title}</DialogTitle>
+              <DialogDescription>
+                {previewResource.price > 0 && previewResource.purchase_status !== "paid"
+                  ? `Page ${previewResource.preview_page} is open. The remaining pages are locked until payment.`
+                  : "Full document preview."}
+              </DialogDescription>
+            </DialogHeader>
+            <iframe
+              title={`Document preview: ${previewResource.title}`}
+              src={`/api/library?id=${encodeURIComponent(previewResource.id)}&preview=1`}
+              className="min-h-0 w-full flex-1 rounded-md border bg-muted"
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPreviewResource(null)}>
+                Close preview
+              </Button>
+              {previewResource.price > 0 && previewResource.purchase_status !== "paid" ? (
+                previewResource.purchase_status === "pending" ? (
+                  <Button type="button" disabled>
+                    Payment pending
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setPurchaseResource(previewResource);
+                      setPurchaseStatus("idle");
+                      setPreviewResource(null);
+                    }}
+                  >
+                    <Smartphone className="mr-2 h-4 w-4" /> Pay to unlock all pages
+                  </Button>
+                )
+              ) : (
+                <Button asChild>
+                  <a href={`/api/library?id=${encodeURIComponent(previewResource.id)}`}>
+                    <Download className="mr-2 h-4 w-4" /> Download full document
+                  </a>
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
       <Dialog
         open={!!purchaseResource}
         onOpenChange={(open) => {
