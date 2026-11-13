@@ -17,7 +17,11 @@ export const Route = createFileRoute("/_authenticated/deliveries")({
 
 function Deliveries() {
   const { user } = Route.useRouteContext();
-  const { data = [], isLoading, isError } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["my-deliveries", user.id],
     queryFn: () => getMyDeliveriesFn(),
     refetchInterval: 5_000,

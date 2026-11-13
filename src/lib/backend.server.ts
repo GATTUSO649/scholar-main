@@ -3253,14 +3253,12 @@ export async function removeAdminDeliveryFile(storageKey: string) {
     if (!file) return false;
 
     await tx.delete(requestFiles).where(eq(requestFiles.storageKey, storageKey));
-    await tx
-      .insert(adminAuditEvents)
-      .values(
-        makeAdminAuditEvent(user, "request.delivery_file_deleted", "request_file", storageKey, {
-          requestId: file.requestId,
-          name: file.name,
-        }),
-      );
+    await tx.insert(adminAuditEvents).values(
+      makeAdminAuditEvent(user, "request.delivery_file_deleted", "request_file", storageKey, {
+        requestId: file.requestId,
+        name: file.name,
+      }),
+    );
     return true;
   });
 }

@@ -1,12 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { SiteHeader } from "@/components/SiteHeader";
 
+type MockLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+  children?: ReactNode;
+  to?: string | { pathname?: string };
+};
+
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to, ...props }: any) => (
-    <a href={typeof to === "string" ? to : to?.pathname ?? "/"} {...props}>
+  Link: ({ children, to, ...props }: MockLinkProps) => (
+    <a href={typeof to === "string" ? to : (to?.pathname ?? "/")} {...props}>
       {children}
     </a>
   ),

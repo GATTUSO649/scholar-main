@@ -149,7 +149,10 @@ export function PortalFooter() {
             aria-label="Portal support"
           >
             {content.contactEmail && (
-              <a href={`mailto:${content.contactEmail}`} className="transition hover:text-[#155b4c]">
+              <a
+                href={`mailto:${content.contactEmail}`}
+                className="transition hover:text-[#155b4c]"
+              >
                 Email support
               </a>
             )}

@@ -229,7 +229,10 @@ function Home() {
       </section>
 
       {/* Testimonials */}
-      <LazySection className="relative overflow-hidden bg-hero py-24 text-ink-foreground" label="Loading stories">
+      <LazySection
+        className="relative overflow-hidden bg-hero py-24 text-ink-foreground"
+        label="Loading stories"
+      >
         <section className="relative overflow-hidden bg-hero py-24 text-ink-foreground">
           <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-accent/20 blur-3xl animate-blob" />
           <div className="relative mx-auto max-w-6xl px-5">
@@ -264,7 +267,9 @@ function Home() {
                   className={`glass rounded-3xl p-7 transition-transform duration-300 hover:-translate-y-1 ${i === 1 ? "md:-translate-y-4" : ""}`}
                 >
                   <p className="text-accent">★★★★★</p>
-                  <blockquote className="mt-4 font-display text-lg leading-relaxed">“{q}”</blockquote>
+                  <blockquote className="mt-4 font-display text-lg leading-relaxed">
+                    “{q}”
+                  </blockquote>
                   <figcaption className="mt-6 text-sm">
                     <span className="font-semibold">{n}</span>
                     <span className="text-ink-foreground/60"> · {c}</span>
