@@ -441,7 +441,7 @@ function Shell() {
 
   if (inAdminArea) {
     const adminLinks = (
-      <div className="flex h-full min-h-0 flex-col bg-[#123b34]">
+      <div className="flex h-full min-h-0 flex-col bg-[#17263c]">
         <div className="shrink-0 border-b border-white/10 px-5 py-5">
           <Logo light onClick={handlePublicNavigation} />
           <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.13em] text-[#b9c7d7]">
@@ -455,7 +455,7 @@ function Shell() {
     );
     return (
       <div className="admin-workspace-shell min-h-screen bg-[#f2f6f3] lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#28534b] bg-[#123b34] lg:flex">
+        <aside className="sticky top-0 hidden h-screen min-h-0 flex-col overflow-hidden border-r border-[#263f5e] bg-[#17263c] lg:flex">
           {adminLinks}
         </aside>
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#263f5e] bg-[#17263c] px-4 py-3 text-white lg:hidden">
@@ -500,7 +500,7 @@ function Shell() {
               role="dialog"
               aria-modal="true"
               aria-label="Admin navigation"
-              className="fixed inset-y-0 left-0 z-50 h-dvh w-[min(22rem,50vw)] overflow-hidden border-r border-[#28534b] bg-[#123b34] shadow-2xl lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 h-dvh w-[min(22rem,50vw)] overflow-hidden border-r border-[#263f5e] bg-[#17263c] shadow-2xl lg:hidden"
             >
               <div className="flex h-full flex-col">
                 <div className="flex shrink-0 justify-end border-b border-white/10 px-3 py-2">
