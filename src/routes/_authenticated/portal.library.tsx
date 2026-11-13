@@ -441,7 +441,7 @@ function StudentLibraryPage() {
             </DialogHeader>
             <iframe
               title={`Document preview: ${previewResource.title}`}
-              src={`/api/library?id=${encodeURIComponent(previewResource.id)}&preview=1`}
+              src={`/api/library?id=${encodeURIComponent(previewResource.id)}&preview=1#page=${previewResource.price > 0 && previewResource.purchase_status !== "paid" ? previewResource.preview_page : 1}`}
               className="min-h-0 w-full flex-1 rounded-md border bg-muted"
             />
             <DialogFooter>

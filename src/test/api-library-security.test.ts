@@ -1,6 +1,6 @@
 import { File as NodeFile } from "node:buffer";
 import { OfficeConverter } from "officeparser";
-import { PDFDocument } from "pdf-lib";
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream, StandardFonts } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -82,6 +82,22 @@ function uploadForm(files: TestDocumentFile[], fields: Record<string, string> = 
     get: (name: string) => fields[name] ?? null,
     getAll: (name: string) => (name === "files" ? files : []),
   } as unknown as FormData;
+}
+
+function readPageContent(document: PDFDocument, pageIndex: number) {
+  const contents = document.getPage(pageIndex).node.Contents();
+  if (!contents) return "";
+  const streams = contents instanceof PDFArray ? contents.asArray() : [contents];
+  return streams
+    .map((stream) => {
+      const rawStream = document.context.lookup(stream, PDFRawStream);
+      return new TextDecoder().decode(decodePDFRawStream(rawStream).decode());
+    })
+    .join("\n");
+}
+
+function pdfTextHex(value: string) {
+  return `<${Buffer.from(value, "ascii").toString("hex").toUpperCase()}>`;
 }
 
 beforeEach(() => {
@@ -331,8 +347,17 @@ describe("private library documents", () => {
   it("returns every PDF page with only the configured page readable", async () => {
     const resourceId = "9f94f2dc-4970-44d3-ae58-2a54e3811f2c";
     const sourcePdf = await PDFDocument.create();
-    sourcePdf.addPage([300, 400]);
-    sourcePdf.addPage([500, 600]);
+    const sourceFont = await sourcePdf.embedFont(StandardFonts.Helvetica);
+    sourcePdf.addPage([300, 400]).drawText("HIDDEN PAGE ORIGINAL CONTENT", {
+      x: 30,
+      y: 200,
+      font: sourceFont,
+    });
+    sourcePdf.addPage([500, 600]).drawText("SELECTED PAGE CONTENT", {
+      x: 30,
+      y: 300,
+      font: sourceFont,
+    });
     const sourceBytes = Buffer.from(await sourcePdf.save());
     mocks.readPrivateFile.mockImplementation(async () => sourceBytes);
     mocks.getLibraryResourceForDownload.mockResolvedValue({
@@ -356,10 +381,14 @@ describe("private library documents", () => {
     expect(preview.status).toBe(200);
     expect(previewBytes.subarray(0, 8).toString()).toBe("%PDF-1.7");
     const previewPdf = await PDFDocument.load(new Uint8Array(previewBytes));
+    const lockedPageContent = readPageContent(previewPdf, 0);
+    const selectedPageContent = readPageContent(previewPdf, 1);
     expect(preview.headers.get("content-type")).toBe("application/pdf");
     expect(preview.headers.get("content-disposition")).toContain("inline");
     expect(previewPdf.getPageCount()).toBe(2);
     expect(previewPdf.getPage(1)?.getWidth()).toBe(500);
+    expect(selectedPageContent).toContain(pdfTextHex("SELECTED PAGE CONTENT"));
+    expect(lockedPageContent).not.toContain(pdfTextHex("HIDDEN PAGE ORIGINAL CONTENT"));
     expect(mocks.getLibraryResourceForDownload).toHaveBeenNthCalledWith(1, resourceId, true);
     expect(download.headers.get("content-disposition")).toContain("attachment");
     expect(Buffer.from(await download.arrayBuffer())).toEqual(sourceBytes);
