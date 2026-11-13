@@ -15,7 +15,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LazySection } from "@/components/LazySection";
 import { SiteHeader } from "@/components/SiteHeader";
 import hero from "@/assets/WhatsApp Image 2026-10-17 at 1.31.14 PM.jpeg";
 
@@ -48,9 +47,9 @@ function Home() {
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-hero text-ink-foreground">
-        <div className="pointer-events-none absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-grid mask-[radial-gradient(ellipse_at_center,black,transparent_75%)]" />
         <div className="pointer-events-none absolute -left-32 top-20 h-96 w-96 rounded-full bg-accent/25 blur-3xl animate-blob" />
-        <div className="pointer-events-none absolute -right-20 bottom-0 h-[28rem] w-[28rem] rounded-full bg-info/25 blur-3xl animate-blob [animation-delay:-6s]" />
+        <div className="pointer-events-none absolute -right-20 bottom-0 h-112 w-md rounded-full bg-info/25 blur-3xl animate-blob [animation-delay:-6s]" />
         <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-5 pb-24 pt-32 md:grid-cols-[1.05fr_1fr] md:pb-32 md:pt-40">
           <div className="animate-rise">
             <span className="glass inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-ink-foreground/90">
@@ -103,14 +102,16 @@ function Home() {
             </div>
           </div>
           <div className="relative animate-rise [animation-delay:.15s]">
-            <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-tr from-accent/50 via-transparent to-info/40 blur-xl" />
+            <div className="absolute -inset-3 rounded-4xl bg-linear-to-tr from-accent/50 via-transparent to-info/40 blur-xl" />
             <img
               src={hero}
               alt="Students working together on a laptop on campus"
               width={1536}
               height={1024}
-              loading="lazy"
-              className="relative aspect-[3/2] w-full rounded-3xl object-cover shadow-2xl ring-1 ring-ink-foreground/10"
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              className="relative aspect-3/2 w-full rounded-3xl object-cover shadow-2xl ring-1 ring-ink-foreground/10"
             />
             <div className="absolute -bottom-7 -left-4 rounded-2xl bg-card p-4 text-card-foreground shadow-soft animate-float sm:-left-10">
               <div className="flex items-center gap-3">
@@ -229,57 +230,50 @@ function Home() {
       </section>
 
       {/* Testimonials */}
-      <LazySection
-        className="relative overflow-hidden bg-hero py-24 text-ink-foreground"
-        label="Loading stories"
-      >
-        <section className="relative overflow-hidden bg-hero py-24 text-ink-foreground">
-          <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-accent/20 blur-3xl animate-blob" />
-          <div className="relative mx-auto max-w-6xl px-5">
-            <div className="text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-                Student stories
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">
-                Loved by students who hate stress
-              </h2>
-            </div>
-            <div className="mt-14 grid gap-6 md:grid-cols-3">
-              {[
-                [
-                  "The tracking is amazing — I always knew exactly where my request was. Feedback came a day early.",
-                  "Amina M.",
-                  "Nursing, Year 3",
-                ],
-                [
-                  "Paid with M-Pesa in seconds. The proofreading made my report so much clearer.",
-                  "Kevin O.",
-                  "Business, Year 2",
-                ],
-                [
-                  "My tutor explained statistics better than any lecture. Worth every shilling.",
-                  "Joy N.",
-                  "Economics, Year 4",
-                ],
-              ].map(([q, n, c], i) => (
-                <figure
-                  key={n}
-                  className={`glass rounded-3xl p-7 transition-transform duration-300 hover:-translate-y-1 ${i === 1 ? "md:-translate-y-4" : ""}`}
-                >
-                  <p className="text-accent">★★★★★</p>
-                  <blockquote className="mt-4 font-display text-lg leading-relaxed">
-                    “{q}”
-                  </blockquote>
-                  <figcaption className="mt-6 text-sm">
-                    <span className="font-semibold">{n}</span>
-                    <span className="text-ink-foreground/60"> · {c}</span>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
+      <section className="relative overflow-hidden bg-hero py-24 text-ink-foreground">
+        <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-accent/20 blur-3xl animate-blob" />
+        <div className="relative mx-auto max-w-6xl px-5">
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+              Student stories
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">
+              Loved by students who hate stress
+            </h2>
           </div>
-        </section>
-      </LazySection>
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {[
+              [
+                "The tracking is amazing — I always knew exactly where my request was. Feedback came a day early.",
+                "Amina M.",
+                "Nursing, Year 3",
+              ],
+              [
+                "Paid with M-Pesa in seconds. The proofreading made my report so much clearer.",
+                "Kevin O.",
+                "Business, Year 2",
+              ],
+              [
+                "My tutor explained statistics better than any lecture. Worth every shilling.",
+                "Joy N.",
+                "Economics, Year 4",
+              ],
+            ].map(([q, n, c], i) => (
+              <figure
+                key={n}
+                className={`glass rounded-3xl p-7 transition-transform duration-300 hover:-translate-y-1 ${i === 1 ? "md:-translate-y-4" : ""}`}
+              >
+                <p className="text-accent">★★★★★</p>
+                <blockquote className="mt-4 font-display text-lg leading-relaxed">“{q}”</blockquote>
+                <figcaption className="mt-6 text-sm">
+                  <span className="font-semibold">{n}</span>
+                  <span className="text-ink-foreground/60"> · {c}</span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

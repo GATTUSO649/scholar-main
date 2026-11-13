@@ -10,8 +10,7 @@ import { Logo } from "@/components/Logo";
 import {
   adminLoginFn,
   getAdminSignupStateFn,
-  getAdminStateFn,
-  getCurrentUserFn,
+  getCurrentUserStateFn,
   registerAdminFn,
 } from "@/lib/backend";
 import {
@@ -86,10 +85,9 @@ function AdminLoginPage() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUserFn()
-      .then(async (user) => {
+    getCurrentUserStateFn()
+      .then(({ user, isAdmin }) => {
         if (!user) return;
-        const isAdmin = await getAdminStateFn();
         if (!active) return;
         if (isAdmin && mode !== "register") {
           window.location.replace(getSafeReturnTo(returnTo, "/admin/dashboard"));
@@ -149,7 +147,6 @@ function AdminLoginPage() {
       }
       await queryClient.cancelQueries();
       queryClient.clear();
-      queryClient.setQueryData(["current-user"], user);
       broadcastAuthSessionChange();
       window.location.replace(getSafeReturnTo(returnTo, "/admin/dashboard"));
     } catch (error) {

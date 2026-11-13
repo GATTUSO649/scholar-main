@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useIsFetching } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -7,6 +7,7 @@ import {
   HeadContent,
   Scripts,
   type ErrorComponentProps,
+  useRouterState,
 } from "@tanstack/react-router";
 import { Suspense, useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
@@ -120,14 +121,33 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const router = useRouter();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <NavigationProgress />
       <Suspense fallback={<PageLoader label="Loading website" className="min-h-screen" />}>
         <Outlet />
       </Suspense>
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
+  );
+}
+
+function NavigationProgress() {
+  const isNavigating = useRouterState({ select: (state) => state.isLoading });
+  const hasPendingData =
+    useIsFetching({ predicate: (query) => query.state.status === "pending" }) > 0;
+  if (!isNavigating && !hasPendingData) return null;
+
+  return (
+    <div
+      className="pointer-events-none fixed inset-x-0 top-0 z-100 h-1 overflow-hidden"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading page"
+    >
+      <span className="sr-only">Loading page</span>
+      <span className="navigation-progress-segment" aria-hidden="true" />
+    </div>
   );
 }

@@ -188,7 +188,6 @@ function Shell() {
       await qc.cancelQueries();
       await logoutFn();
       qc.clear();
-      qc.setQueryData(["current-user"], null);
       broadcastAuthSessionChange();
       if (to === "/auth") {
         await navigate({ to, search: { mode: "login" }, replace: true });
@@ -284,7 +283,6 @@ function Shell() {
         // Server-side idle expiry still rejects the session if logout cannot reach the server.
       } finally {
         qc.clear();
-        qc.setQueryData(["current-user"], null);
         broadcastAuthSessionChange();
         const returnTo = getSafeReturnTo(window.location.href, "/dashboard");
         await navigate({ to: "/auth", search: { mode: "login", returnTo }, replace: true });

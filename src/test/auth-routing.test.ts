@@ -1,5 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { adminWorkspaceRedirectFor, dashboardRouteFor, getSafeReturnTo } from "@/lib/auth";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderHook, waitFor } from "@testing-library/react";
+import { createElement, type PropsWithChildren } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ getCurrentUserStateFn: vi.fn() }));
+
+vi.mock("@/lib/backend", () => ({
+  getCurrentUserStateFn: mocks.getCurrentUserStateFn,
+  getProfileFn: vi.fn(),
+}));
+
+import {
+  adminWorkspaceRedirectFor,
+  dashboardRouteFor,
+  getSafeReturnTo,
+  useIsAdmin,
+  useUser,
+} from "@/lib/auth";
 
 describe("post-login routing", () => {
   it("preserves an internal request destination and its query", () => {
@@ -46,5 +63,36 @@ describe("dashboard routing", () => {
   it("allows admins to stay on admin profile and pricing paths", () => {
     expect(adminWorkspaceRedirectFor(true, "/admin/profile")).toBeNull();
     expect(adminWorkspaceRedirectFor(true, "/admin/pricing")).toBeNull();
+  });
+});
+
+describe("shared session query", () => {
+  it("loads user and admin status from one server request", async () => {
+    const user = { id: "user-1", email: "student@example.test" };
+    mocks.getCurrentUserStateFn.mockResolvedValue({
+      user,
+      isAdmin: true,
+      expiresAt: "2026-11-14T00:00:00.000Z",
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: PropsWithChildren) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const { result, unmount } = renderHook(
+      () => {
+        const currentUser = useUser();
+        const admin = useIsAdmin(currentUser.user?.id);
+        return { currentUser, admin };
+      },
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.admin.data).toBe(true));
+
+    expect(result.current.currentUser.user).toEqual(user);
+    expect(mocks.getCurrentUserStateFn).toHaveBeenCalledOnce();
+    unmount();
+    queryClient.clear();
   });
 });

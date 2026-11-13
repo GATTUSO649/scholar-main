@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getAdminStateFn, getCurrentUserFn, getProfileFn } from "@/lib/backend";
+import { getCurrentUserStateFn, getProfileFn } from "@/lib/backend";
 
 const SESSION_CHANNEL_NAME = "scholardesk-auth-session";
 const SESSION_STORAGE_KEY = "scholardesk-auth-session-change";
@@ -90,12 +90,17 @@ export function adminWorkspaceRedirectFor(
 }
 
 export function useUser() {
-  const { data: user, isLoading: loading } = useQuery({
-    queryKey: ["current-user"],
-    queryFn: () => getCurrentUserFn(),
+  const { data: state, isLoading: loading } = useCurrentUserState();
+  return { user: state?.user ?? null, loading };
+}
+
+function useCurrentUserState(enabled = true) {
+  return useQuery({
+    queryKey: ["current-user-state"],
+    queryFn: () => getCurrentUserStateFn(),
+    enabled,
     staleTime: 30_000,
   });
-  return { user: user ?? null, loading };
 }
 
 export function useProfile(userId?: string) {
@@ -107,9 +112,6 @@ export function useProfile(userId?: string) {
 }
 
 export function useIsAdmin(userId?: string) {
-  return useQuery({
-    queryKey: ["is-admin", userId],
-    enabled: !!userId,
-    queryFn: () => getAdminStateFn(),
-  });
+  const { data, isLoading, isError } = useCurrentUserState(Boolean(userId));
+  return { data: userId ? data?.isAdmin : undefined, isLoading, isError };
 }

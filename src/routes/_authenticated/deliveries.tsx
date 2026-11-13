@@ -24,9 +24,10 @@ function Deliveries() {
   } = useQuery({
     queryKey: ["my-deliveries", user.id],
     queryFn: () => getMyDeliveriesFn(),
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
     refetchIntervalInBackground: false,
-    staleTime: 0,
+    refetchOnWindowFocus: true,
+    staleTime: 15_000,
   });
   const fileCount = data.reduce((total, delivery) => total + delivery.files.length, 0);
 

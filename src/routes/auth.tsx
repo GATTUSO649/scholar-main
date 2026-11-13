@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import {
-  getAdminStateFn,
-  getCurrentUserFn,
+  getCurrentUserStateFn,
   getPublicLegalDocumentsFn,
   loginFn,
   registerFn,
@@ -112,17 +111,15 @@ function AuthPage() {
   );
 
   useEffect(() => {
-    getCurrentUserFn()
-      .then(async (user) => {
+    getCurrentUserStateFn()
+      .then(({ user, isAdmin }) => {
         if (!user) return;
-        const isAdmin = await getAdminStateFn();
-        queryClient.setQueryData(["is-admin", user.id], isAdmin);
         window.location.replace(getSafeReturnTo(returnTo, dashboardRouteFor(isAdmin)));
       })
       .catch((error: unknown) =>
         console.error("Could not check the current sign-in session.", error),
       );
-  }, [navigate, queryClient, returnTo]);
+  }, [returnTo]);
 
   const setMode = (m: Mode) => {
     setErrors({});
@@ -159,7 +156,7 @@ function AuthPage() {
   }
 
   async function onLogin(fd: FormData) {
-    const user = await loginFn({
+    await loginFn({
       data: {
         email: String(fd.get("email")),
         password: String(fd.get("password")),
@@ -167,9 +164,7 @@ function AuthPage() {
     });
     await queryClient.cancelQueries();
     queryClient.clear();
-    queryClient.setQueryData(["current-user"], user);
-    const isAdmin = await getAdminStateFn();
-    queryClient.setQueryData(["is-admin", user.id], isAdmin);
+    const { isAdmin } = await getCurrentUserStateFn();
     broadcastAuthSessionChange();
     window.location.replace(getSafeReturnTo(returnTo, dashboardRouteFor(isAdmin)));
   }

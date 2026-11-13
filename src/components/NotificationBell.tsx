@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -104,14 +105,14 @@ export function NotificationBell() {
             data.items.map((notification) => {
               const isRead = notification.read_at !== null;
               return (
-                <a
+                <Link
                   key={notification.id}
-                  href={notification.href}
+                  to={notification.href}
                   onClick={() => {
                     if (!isRead) markRead.mutate(notification.id);
                   }}
                   className={`block border-b px-4 py-3 transition-colors last:border-0 hover:bg-muted/60 ${
-                    isRead ? "" : "bg-primary/[0.04]"
+                    isRead ? "" : "bg-primary/4"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -133,7 +134,7 @@ export function NotificationBell() {
                       </span>
                     </span>
                   </div>
-                </a>
+                </Link>
               );
             })
           )}

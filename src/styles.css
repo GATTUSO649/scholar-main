@@ -185,6 +185,37 @@
 @utility animate-rise {
   animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
+@keyframes navigation-progress {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+.navigation-progress-segment {
+  display: block;
+  width: 32%;
+  height: 100%;
+  background: var(--color-accent);
+  animation: navigation-progress 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .navigation-progress-segment {
+    width: 100%;
+    transform: none;
+  }
+}
 @utility text-gradient-gold {
   background: linear-gradient(100deg, var(--accent), oklch(0.88 0.12 85), var(--accent));
   -webkit-background-clip: text;

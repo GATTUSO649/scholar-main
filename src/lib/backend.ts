@@ -26,11 +26,6 @@ function assertSameOrigin() {
   requireSameOrigin(getRequest());
 }
 
-export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(async () => {
-  const { getCurrentUser } = await import("./backend.server");
-  return getCurrentUser();
-});
-
 export const getCurrentUserStateFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getCurrentUserState } = await import("./backend.server");
   return getCurrentUserState();
@@ -170,11 +165,6 @@ export const saveProfileFn = createServerFn({ method: "POST" })
     const { saveProfile } = await import("./backend.server");
     return saveProfile(data);
   });
-
-export const getAdminStateFn = createServerFn({ method: "GET" }).handler(async () => {
-  const { isCurrentUserAdmin } = await import("./backend.server");
-  return isCurrentUserAdmin();
-});
 
 export const getPublicDataFn = createServerFn({ method: "GET" }).handler(async () => {
   const { getPublicData } = await import("./backend.server");
