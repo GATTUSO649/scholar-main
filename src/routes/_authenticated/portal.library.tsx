@@ -38,6 +38,7 @@ type StudentResource = {
   name: string;
   mime_type: string;
   size: number;
+  preview_page: number;
   price: number;
   currency: string;
   created_at: string;
@@ -364,19 +365,19 @@ function StudentLibraryPage() {
                       : "Free"}
                   </span>
                 </div>
+                {resource.mime_type === "application/pdf" && (
+                  <Button asChild variant="outline" className="mt-5 w-full">
+                    <a
+                      href={`/api/library?id=${encodeURIComponent(resource.id)}&preview=1`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Eye className="mr-2 h-4 w-4" /> Preview page {resource.preview_page}
+                    </a>
+                  </Button>
+                )}
                 {normalizedPurchaseStatus === "free" || normalizedPurchaseStatus === "paid" ? (
                   <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                    {resource.mime_type === "application/pdf" && (
-                      <Button asChild variant="outline" className="w-full">
-                        <a
-                          href={`/api/library?id=${encodeURIComponent(resource.id)}&preview=1`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <Eye className="mr-2 h-4 w-4" /> Preview PDF
-                        </a>
-                      </Button>
-                    )}
                     <Button asChild className="w-full">
                       <a href={`/api/library?id=${encodeURIComponent(resource.id)}`}>
                         {normalizedPurchaseStatus === "paid" ? (

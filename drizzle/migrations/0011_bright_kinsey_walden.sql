@@ -1,0 +1,1 @@
+ALTER TABLE "library_resources" ADD COLUMN "preview_page" integer DEFAULT 1 NOT NULL;

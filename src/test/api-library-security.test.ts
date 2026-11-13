@@ -1,4 +1,5 @@
 import { File as NodeFile } from "node:buffer";
+import { PDFDocument } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -95,6 +96,33 @@ beforeEach(() => {
 });
 
 describe("library metadata API body limits", () => {
+  it("saves the admin-selected preview page", async () => {
+    mocks.updateLibraryResource.mockResolvedValue({ success: true });
+    const response = await patch({
+      request: new Request("https://portal.example/api/library", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "resource-id",
+          title: "Guide",
+          description: "",
+          category: "article",
+          price: 250,
+          preview_page: 4,
+        }),
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateLibraryResource).toHaveBeenCalledWith("resource-id", {
+      title: "Guide",
+      description: "",
+      category: "article",
+      price: 250,
+      previewPage: 4,
+    });
+  });
+
   it("rejects oversized JSON before invoking the admin mutation", async () => {
     const request = new Request("https://portal.example/api/library", {
       method: "PATCH",
@@ -299,12 +327,18 @@ describe("private library documents", () => {
     expect(mocks.deletePrivateFile).toHaveBeenCalledWith("file-key", "library");
   });
 
-  it("previews an authorized PDF inline and downloads it as an attachment by default", async () => {
+  it("returns only the configured PDF page inline and downloads the full file by default", async () => {
     const resourceId = "9f94f2dc-4970-44d3-ae58-2a54e3811f2c";
+    const sourcePdf = await PDFDocument.create();
+    sourcePdf.addPage([300, 400]);
+    sourcePdf.addPage([500, 600]);
+    const sourceBytes = Buffer.from(await sourcePdf.save());
+    mocks.readPrivateFile.mockImplementation(async () => sourceBytes);
     mocks.getLibraryResourceForDownload.mockResolvedValue({
       storageKey: "pdf-file-key",
       name: "guide.pdf",
       mimeType: "application/pdf",
+      previewPage: 2,
     });
 
     const preview = await get({
@@ -314,9 +348,17 @@ describe("private library documents", () => {
       request: new Request(`https://portal.example/api/library?id=${resourceId}`),
     });
 
+    const previewBytes = Buffer.from(await preview.arrayBuffer());
+    expect(preview.status).toBe(200);
+    expect(previewBytes.subarray(0, 8).toString()).toBe("%PDF-1.7");
+    const previewPdf = await PDFDocument.load(new Uint8Array(previewBytes));
     expect(preview.headers.get("content-type")).toBe("application/pdf");
     expect(preview.headers.get("content-disposition")).toContain("inline");
+    expect(previewPdf.getPageCount()).toBe(1);
+    expect(previewPdf.getPage(0)?.getWidth()).toBe(500);
+    expect(mocks.getLibraryResourceForDownload).toHaveBeenNthCalledWith(1, resourceId, true);
     expect(download.headers.get("content-disposition")).toContain("attachment");
+    expect(Buffer.from(await download.arrayBuffer())).toEqual(sourceBytes);
   });
 
   it("does not return a document when server authorization fails", async () => {
@@ -331,7 +373,7 @@ describe("private library documents", () => {
     expect(mocks.readPrivateFile).not.toHaveBeenCalled();
   });
 
-  it("does not expose a paid PDF through the inline preview without purchase", async () => {
+  it("does not serve a preview when server-side access authorization fails", async () => {
     const resourceId = "9f94f2dc-4970-44d3-ae58-2a54e3811f2c";
     mocks.getLibraryResourceForDownload.mockRejectedValueOnce(
       new Error("Purchase this resource before downloading it."),

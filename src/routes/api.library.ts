@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import path from "node:path";
+import { PDFDocument } from "pdf-lib";
 import {
   createLibraryResources,
   deleteLibraryResource,
@@ -158,6 +159,7 @@ export const Route = createFileRoute("/api/library")({
           const description = String(form.get("description") ?? "").trim();
           const category = String(form.get("category") ?? "");
           const price = Number(form.get("price") ?? 0);
+          const previewPage = 1;
           if (description.length > 2000) {
             return Response.json(
               { error: "Description must be 2,000 characters or fewer." },
@@ -205,6 +207,7 @@ export const Route = createFileRoute("/api/library")({
             name: string;
             mimeType: string;
             size: number;
+            previewPage: number;
             content: Buffer;
           }> = [];
           for (const file of files) {
@@ -236,6 +239,7 @@ export const Route = createFileRoute("/api/library")({
               name: originalName,
               mimeType: validation.mimeType,
               size: file.size,
+              previewPage,
               content,
             });
           }
@@ -331,6 +335,8 @@ export const Route = createFileRoute("/api/library")({
             typeof body?.["description"] === "string" ? body["description"].trim() : "";
           const category = typeof body?.["category"] === "string" ? body["category"] : "";
           const price = typeof body?.["price"] === "number" ? body["price"] : Number.NaN;
+          const previewPage =
+            typeof body?.["preview_page"] === "number" ? body["preview_page"] : Number.NaN;
           if (title.length < 2 || title.length > 200) {
             return Response.json(
               { error: "Title must be between 2 and 200 characters." },
@@ -352,7 +358,19 @@ export const Route = createFileRoute("/api/library")({
               { status: 400 },
             );
           }
-          const result = await updateLibraryResource(id, { title, description, category, price });
+          if (!Number.isInteger(previewPage) || previewPage < 1 || previewPage > 10000) {
+            return Response.json(
+              { error: "Preview page must be a whole number between 1 and 10,000." },
+              { status: 400 },
+            );
+          }
+          const result = await updateLibraryResource(id, {
+            title,
+            description,
+            category,
+            price,
+            previewPage,
+          });
           if (!result) return Response.json({ error: "Resource not found." }, { status: 404 });
           return Response.json(result);
         } catch (error) {
@@ -361,21 +379,41 @@ export const Route = createFileRoute("/api/library")({
       },
       GET: async ({ request }) => {
         try {
-          const id = new URL(request.url).searchParams.get("id") ?? "";
-          const resource = await getLibraryResourceForDownload(id);
+          const url = new URL(request.url);
+          const id = url.searchParams.get("id") ?? "";
+          const preview = url.searchParams.get("preview") === "1";
+          const resource = await getLibraryResourceForDownload(id, preview);
           if (!resource) return Response.json({ error: "Resource not found." }, { status: 404 });
+          if (preview && resource.mimeType !== "application/pdf") {
+            return Response.json(
+              { error: "Only PDF resources support page previews." },
+              { status: 400 },
+            );
+          }
           const content = await readPrivateFile(resource.storageKey, "library");
           const asciiName = resource.name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
-          const preview =
-            new URL(request.url).searchParams.get("preview") === "1" &&
-            resource.mimeType === "application/pdf";
-          return new Response(content, {
+          let responseContent = content;
+          if (preview) {
+            const sourcePdf = await PDFDocument.load(new Uint8Array(content));
+            const pageIndex = resource.previewPage - 1;
+            if (pageIndex < 0 || pageIndex >= sourcePdf.getPageCount()) {
+              return Response.json(
+                { error: "The configured preview page does not exist." },
+                { status: 422 },
+              );
+            }
+            const previewPdf = await PDFDocument.create();
+            const [page] = await previewPdf.copyPages(sourcePdf, [pageIndex]);
+            previewPdf.addPage(page!);
+            responseContent = Buffer.from(await previewPdf.save());
+          }
+          return new Response(responseContent, {
             headers: {
               "content-type":
                 resource.mimeType ||
                 getDocumentMimeType(path.extname(resource.name)) ||
                 "application/octet-stream",
-              "content-length": String(content.byteLength),
+              "content-length": String(responseContent.byteLength),
               "content-disposition": `${preview ? "inline" : "attachment"}; filename="${asciiName}"`,
               "cache-control": "private, no-store",
               "x-content-type-options": "nosniff",

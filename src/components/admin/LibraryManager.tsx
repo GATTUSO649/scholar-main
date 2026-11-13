@@ -41,6 +41,7 @@ type LibraryResource = {
   name: string;
   mime_type: string;
   size: number;
+  preview_page: number;
   price: number;
   currency: string;
   created_at: string;
@@ -174,6 +175,7 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
           description: String(formData.get("description") ?? ""),
           category: String(formData.get("category") ?? ""),
           price: Number(formData.get("price") ?? 0),
+          preview_page: Number(formData.get("preview_page") ?? 1),
         }),
       });
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -460,6 +462,11 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                     <p className="mt-1 text-xs font-medium text-[#55766a]">
                       {categoryLabel(resource.category)} <span className="px-1">·</span>
                       {resource.price > 0 ? `${resource.currency} ${resource.price}` : "Free"}
+                      {resource.mime_type === "application/pdf" && (
+                        <>
+                          <span className="px-1">·</span>Preview page {resource.preview_page}
+                        </>
+                      )}
                     </p>
                     {resource.description && (
                       <p className="mt-2 line-clamp-2 text-sm text-[#718078]">
@@ -592,6 +599,25 @@ export function LibraryManager({ category }: { category: AdminLibraryCategory })
                   className="mt-1.5"
                 />
               </div>
+              {editingResource.mime_type === "application/pdf" && (
+                <div>
+                  <Label htmlFor="edit-preview-page">Student preview page</Label>
+                  <Input
+                    id="edit-preview-page"
+                    name="preview_page"
+                    type="number"
+                    min={1}
+                    max={10000}
+                    step={1}
+                    required
+                    defaultValue={editingResource.preview_page}
+                    className="mt-1.5"
+                  />
+                  <p className="mt-1 text-xs text-[#718078]">
+                    Students can view this page before purchasing the full PDF.
+                  </p>
+                </div>
+              )}
               <div>
                 <Label htmlFor="edit-description">Description</Label>
                 <Textarea

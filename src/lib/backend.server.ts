@@ -1232,6 +1232,7 @@ function mapLibraryResource(row: typeof libraryResources.$inferSelect) {
     name: row.name,
     mime_type: row.mimeType,
     size: row.size,
+    preview_page: row.previewPage,
     price: row.price,
     currency: row.currency,
     created_at: row.createdAt.toISOString(),
@@ -1314,6 +1315,7 @@ export async function createLibraryResources(
     name: string;
     mimeType: string;
     size: number;
+    previewPage?: number;
   }>,
 ) {
   const user = await requireAdmin();
@@ -1331,6 +1333,7 @@ export async function createLibraryResources(
         name: resource.name,
         mimeType: resource.mimeType,
         size: resource.size,
+        previewPage: resource.previewPage ?? 1,
         uploadedBy: user.id,
       })),
     );
@@ -1352,6 +1355,7 @@ export async function updateLibraryResource(
     description: string;
     category: "novel" | "business_plan" | "article" | "lesson_plan" | "working_scheme";
     price: number;
+    previewPage: number;
   },
 ) {
   const actor = await requireAdmin();
@@ -1370,6 +1374,7 @@ export async function updateLibraryResource(
         description: input.description,
         category: input.category,
         price: input.price,
+        previewPage: input.previewPage,
         currency: "KES",
       })
       .where(eq(libraryResources.id, id));
@@ -1413,7 +1418,7 @@ export async function replaceLibraryResourceFile(
   });
 }
 
-export async function getLibraryResourceForDownload(id: string) {
+export async function getLibraryResourceForDownload(id: string, preview = false) {
   const db = getDatabase();
   const [resource] = await getDatabase()
     .select({
@@ -1421,25 +1426,26 @@ export async function getLibraryResourceForDownload(id: string) {
       storageKey: libraryResources.storageKey,
       name: libraryResources.name,
       mimeType: libraryResources.mimeType,
+      previewPage: libraryResources.previewPage,
       price: libraryResources.price,
     })
     .from(libraryResources)
     .where(eq(libraryResources.id, id))
     .limit(1);
   if (!resource) return null;
-  if (resource.price > 0) {
+  if (preview || resource.price > 0) {
     const user = await requireUser();
     const roles = await db
       .select({ role: userRoles.role })
       .from(userRoles)
       .where(eq(userRoles.userId, user.id));
-    if (
-      !canUseStudentPortal(roles.map(({ role }) => role)) &&
-      !canUseAdminPortal(roles.map(({ role }) => role))
-    ) {
+    const canUseStudent = canUseStudentPortal(roles.map(({ role }) => role));
+    const canUseAdmin = canUseAdminPortal(roles.map(({ role }) => role));
+    if (!canUseStudent && !canUseAdmin) {
+      if (preview) throw new Error("Student library access is required.");
       throw new Error("Purchase this resource before downloading it.");
     }
-    if (canUseStudentPortal(roles.map(({ role }) => role))) {
+    if (!preview && resource.price > 0 && canUseStudent) {
       const [purchase] = await db
         .select({ id: libraryPurchases.id })
         .from(libraryPurchases)
